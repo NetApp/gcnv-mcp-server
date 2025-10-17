@@ -4,7 +4,9 @@ import express from 'express';
 import { registerAllTools } from './registry/register-tools.js';
 
 
+
 function main() {
+    
     const mcpServer = new McpServer({
         name: 'gcnv-mcp-local',
         version: '1.0.0',
