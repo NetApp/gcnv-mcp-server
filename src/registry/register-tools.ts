@@ -33,6 +33,20 @@ import {
   updateVolumeHandler
 } from "../tools/handlers/volume-handler.js";
 import {
+  createSnapshotTool,
+  deleteSnapshotTool,
+  getSnapshotTool,
+  listSnapshotsTool,
+  revertVolumeToSnapshotTool
+} from "../tools/snapshot-tools.js";
+import {
+  createSnapshotHandler,
+  deleteSnapshotHandler,
+  getSnapshotHandler,
+  listSnapshotsHandler,
+  revertVolumeToSnapshotHandler
+} from "../tools/handlers/snapshot-handler.js";
+import {
   getOperationTool,
   cancelOperationTool,
   listOperationsTool
@@ -60,6 +74,13 @@ export function registerAllTools(mcpServer: McpServer) {
   mcpServer.registerTool(getVolumeTool.name, getVolumeTool, getVolumeHandler);
   mcpServer.registerTool(listVolumesTool.name, listVolumesTool, listVolumesHandler);
   mcpServer.registerTool(updateVolumeTool.name, updateVolumeTool, updateVolumeHandler);
+  
+  // Register snapshot tools
+  mcpServer.registerTool(createSnapshotTool.name, createSnapshotTool, createSnapshotHandler);
+  mcpServer.registerTool(deleteSnapshotTool.name, deleteSnapshotTool, deleteSnapshotHandler);
+  mcpServer.registerTool(getSnapshotTool.name, getSnapshotTool, getSnapshotHandler);
+  mcpServer.registerTool(listSnapshotsTool.name, listSnapshotsTool, listSnapshotsHandler);
+  mcpServer.registerTool(revertVolumeToSnapshotTool.name, revertVolumeToSnapshotTool, revertVolumeToSnapshotHandler);
   
   // Register operation tools
   mcpServer.registerTool(getOperationTool.name, getOperationTool, getOperationHandler);

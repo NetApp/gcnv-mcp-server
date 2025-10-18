@@ -22,6 +22,13 @@ The Google Cloud NetApp Volumes MCP Server is built using the Model Context Prot
   - Update volume properties (capacity, description, labels, export policy)
   - Delete volumes
 
+- **Snapshot Management**:
+  - Create new snapshots for volumes
+  - List snapshots for a specific volume
+  - Get detailed information about specific snapshots
+  - Delete snapshots when they are no longer needed
+  - Revert volumes to previous snapshots
+
 - **Long-running Operations Management**:
   - Get details of an operation by ID
   - Cancel in-progress operations
@@ -132,6 +139,23 @@ The server exposes the following tools through the MCP interface:
 5. **volume_update** - Update a volume's properties
    - Inputs: projectId, location, storagePoolId, volumeId, capacityGib (optional), description (optional), labels (optional), exportPolicy (optional)
 
+#### Snapshot Tools
+
+1. **snapshot_create** - Create a new snapshot of a volume
+   - Inputs: projectId, location, storagePoolId, volumeId, snapshotId, description (optional)
+
+2. **snapshot_delete** - Delete an existing snapshot
+   - Inputs: projectId, location, storagePoolId, volumeId, snapshotId
+
+3. **snapshot_get** - Get details about a specific snapshot
+   - Inputs: projectId, location, storagePoolId, volumeId, snapshotId
+
+4. **snapshot_list** - List all snapshots for a volume
+   - Inputs: projectId, location, storagePoolId, volumeId, filter (optional), pageSize (optional), pageToken (optional)
+
+5. **snapshot_revert_volume** - Revert a volume to a specific snapshot
+   - Inputs: projectId, location, storagePoolId, volumeId, snapshotId
+
 ### Example Request (using cURL)
 
 ```bash
@@ -163,9 +187,11 @@ The project follows a modular architecture:
 - `src/registry/register-tools.ts` - Tool registration
 - `src/tools/storage-pool-tools.ts` - Storage pool tool definitions with schemas
 - `src/tools/volume-tools.ts` - Volume tool definitions with schemas
+- `src/tools/snapshot-tools.ts` - Snapshot tool definitions with schemas
 - `src/tools/operation-tools.ts` - Operation tool definitions with schemas
 - `src/tools/handlers/storage-pool-handler.ts` - Storage pool tool implementation
 - `src/tools/handlers/volume-handler.ts` - Volume tool implementation
+- `src/tools/handlers/snapshot-handler.ts` - Snapshot tool implementation
 - `src/tools/handlers/operation-handler.ts` - Operation tool implementation
 - `src/utils/netapp-client-factory.ts` - Factory for NetApp client creation
 
@@ -187,10 +213,12 @@ src/
   ├── tools/
   │   ├── storage-pool-tools.ts       # Storage pool tool definitions
   │   ├── volume-tools.ts            # Volume tool definitions
+  │   ├── snapshot-tools.ts          # Snapshot tool definitions
   │   ├── operation-tools.ts         # Operation tool definitions
   │   └── handlers/
   │       ├── storage-pool-handler.ts # Storage pool tool handlers
   │       ├── volume-handler.ts      # Volume tool handlers
+  │       ├── snapshot-handler.ts    # Snapshot tool handlers
   │       └── operation-handler.ts   # Operation tool handlers
   ├── types/
   │   └── tool.ts            # TypeScript interfaces
