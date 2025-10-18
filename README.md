@@ -4,7 +4,7 @@ This is a Model Context Protocol (MCP) server for managing Google Cloud NetApp V
 
 ## Overview
 
-The Google Cloud NetApp Volumes MCP Server is built using the Model Context Protocol SDK and provides a set of tools for interacting with Google Cloud NetApp Volumes resources. It currently supports operations for Storage Pool management.
+The Google Cloud NetApp Volumes MCP Server is built using the Model Context Protocol SDK and provides a set of tools for interacting with Google Cloud NetApp Volumes resources. It supports operations for Storage Pool management, Volume management, and long-running operations management.
 
 ## Features
 
@@ -14,6 +14,13 @@ The Google Cloud NetApp Volumes MCP Server is built using the Model Context Prot
   - Get detailed information about specific storage pools
   - Update storage pool properties (capacity, description, labels)
   - Delete storage pools
+
+- **Volume Management**:
+  - Create new volumes within storage pools with configurable capacity and protocols
+  - List volumes with pagination and filtering
+  - Get detailed information about specific volumes, including mount points
+  - Update volume properties (capacity, description, labels, export policy)
+  - Delete volumes
 
 - **Long-running Operations Management**:
   - Get details of an operation by ID
@@ -108,6 +115,23 @@ The server exposes the following tools through the MCP interface:
 3. **operation_list** - List operations in a project/location
    - Inputs: projectId, location, filter (optional), pageSize (optional), pageToken (optional)
 
+#### Volume Tools
+
+1. **volume_create** - Create a new volume in a storage pool
+   - Inputs: projectId, location, storagePoolId, volumeId, capacityGib, shareProtocols, description (optional), labels (optional), exportPolicy (optional)
+
+2. **volume_delete** - Delete an existing volume
+   - Inputs: projectId, location, storagePoolId, volumeId, force (optional)
+
+3. **volume_get** - Get details about a specific volume
+   - Inputs: projectId, location, storagePoolId, volumeId
+
+4. **volume_list** - List all volumes in a storage pool
+   - Inputs: projectId, location, storagePoolId, filter (optional), pageSize (optional), pageToken (optional)
+
+5. **volume_update** - Update a volume's properties
+   - Inputs: projectId, location, storagePoolId, volumeId, capacityGib (optional), description (optional), labels (optional), exportPolicy (optional)
+
 ### Example Request (using cURL)
 
 ```bash
@@ -137,8 +161,12 @@ The project follows a modular architecture:
 
 - `src/index.ts` - Main server setup and entry point
 - `src/registry/register-tools.ts` - Tool registration
-- `src/tools/storage-pool-tools.ts` - Tool definitions with schemas
-- `src/tools/handlers/storage-pool-handler.ts` - Tool implementation
+- `src/tools/storage-pool-tools.ts` - Storage pool tool definitions with schemas
+- `src/tools/volume-tools.ts` - Volume tool definitions with schemas
+- `src/tools/operation-tools.ts` - Operation tool definitions with schemas
+- `src/tools/handlers/storage-pool-handler.ts` - Storage pool tool implementation
+- `src/tools/handlers/volume-handler.ts` - Volume tool implementation
+- `src/tools/handlers/operation-handler.ts` - Operation tool implementation
 - `src/utils/netapp-client-factory.ts` - Factory for NetApp client creation
 
 ## Development
@@ -157,9 +185,13 @@ src/
   ├── registry/
   │   └── register-tools.ts  # Tool registration
   ├── tools/
-  │   ├── storage-pool-tools.ts       # Tool definitions
+  │   ├── storage-pool-tools.ts       # Storage pool tool definitions
+  │   ├── volume-tools.ts            # Volume tool definitions
+  │   ├── operation-tools.ts         # Operation tool definitions
   │   └── handlers/
-  │       └── storage-pool-handler.ts # Tool handlers
+  │       ├── storage-pool-handler.ts # Storage pool tool handlers
+  │       ├── volume-handler.ts      # Volume tool handlers
+  │       └── operation-handler.ts   # Operation tool handlers
   ├── types/
   │   └── tool.ts            # TypeScript interfaces
   └── utils/

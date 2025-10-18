@@ -19,6 +19,20 @@ import {
   updateStoragePoolHandler
 } from "../tools/handlers/storage-pool-handler.js";
 import {
+  createVolumeTool,
+  deleteVolumeTool,
+  getVolumeTool,
+  listVolumesTool,
+  updateVolumeTool
+} from "../tools/volume-tools.js";
+import {
+  createVolumeHandler,
+  deleteVolumeHandler,
+  getVolumeHandler,
+  listVolumesHandler,
+  updateVolumeHandler
+} from "../tools/handlers/volume-handler.js";
+import {
   getOperationTool,
   cancelOperationTool,
   listOperationsTool
@@ -39,6 +53,13 @@ export function registerAllTools(mcpServer: McpServer) {
   mcpServer.registerTool(getStoragePoolTool.name, getStoragePoolTool, getStoragePoolHandler);
   mcpServer.registerTool(listStoragePoolsTool.name, listStoragePoolsTool, listStoragePoolsHandler);
   mcpServer.registerTool(updateStoragePoolTool.name, updateStoragePoolTool, updateStoragePoolHandler);
+  
+  // Register volume tools
+  mcpServer.registerTool(createVolumeTool.name, createVolumeTool, createVolumeHandler);
+  mcpServer.registerTool(deleteVolumeTool.name, deleteVolumeTool, deleteVolumeHandler);
+  mcpServer.registerTool(getVolumeTool.name, getVolumeTool, getVolumeHandler);
+  mcpServer.registerTool(listVolumesTool.name, listVolumesTool, listVolumesHandler);
+  mcpServer.registerTool(updateVolumeTool.name, updateVolumeTool, updateVolumeHandler);
   
   // Register operation tools
   mcpServer.registerTool(getOperationTool.name, getOperationTool, getOperationHandler);
