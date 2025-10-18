@@ -3,7 +3,7 @@ import { ToolConfig } from "../types/tool.js";
 
 // Get Operation Tool
 export const getOperationTool: ToolConfig = {
-    name: "operation_get",
+    name: "gcnv_operation_get",
     title: "Get Operation",
     description: "Get details of a long-running operation by its ID",
     inputSchema: {
@@ -26,7 +26,7 @@ export const getOperationTool: ToolConfig = {
 
 // Cancel Operation Tool
 export const cancelOperationTool: ToolConfig = {
-    name: "operation_cancel",
+    name: "gcnv_operation_cancel",
     title: "Cancel Operation",
     description: "Cancels a long-running operation that is still in progress",
     inputSchema: {
@@ -40,7 +40,7 @@ export const cancelOperationTool: ToolConfig = {
 
 // List Operations Tool
 export const listOperationsTool: ToolConfig = {
-    name: "operation_list",
+    name: "gcnv_operation_list",
     title: "List Operations",
     description: "Lists all active long-running operations in the project",
     inputSchema: {

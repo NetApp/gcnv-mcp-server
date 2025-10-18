@@ -3,7 +3,7 @@ import { ToolConfig } from "../types/tool.js";
 
 // Create Storage Pool Tool
 export const createStoragePoolTool: ToolConfig = {
-    name: "storage_pool_create",
+    name: "gcnv_storage_pool_create",
     title: "Create Storage Pool",
     description: "Creates a new storage pool in the specified project and location",
     inputSchema: {
@@ -26,7 +26,7 @@ export const createStoragePoolTool: ToolConfig = {
 
 // Delete Storage Pool Tool
 export const deleteStoragePoolTool: ToolConfig = {
-    name: "storage_pool_delete",
+    name: "gcnv_storage_pool_delete",
     title: "Delete Storage Pool",
     description: "Deletes a storage pool in the specified project and location",
     inputSchema: {
@@ -43,7 +43,7 @@ export const deleteStoragePoolTool: ToolConfig = {
 
 // Get Storage Pool Tool
 export const getStoragePoolTool: ToolConfig = {
-    name: "storage_pool_get",
+    name: "gcnv_storage_pool_get",
     title: "Get Storage Pool",
     description: "Gets details of a specific storage pool",
     inputSchema: {
@@ -68,7 +68,7 @@ export const getStoragePoolTool: ToolConfig = {
 
 // List Storage Pools Tool
 export const listStoragePoolsTool: ToolConfig = {
-    name: "storage_pool_list",
+    name: "gcnv_storage_pool_list",
     title: "List Storage Pools",
     description: "Lists all storage pools in the specified project and location",
     inputSchema: {
@@ -98,7 +98,7 @@ export const listStoragePoolsTool: ToolConfig = {
 
 // Update Storage Pool Tool
 export const updateStoragePoolTool: ToolConfig = {
-    name: "storage_pool_update",
+    name: "gcnv_storage_pool_update",
     title: "Update Storage Pool",
     description: "Updates a storage pool in the specified project and location",
     inputSchema: {

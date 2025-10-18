@@ -3,7 +3,7 @@ import { ToolConfig } from "../types/tool.js";
 
 // Create Volume Tool
 export const createVolumeTool: ToolConfig = {
-    name: "volume_create",
+    name: "gcnv_volume_create",
     title: "Create Volume",
     description: "Creates a new volume in the specified storage pool",
     inputSchema: {
@@ -44,7 +44,7 @@ export const createVolumeTool: ToolConfig = {
 
 // Delete Volume Tool
 export const deleteVolumeTool: ToolConfig = {
-    name: "volume_delete",
+    name: "gcnv_volume_delete",
     title: "Delete Volume",
     description: "Deletes a volume in the specified storage pool",
     inputSchema: {
@@ -61,7 +61,7 @@ export const deleteVolumeTool: ToolConfig = {
 
 // Get Volume Tool
 export const getVolumeTool: ToolConfig = {
-    name: "volume_get",
+    name: "gcnv_volume_get",
     title: "Get Volume",
     description: "Gets details of a specific volume",
     inputSchema: {
@@ -92,7 +92,7 @@ export const getVolumeTool: ToolConfig = {
 
 // List Volumes Tool
 export const listVolumesTool: ToolConfig = {
-    name: "volume_list",
+    name: "gcnv_volume_list",
     title: "List Volumes",
     description: "Lists all volumes in the specified storage pool",
     inputSchema: {
@@ -128,7 +128,7 @@ export const listVolumesTool: ToolConfig = {
 
 // Update Volume Tool
 export const updateVolumeTool: ToolConfig = {
-    name: "volume_update",
+    name: "gcnv_volume_update",
     title: "Update Volume",
     description: "Updates a volume in the specified storage pool",
     inputSchema: {
