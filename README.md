@@ -29,6 +29,20 @@ The Google Cloud NetApp Volumes MCP Server is built using the Model Context Prot
   - Delete snapshots when they are no longer needed
   - Revert volumes to previous snapshots
 
+- **Backup Vault Management**:
+  - Create new backup vaults for storing backups
+  - List backup vaults with pagination and filtering
+  - Get detailed information about specific backup vaults
+  - Update backup vault properties (description, labels)
+  - Delete backup vaults when they are no longer needed
+
+- **Backup Management**:
+  - Create new backups of volumes in backup vaults
+  - List backups in a specific backup vault
+  - Get detailed information about specific backups
+  - Delete backups when they are no longer needed
+  - Restore backups to new or existing volumes
+
 - **Long-running Operations Management**:
   - Get details of an operation by ID
   - Cancel in-progress operations
@@ -156,6 +170,40 @@ The server exposes the following tools through the MCP interface:
 5. **snapshot_revert_volume** - Revert a volume to a specific snapshot
    - Inputs: projectId, location, storagePoolId, volumeId, snapshotId
 
+#### Backup Vault Tools
+
+1. **gcnv_backup_vault_create** - Create a new backup vault
+   - Inputs: projectId, location, backupVaultId, description (optional), labels (optional)
+
+2. **gcnv_backup_vault_delete** - Delete an existing backup vault
+   - Inputs: projectId, location, backupVaultId, force (optional)
+
+3. **gcnv_backup_vault_get** - Get details about a specific backup vault
+   - Inputs: projectId, location, backupVaultId
+
+4. **gcnv_backup_vault_list** - List all backup vaults in a project and location
+   - Inputs: projectId, location, filter (optional), pageSize (optional), pageToken (optional)
+
+5. **gcnv_backup_vault_update** - Update a backup vault's properties
+   - Inputs: projectId, location, backupVaultId, description (optional), labels (optional)
+
+#### Backup Tools
+
+1. **gcnv_backup_create** - Create a new backup of a volume
+   - Inputs: projectId, location, backupVaultId, backupId, volumeName, description (optional), labels (optional)
+
+2. **gcnv_backup_delete** - Delete an existing backup
+   - Inputs: projectId, location, backupVaultId, backupId
+
+3. **gcnv_backup_get** - Get details about a specific backup
+   - Inputs: projectId, location, backupVaultId, backupId
+
+4. **gcnv_backup_list** - List all backups in a backup vault
+   - Inputs: projectId, location, backupVaultId, filter (optional), pageSize (optional), pageToken (optional)
+
+5. **gcnv_backup_restore** - Restore a backup to a new or existing volume
+   - Inputs: projectId, location, backupVaultId, backupId, targetStoragePoolId, targetVolumeId, restoreOption
+
 ### Example Request (using cURL)
 
 ```bash
@@ -189,10 +237,14 @@ The project follows a modular architecture:
 - `src/tools/volume-tools.ts` - Volume tool definitions with schemas
 - `src/tools/snapshot-tools.ts` - Snapshot tool definitions with schemas
 - `src/tools/operation-tools.ts` - Operation tool definitions with schemas
+- `src/tools/backup-vault-tools.ts` - Backup vault tool definitions with schemas
+- `src/tools/backup-tools.ts` - Backup tool definitions with schemas
 - `src/tools/handlers/storage-pool-handler.ts` - Storage pool tool implementation
 - `src/tools/handlers/volume-handler.ts` - Volume tool implementation
 - `src/tools/handlers/snapshot-handler.ts` - Snapshot tool implementation
 - `src/tools/handlers/operation-handler.ts` - Operation tool implementation
+- `src/tools/handlers/backup-vault-handler.ts` - Backup vault tool implementation
+- `src/tools/handlers/backup-handler.ts` - Backup tool implementation
 - `src/utils/netapp-client-factory.ts` - Factory for NetApp client creation
 
 ## Development
@@ -215,11 +267,15 @@ src/
   │   ├── volume-tools.ts            # Volume tool definitions
   │   ├── snapshot-tools.ts          # Snapshot tool definitions
   │   ├── operation-tools.ts         # Operation tool definitions
+  │   ├── backup-vault-tools.ts      # Backup vault tool definitions
+  │   ├── backup-tools.ts            # Backup tool definitions
   │   └── handlers/
   │       ├── storage-pool-handler.ts # Storage pool tool handlers
   │       ├── volume-handler.ts      # Volume tool handlers
   │       ├── snapshot-handler.ts    # Snapshot tool handlers
-  │       └── operation-handler.ts   # Operation tool handlers
+  │       ├── operation-handler.ts   # Operation tool handlers
+  │       ├── backup-vault-handler.ts # Backup vault tool handlers
+  │       └── backup-handler.ts      # Backup tool handlers
   ├── types/
   │   └── tool.ts            # TypeScript interfaces
   └── utils/

@@ -47,6 +47,34 @@ import {
   revertVolumeToSnapshotHandler
 } from "../tools/handlers/snapshot-handler.js";
 import {
+  createBackupVaultTool,
+  deleteBackupVaultTool,
+  getBackupVaultTool,
+  listBackupVaultsTool,
+  updateBackupVaultTool
+} from "../tools/backup-vault-tools.js";
+import {
+  createBackupVaultHandler,
+  deleteBackupVaultHandler,
+  getBackupVaultHandler,
+  listBackupVaultsHandler,
+  updateBackupVaultHandler
+} from "../tools/handlers/backup-vault-handler.js";
+import {
+  createBackupTool,
+  deleteBackupTool,
+  getBackupTool,
+  listBackupsTool,
+  restoreBackupTool
+} from "../tools/backup-tools.js";
+import {
+  createBackupHandler,
+  deleteBackupHandler,
+  getBackupHandler,
+  listBackupsHandler,
+  restoreBackupHandler
+} from "../tools/handlers/backup-handler.js";
+import {
   getOperationTool,
   cancelOperationTool,
   listOperationsTool
@@ -81,6 +109,20 @@ export function registerAllTools(mcpServer: McpServer) {
   mcpServer.registerTool(getSnapshotTool.name, getSnapshotTool, getSnapshotHandler);
   mcpServer.registerTool(listSnapshotsTool.name, listSnapshotsTool, listSnapshotsHandler);
   mcpServer.registerTool(revertVolumeToSnapshotTool.name, revertVolumeToSnapshotTool, revertVolumeToSnapshotHandler);
+  
+  // Register backup vault tools
+  mcpServer.registerTool(createBackupVaultTool.name, createBackupVaultTool, createBackupVaultHandler);
+  mcpServer.registerTool(deleteBackupVaultTool.name, deleteBackupVaultTool, deleteBackupVaultHandler);
+  mcpServer.registerTool(getBackupVaultTool.name, getBackupVaultTool, getBackupVaultHandler);
+  mcpServer.registerTool(listBackupVaultsTool.name, listBackupVaultsTool, listBackupVaultsHandler);
+  mcpServer.registerTool(updateBackupVaultTool.name, updateBackupVaultTool, updateBackupVaultHandler);
+  
+  // Register backup tools
+  mcpServer.registerTool(createBackupTool.name, createBackupTool, createBackupHandler);
+  mcpServer.registerTool(deleteBackupTool.name, deleteBackupTool, deleteBackupHandler);
+  mcpServer.registerTool(getBackupTool.name, getBackupTool, getBackupHandler);
+  mcpServer.registerTool(listBackupsTool.name, listBackupsTool, listBackupsHandler);
+  mcpServer.registerTool(restoreBackupTool.name, restoreBackupTool, restoreBackupHandler);
   
   // Register operation tools
   mcpServer.registerTool(getOperationTool.name, getOperationTool, getOperationHandler);
