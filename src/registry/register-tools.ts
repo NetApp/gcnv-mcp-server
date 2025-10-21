@@ -84,6 +84,16 @@ import {
   cancelOperationHandler,
   listOperationsHandler
 } from "../tools/handlers/operation-handler.js";
+import {
+  createBackupPolicyTool,
+  deleteBackupPolicyTool,
+  getBackupPolicyTool,
+  listBackupPoliciesTool,
+  updateBackupPolicyTool
+} from "../tools/backup-policy-tools.js";
+import {
+  backupPolicyHandlers
+} from "../tools/handlers/backup-policy-handler.js";
 
 /**
  * Register all tools and their handlers to the tool registry
@@ -128,4 +138,12 @@ export function registerAllTools(mcpServer: McpServer) {
   mcpServer.registerTool(getOperationTool.name, getOperationTool, getOperationHandler);
   mcpServer.registerTool(cancelOperationTool.name, cancelOperationTool, cancelOperationHandler);
   mcpServer.registerTool(listOperationsTool.name, listOperationsTool, listOperationsHandler);
+  
+  // Register backup policy tools
+  mcpServer.registerTool(createBackupPolicyTool.name, createBackupPolicyTool, backupPolicyHandlers[createBackupPolicyTool.name]);
+  mcpServer.registerTool(deleteBackupPolicyTool.name, deleteBackupPolicyTool, backupPolicyHandlers[deleteBackupPolicyTool.name]);
+  mcpServer.registerTool(getBackupPolicyTool.name, getBackupPolicyTool, backupPolicyHandlers[getBackupPolicyTool.name]);
+  mcpServer.registerTool(listBackupPoliciesTool.name, listBackupPoliciesTool, backupPolicyHandlers[listBackupPoliciesTool.name]);
+  mcpServer.registerTool(updateBackupPolicyTool.name, updateBackupPolicyTool, backupPolicyHandlers[updateBackupPolicyTool.name]);
+  
 }
