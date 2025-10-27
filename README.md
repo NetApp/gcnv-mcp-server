@@ -229,6 +229,42 @@ The project follows a modular architecture:
 - **Handlers**: Implementation for each tool's functionality
 - **Factory Pattern**: Uses a factory for managing NetApp client instances with caching
 
+## Integrating with Chat AI Applications (e.g., Gemini)
+
+To use the MCP server in a chat AI application like Gemini, follow these steps:
+
+1. **Deploy the MCP Server**  
+  Ensure the MCP server is running and accessible over HTTP (e.g., `http://localhost:3001/mcp`).
+
+1. **Configure the Chat AI Application**  
+
+- In your chat AI platform, add a tool or function that sends HTTP requests to the MCP server endpoint.
+- Set the endpoint URL to your MCP server.
+
+1. **Configure Gemini CLI for MCP Server**  
+  To use the MCP server with Gemini CLI, add a tool configuration referencing your MCP server endpoint. For example, in your `.gemini/settings.json`:
+
+  ```json
+  "mcpServers": {
+       "gcnv-http" : {
+          "httpUrl" : "http://localhost:3001/mcp",
+          "env" : {
+              "GCNV_ACCESS_TOKEN" : "${GCNV_ACCESS_TOKEN}"
+           }
+       }
+  }
+  ```
+
+  Ensure the schema matches the MCP server's API. After configuration, you can invoke MCP tools directly from Gemini CLI using the defined tool name.
+
+1. **Invoke Tools via Chat**  
+  Users can interact with the chat AI and trigger MCP server tools by providing the required parameters. The AI will send requests to the MCP server and return results in the chat.
+
+1. **Authentication**  
+  Ensure the MCP server has access to valid Google Cloud credentials as described in the "Prerequisites" section.
+
+For more advanced integration, refer to your chat AI application's documentation on custom tool/function configuration.
+
 ### Key Components
 
 - `src/index.ts` - Main server setup and entry point
@@ -296,4 +332,3 @@ ISC
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
-

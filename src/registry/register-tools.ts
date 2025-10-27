@@ -94,6 +94,26 @@ import {
 import {
   backupPolicyHandlers
 } from "../tools/handlers/backup-policy-handler.js";
+import {
+  createReplicationTool,
+  deleteReplicationTool,
+  getReplicationTool,
+  listReplicationsTool,
+  updateReplicationTool,
+  resumeReplicationTool,
+  stopReplicationTool,
+  reverseReplicationDirectionTool
+} from "../tools/replication-tools.js";
+import {
+  createReplicationHandler,
+  deleteReplicationHandler,
+  getReplicationHandler,
+  listReplicationsHandler,
+  updateReplicationHandler,
+  resumeReplicationHandler,
+  stopReplicationHandler,
+  reverseReplicationDirectionHandler
+} from "../tools/handlers/replication-handler.js";
 
 /**
  * Register all tools and their handlers to the tool registry
@@ -146,4 +166,13 @@ export function registerAllTools(mcpServer: McpServer) {
   mcpServer.registerTool(listBackupPoliciesTool.name, listBackupPoliciesTool, backupPolicyHandlers[listBackupPoliciesTool.name]);
   mcpServer.registerTool(updateBackupPolicyTool.name, updateBackupPolicyTool, backupPolicyHandlers[updateBackupPolicyTool.name]);
   
+  // Register replication tools
+  mcpServer.registerTool(createReplicationTool.name, createReplicationTool, createReplicationHandler);
+  mcpServer.registerTool(deleteReplicationTool.name, deleteReplicationTool, deleteReplicationHandler);
+  mcpServer.registerTool(getReplicationTool.name, getReplicationTool, getReplicationHandler);
+  mcpServer.registerTool(listReplicationsTool.name, listReplicationsTool, listReplicationsHandler);
+  mcpServer.registerTool(updateReplicationTool.name, updateReplicationTool, updateReplicationHandler);
+  mcpServer.registerTool(resumeReplicationTool.name, resumeReplicationTool, resumeReplicationHandler);
+  mcpServer.registerTool(stopReplicationTool.name, stopReplicationTool, stopReplicationHandler);
+  mcpServer.registerTool(reverseReplicationDirectionTool.name, reverseReplicationDirectionTool, reverseReplicationDirectionHandler);
 }
