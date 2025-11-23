@@ -158,7 +158,8 @@ export const getStoragePoolHandler: ToolHandler =
                     createTime: storagePool.createTime && storagePool.createTime.seconds ? new Date(Number(storagePool.createTime.seconds) * 1000) : new Date(),
                     description: storagePool.description || '',
                     labels: storagePool.labels || {},
-                    network: storagePool.network
+                    network: storagePool.network,
+                    allowAutoTiering: (storagePool as any).allowAutoTiering === true
                 }
             };
         } catch (error: any) {
@@ -218,7 +219,8 @@ export const listStoragePoolsHandler: ToolHandler =
                     createTime: pool.createTime && pool.createTime.seconds ? new Date(Number(pool.createTime.seconds) * 1000) : new Date(),
                     description: pool.description || '',
                     labels: pool.labels || {},
-                    network: pool.network
+                    network: pool.network,
+                    allowAutoTiering: (pool as any).allowAutoTiering === true
                 };
             });
 

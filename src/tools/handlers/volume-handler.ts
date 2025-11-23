@@ -80,6 +80,27 @@ function formatVolumeData(volume: any): any {
         }));
     }
 
+    // Format TieringPolicy (only valid if parent pool has allowAutoTiering=true)
+    if ((volume as any).tieringPolicy) {
+        const tp = (volume as any).tieringPolicy;
+        result.tieringPolicy = {
+            tierAction: tp.tierAction || null,
+            coolingThresholdDays: tp.coolingThresholdDays || null
+        };
+    }
+
+    // Format SnapshotPolicy
+    if ((volume as any).snapshotPolicy) {
+        const sp = (volume as any).snapshotPolicy;
+        result.snapshotPolicy = {
+            enabled: sp.enabled !== false,
+            hourlySchedule: sp.hourlySchedule || null,
+            dailySchedule: sp.dailySchedule || null,
+            weeklySchedule: sp.weeklySchedule || null,
+            monthlySchedule: sp.monthlySchedule || null
+        };
+    }
+
     return result;
 }
 

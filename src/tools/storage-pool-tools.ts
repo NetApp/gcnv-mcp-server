@@ -11,7 +11,7 @@ export const createStoragePoolTool: ToolConfig = {
         location: z.string().describe("The location where the storage pool should be created"),
         storagePoolId: z.string().describe("The ID to assign to the storage pool"),
         capacityGib: z.number().describe("The capacity of the storage pool in GiB"),
-        serviceLevel: z.enum(["STANDARD", "PREMIUM", "EXTREME"]).describe("The service level of the storage pool"),
+        serviceLevel: z.enum(["STANDARD", "PREMIUM", "EXTREME", "FLEX"]).describe("The service level of the storage pool"),
         description: z.string().optional().describe("Optional description of the storage pool"),
         labels: z.record(z.string()).optional().describe("Optional labels to apply to the storage pool"),
         networkConfig: z.object({
@@ -62,7 +62,8 @@ export const getStoragePoolTool: ToolConfig = {
         createTime: z.date().describe("The timestamp when the storage pool was created"),
         description: z.string().optional().describe("The description of the storage pool"),
         labels: z.record(z.string()).optional().describe("Labels applied to the storage pool"),
-        network: z.string().optional().describe("The VPC network used by the storage pool")
+        network: z.string().optional().describe("The VPC network used by the storage pool"),
+        allowAutoTiering: z.boolean().optional().describe("Whether auto-tiering is allowed on this storage pool (available for PREMIUM and EXTREME service levels)")
     }
 };
 
@@ -90,7 +91,8 @@ export const listStoragePoolsTool: ToolConfig = {
             createTime: z.date().describe("The timestamp when the storage pool was created"),
             description: z.string().optional().describe("The description of the storage pool"),
             labels: z.record(z.string()).optional().describe("Labels applied to the storage pool"),
-            network: z.string().optional().describe("The VPC network used by the storage pool")
+            network: z.string().optional().describe("The VPC network used by the storage pool"),
+            allowAutoTiering: z.boolean().optional().describe("Whether auto-tiering is allowed on this storage pool (available for PREMIUM and EXTREME service levels)")
         })).describe("List of storage pools"),
         nextPageToken: z.string().optional().describe("Token to retrieve the next page of results")
     }

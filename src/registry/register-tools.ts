@@ -114,6 +114,93 @@ import {
   stopReplicationHandler,
   reverseReplicationDirectionHandler
 } from "../tools/handlers/replication-handler.js";
+// Advanced use case tools
+import {
+  volumeCapacityAnalysisTool,
+  storagePoolCapacityPlanningTool,
+  resourceCostEstimationTool
+} from "../tools/analytics-tools.js";
+import {
+  volumeCapacityAnalysisHandler,
+  storagePoolCapacityPlanningHandler,
+  resourceCostEstimationHandler
+} from "../tools/handlers/analytics-handler.js";
+import {
+  advancedVolumeSearchTool,
+  findVolumesByExportPolicyTool,
+  findVolumesByMountPointTool,
+  findResourcesByLabelsTool
+} from "../tools/discovery-tools.js";
+import {
+  advancedVolumeSearchHandler,
+  findVolumesByExportPolicyHandler,
+  findVolumesByMountPointHandler,
+  findResourcesByLabelsHandler
+} from "../tools/handlers/discovery-handler.js";
+import {
+  resourceHealthCheckTool,
+  resourcesNeedingAttentionTool,
+  operationStatusSummaryTool
+} from "../tools/health-tools.js";
+import {
+  resourceHealthCheckHandler,
+  resourcesNeedingAttentionHandler,
+  operationStatusSummaryHandler
+} from "../tools/handlers/health-handler.js";
+import {
+  volumeDependencyTreeTool,
+  storagePoolResourceInventoryTool,
+  backupChainAnalysisTool,
+  replicationStatusOverviewTool
+} from "../tools/relationship-tools.js";
+import {
+  volumeDependencyTreeHandler,
+  storagePoolResourceInventoryHandler,
+  backupChainAnalysisHandler,
+  replicationStatusOverviewHandler
+} from "../tools/handlers/relationship-handler.js";
+import {
+  volumeComparisonTool,
+  findSimilarVolumesTool,
+  storagePoolComparisonTool
+} from "../tools/comparison-tools.js";
+import {
+  volumeComparisonHandler,
+  findSimilarVolumesHandler,
+  storagePoolComparisonHandler
+} from "../tools/handlers/comparison-handler.js";
+import {
+  optimalStoragePoolRecommendTool,
+  backupPolicyRecommendTool,
+  resourceCleanupRecommendTool,
+  capacityOptimizationRecommendTool
+} from "../tools/recommendation-tools.js";
+import {
+  optimalStoragePoolRecommendHandler,
+  backupPolicyRecommendHandler,
+  resourceCleanupRecommendHandler,
+  capacityOptimizationRecommendHandler
+} from "../tools/handlers/recommendation-handler.js";
+import {
+  labelComplianceCheckTool,
+  backupComplianceCheckTool,
+  securityComplianceCheckTool
+} from "../tools/compliance-tools.js";
+import {
+  labelComplianceCheckHandler,
+  backupComplianceCheckHandler,
+  securityComplianceCheckHandler
+} from "../tools/handlers/compliance-handler.js";
+import {
+  resourceSummaryReportTool,
+  capacityUtilizationReportTool,
+  costAnalysisReportTool
+} from "../tools/reporting-tools.js";
+import {
+  resourceSummaryReportHandler,
+  capacityUtilizationReportHandler,
+  costAnalysisReportHandler
+} from "../tools/handlers/reporting-handler.js";
 
 /**
  * Register all tools and their handlers to the tool registry
@@ -175,4 +262,47 @@ export function registerAllTools(mcpServer: McpServer) {
   mcpServer.registerTool(resumeReplicationTool.name, resumeReplicationTool, resumeReplicationHandler);
   mcpServer.registerTool(stopReplicationTool.name, stopReplicationTool, stopReplicationHandler);
   mcpServer.registerTool(reverseReplicationDirectionTool.name, reverseReplicationDirectionTool, reverseReplicationDirectionHandler);
+  
+  // Register analytics tools
+  mcpServer.registerTool(volumeCapacityAnalysisTool.name, volumeCapacityAnalysisTool, volumeCapacityAnalysisHandler);
+  mcpServer.registerTool(storagePoolCapacityPlanningTool.name, storagePoolCapacityPlanningTool, storagePoolCapacityPlanningHandler);
+  mcpServer.registerTool(resourceCostEstimationTool.name, resourceCostEstimationTool, resourceCostEstimationHandler);
+  
+  // Register discovery/search tools
+  mcpServer.registerTool(advancedVolumeSearchTool.name, advancedVolumeSearchTool, advancedVolumeSearchHandler);
+  mcpServer.registerTool(findVolumesByExportPolicyTool.name, findVolumesByExportPolicyTool, findVolumesByExportPolicyHandler);
+  mcpServer.registerTool(findVolumesByMountPointTool.name, findVolumesByMountPointTool, findVolumesByMountPointHandler);
+  mcpServer.registerTool(findResourcesByLabelsTool.name, findResourcesByLabelsTool, findResourcesByLabelsHandler);
+  
+  // Register health monitoring tools
+  mcpServer.registerTool(resourceHealthCheckTool.name, resourceHealthCheckTool, resourceHealthCheckHandler);
+  mcpServer.registerTool(resourcesNeedingAttentionTool.name, resourcesNeedingAttentionTool, resourcesNeedingAttentionHandler);
+  mcpServer.registerTool(operationStatusSummaryTool.name, operationStatusSummaryTool, operationStatusSummaryHandler);
+  
+  // Register relationship mapping tools
+  mcpServer.registerTool(volumeDependencyTreeTool.name, volumeDependencyTreeTool, volumeDependencyTreeHandler);
+  mcpServer.registerTool(storagePoolResourceInventoryTool.name, storagePoolResourceInventoryTool, storagePoolResourceInventoryHandler);
+  mcpServer.registerTool(backupChainAnalysisTool.name, backupChainAnalysisTool, backupChainAnalysisHandler);
+  mcpServer.registerTool(replicationStatusOverviewTool.name, replicationStatusOverviewTool, replicationStatusOverviewHandler);
+  
+  // Register comparison tools
+  mcpServer.registerTool(volumeComparisonTool.name, volumeComparisonTool, volumeComparisonHandler);
+  mcpServer.registerTool(findSimilarVolumesTool.name, findSimilarVolumesTool, findSimilarVolumesHandler);
+  mcpServer.registerTool(storagePoolComparisonTool.name, storagePoolComparisonTool, storagePoolComparisonHandler);
+  
+  // Register recommendation tools
+  mcpServer.registerTool(optimalStoragePoolRecommendTool.name, optimalStoragePoolRecommendTool, optimalStoragePoolRecommendHandler);
+  mcpServer.registerTool(backupPolicyRecommendTool.name, backupPolicyRecommendTool, backupPolicyRecommendHandler);
+  mcpServer.registerTool(resourceCleanupRecommendTool.name, resourceCleanupRecommendTool, resourceCleanupRecommendHandler);
+  mcpServer.registerTool(capacityOptimizationRecommendTool.name, capacityOptimizationRecommendTool, capacityOptimizationRecommendHandler);
+  
+  // Register compliance tools
+  mcpServer.registerTool(labelComplianceCheckTool.name, labelComplianceCheckTool, labelComplianceCheckHandler);
+  mcpServer.registerTool(backupComplianceCheckTool.name, backupComplianceCheckTool, backupComplianceCheckHandler);
+  mcpServer.registerTool(securityComplianceCheckTool.name, securityComplianceCheckTool, securityComplianceCheckHandler);
+  
+  // Register reporting tools
+  mcpServer.registerTool(resourceSummaryReportTool.name, resourceSummaryReportTool, resourceSummaryReportHandler);
+  mcpServer.registerTool(capacityUtilizationReportTool.name, capacityUtilizationReportTool, capacityUtilizationReportHandler);
+  mcpServer.registerTool(costAnalysisReportTool.name, costAnalysisReportTool, costAnalysisReportHandler);
 }
