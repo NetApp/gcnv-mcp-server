@@ -19,7 +19,17 @@ export const volumeComparisonTool: ToolConfig = {
             protocols: z.array(z.string()),
             exportPolicy: z.any().optional(),
             labels: z.record(z.string()).optional(),
-            backupStatus: z.string(),
+            backupStatus: z.object({
+                status: z.enum(["compliant", "non_compliant", "no_policy", "unknown"]),
+                hasBackupPolicy: z.boolean(),
+                backupPolicyId: z.string().optional(),
+                backupPolicyEnabled: z.boolean().optional(),
+                hasRecentBackup: z.boolean(),
+                lastBackupTime: z.string().optional(),
+                backupVault: z.string().optional(),
+                backupCount: z.number().optional(),
+                daysSinceLastBackup: z.number().optional()
+            }),
             replicationStatus: z.string(),
             state: z.string(),
             createTime: z.string(),
@@ -27,13 +37,44 @@ export const volumeComparisonTool: ToolConfig = {
                 tierAction: z.string().optional().describe("ENABLED or PAUSED"),
                 coolingThresholdDays: z.number().optional().describe("Days before data is considered cold")
             }).optional().describe("Auto-tiering policy (only present if parent pool has allowAutoTiering=true)"),
+            tieringMetrics: z.object({
+                hotTierSizeUsedGib: z.number().describe("Hot tier storage used in GiB"),
+                coldTierSizeGib: z.number().describe("Cold tier storage used in GiB"),
+                hotTierPercentage: z.number().describe("Percentage of used capacity in hot tier"),
+                coldTierPercentage: z.number().describe("Percentage of used capacity in cold tier"),
+                tieringRatio: z.number().describe("Ratio of cold to hot tier (cold/hot)")
+            }).optional().describe("Actual auto-tiering metrics (only present when auto-tiering is active)"),
             snapshotPolicy: z.object({
                 enabled: z.boolean().optional(),
                 hourlySchedule: z.any().optional(),
                 dailySchedule: z.any().optional(),
                 weeklySchedule: z.any().optional(),
                 monthlySchedule: z.any().optional()
-            }).optional().describe("Snapshot policy configuration")
+            }).optional().describe("Snapshot policy configuration"),
+            shareSettings: z.object({
+                shareName: z.string(),
+                settings: z.array(z.enum([
+                    "SMB_SETTINGS_UNSPECIFIED",
+                    "ENCRYPT_DATA",
+                    "BROWSABLE",
+                    "CHANGE_NOTIFY",
+                    "NON_BROWSABLE",
+                    "OPLOCKS",
+                    "SHOW_SNAPSHOT",
+                    "SHOW_PREVIOUS_VERSIONS",
+                    "ACCESS_BASED_ENUMERATION",
+                    "CONTINUOUSLY_AVAILABLE"
+                ])).describe("Array of SMB share setting enum values"),
+                hasAccessBasedEnumeration: z.boolean().describe("Whether ACCESS_BASED_ENUMERATION is enabled"),
+                hasContinuouslyAvailable: z.boolean().describe("Whether CONTINUOUSLY_AVAILABLE is enabled"),
+                hasEncryptData: z.boolean().describe("Whether ENCRYPT_DATA is enabled"),
+                hasBrowsable: z.boolean().describe("Whether BROWSABLE is enabled"),
+                hasChangeNotify: z.boolean().describe("Whether CHANGE_NOTIFY is enabled"),
+                hasNonBrowsable: z.boolean().describe("Whether NON_BROWSABLE is enabled"),
+                hasOplocks: z.boolean().describe("Whether OPLOCKS is enabled"),
+                hasShowSnapshot: z.boolean().describe("Whether SHOW_SNAPSHOT is enabled"),
+                hasShowPreviousVersions: z.boolean().describe("Whether SHOW_PREVIOUS_VERSIONS is enabled")
+            }).optional().describe("SMB share settings (only present for SMB/DUAL protocol volumes)")
         })).describe("Volume details for comparison"),
         differences: z.array(z.object({
             property: z.string(),

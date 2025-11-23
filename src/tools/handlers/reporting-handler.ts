@@ -1,8 +1,9 @@
 import { ToolHandler } from "../../types/tool.js";
 import { NetAppClientFactory } from "../../utils/netapp-client-factory.js";
+import { getVolumeBackupStatus } from "../../utils/backup-status-helper.js";
 
 // Resource Summary Report Handler
-export const resourceSummaryReportHandler: ToolHandler = 
+export const resourceSummaryReportHandler: ToolHandler =
     async (args: { [key: string]: any }, extra: any) => {
         try {
             const { projectId, location, reportType = 'full', format = 'json' } = args;
@@ -22,8 +23,8 @@ export const resourceSummaryReportHandler: ToolHandler =
             const allReplications: any[] = [];
             for (const vol of volumes) {
                 try {
-                    const [replications] = await netAppClient.listReplications({ 
-                        parent: vol.name || '' 
+                    const [replications] = await netAppClient.listReplications({
+                        parent: vol.name || ''
                     });
                     allReplications.push(...replications);
                 } catch {
@@ -32,8 +33,8 @@ export const resourceSummaryReportHandler: ToolHandler =
             }
             const replications = allReplications;
             const [backupPoliciesResponse] = await netAppClient.listBackupPolicies({ parent });
-            const backupPolicies = Array.isArray(backupPoliciesResponse) 
-                ? backupPoliciesResponse 
+            const backupPolicies = Array.isArray(backupPoliciesResponse)
+                ? backupPoliciesResponse
                 : (backupPoliciesResponse as any).backupPolicies || [];
 
             resourceCounts.volumes = volumes.length;
@@ -41,6 +42,73 @@ export const resourceSummaryReportHandler: ToolHandler =
             resourceCounts.backupVaults = backupVaults.length;
             resourceCounts.replications = replications.length;
             resourceCounts.backupPolicies = backupPolicies.length;
+
+            // Calculate backup status summary
+            let backupStatusSummary: any = undefined;
+            let smbShareSettingsSummary: any = undefined;
+            if (reportType === 'full' || reportType === 'health') {
+                let volumesWithBackupPolicy = 0;
+                let volumesWithRecentBackup = 0;
+                let volumesCompliant = 0;
+
+                // SMB share settings counters
+                let smbVolumes = 0;
+                let smbVolumesWithAbe = 0;
+                let smbVolumesWithShowSnapshot = 0;
+                let smbVolumesContinuouslyAvailable = 0;
+                let smbVolumesWithEncryptData = 0;
+
+                for (const vol of volumes) {
+                    try {
+                        const backupStatus = await getVolumeBackupStatus(netAppClient, vol, parent);
+                        if (backupStatus.hasBackupPolicy) volumesWithBackupPolicy++;
+                        if (backupStatus.hasRecentBackup) volumesWithRecentBackup++;
+                        if (backupStatus.status === 'compliant') volumesCompliant++;
+
+                        // Check SMB share settings
+                        const protocols = (vol as any).shareProtocols || (vol as any).protocols || [];
+                        const isSmbVolume = protocols.includes('SMB') || protocols.includes('DUAL');
+                        if (isSmbVolume) {
+                            smbVolumes++;
+                            const shareSettings = (vol as any).shareSettings || (vol as any).smbSettings;
+                            const settingsArray = Array.isArray(shareSettings)
+                                ? shareSettings
+                                : (shareSettings?.settings || shareSettings?.smbSettings || []);
+
+                            if (settingsArray.includes('ACCESS_BASED_ENUMERATION')) smbVolumesWithAbe++;
+                            if (settingsArray.includes('SHOW_SNAPSHOT')) smbVolumesWithShowSnapshot++;
+                            if (settingsArray.includes('CONTINUOUSLY_AVAILABLE')) smbVolumesContinuouslyAvailable++;
+                            if (settingsArray.includes('ENCRYPT_DATA')) smbVolumesWithEncryptData++;
+                        }
+                    } catch {
+                        // Continue
+                    }
+                }
+
+                backupStatusSummary = {
+                    totalVolumes: volumes.length,
+                    volumesWithBackupPolicy,
+                    volumesWithRecentBackup,
+                    volumesCompliant,
+                    compliancePercentage: volumes.length > 0
+                        ? Math.round((volumesCompliant / volumes.length) * 10000) / 100
+                        : 100
+                };
+
+                if (smbVolumes > 0) {
+                    smbShareSettingsSummary = {
+                        totalSmbVolumes: smbVolumes,
+                        volumesWithAbe: smbVolumesWithAbe,
+                        volumesWithShowSnapshot: smbVolumesWithShowSnapshot,
+                        volumesContinuouslyAvailable: smbVolumesContinuouslyAvailable,
+                        volumesWithEncryptData: smbVolumesWithEncryptData,
+                        volumesWithoutEncryptData: smbVolumes - smbVolumesWithEncryptData,
+                        abePercentage: Math.round((smbVolumesWithAbe / smbVolumes) * 10000) / 100,
+                        showSnapshotPercentage: Math.round((smbVolumesWithShowSnapshot / smbVolumes) * 10000) / 100,
+                        encryptDataPercentage: Math.round((smbVolumesWithEncryptData / smbVolumes) * 10000) / 100
+                    };
+                }
+            }
 
             // Count snapshots
             let snapshotCount = 0;
@@ -139,6 +207,21 @@ export const resourceSummaryReportHandler: ToolHandler =
                     reportText += `- Errors: ${healthSummary.resourcesInError}\n`;
                     reportText += `- Warnings: ${healthSummary.resourcesInWarning}\n`;
                 }
+                if (backupStatusSummary) {
+                    reportText += `\n## Backup Status Summary\n`;
+                    reportText += `- Volumes with Backup Policy: ${backupStatusSummary.volumesWithBackupPolicy}/${backupStatusSummary.totalVolumes}\n`;
+                    reportText += `- Volumes with Recent Backup: ${backupStatusSummary.volumesWithRecentBackup}/${backupStatusSummary.totalVolumes}\n`;
+                    reportText += `- Compliance: ${backupStatusSummary.compliancePercentage}%\n`;
+                }
+                if (smbShareSettingsSummary) {
+                    reportText += `\n## SMB Share Settings Summary\n`;
+                    reportText += `- Total SMB Volumes: ${smbShareSettingsSummary.totalSmbVolumes}\n`;
+                    reportText += `- ACCESS_BASED_ENUMERATION Enabled: ${smbShareSettingsSummary.volumesWithAbe} (${smbShareSettingsSummary.abePercentage}%)\n`;
+                    reportText += `- SHOW_SNAPSHOT Enabled: ${smbShareSettingsSummary.volumesWithShowSnapshot} (${smbShareSettingsSummary.showSnapshotPercentage}%)\n`;
+                    reportText += `- CONTINUOUSLY_AVAILABLE Enabled: ${smbShareSettingsSummary.volumesContinuouslyAvailable}\n`;
+                    reportText += `- ENCRYPT_DATA Enabled: ${smbShareSettingsSummary.volumesWithEncryptData} (${smbShareSettingsSummary.encryptDataPercentage}%)\n`;
+                    reportText += `- Volumes without ENCRYPT_DATA: ${smbShareSettingsSummary.volumesWithoutEncryptData}\n`;
+                }
                 if (costEstimate) {
                     reportText += `\n## Cost Estimate\n`;
                     reportText += `- Monthly: $${costEstimate.estimatedMonthlyCost}\n`;
@@ -153,6 +236,8 @@ export const resourceSummaryReportHandler: ToolHandler =
                         resourceCounts,
                         capacitySummary,
                         healthSummary,
+                        backupStatusSummary,
+                        smbShareSettingsSummary,
                         costEstimate,
                         reportText
                     }, null, 2)
@@ -161,6 +246,8 @@ export const resourceSummaryReportHandler: ToolHandler =
                     resourceCounts,
                     capacitySummary,
                     healthSummary,
+                    backupStatusSummary,
+                    smbShareSettingsSummary,
                     costEstimate,
                     reportText
                 }
@@ -174,7 +261,7 @@ export const resourceSummaryReportHandler: ToolHandler =
     };
 
 // Capacity Utilization Report Handler
-export const capacityUtilizationReportHandler: ToolHandler = 
+export const capacityUtilizationReportHandler: ToolHandler =
     async (args: { [key: string]: any }, extra: any) => {
         try {
             const { projectId, location, groupBy = 'storagePool', includeProjections = false } = args;
@@ -193,11 +280,11 @@ export const capacityUtilizationReportHandler: ToolHandler =
                 const totalCapacityGib = Number(pool.capacityGib || 0);
                 const allocatedCapacityGib = volumes.reduce((sum, v) => sum + Number(v.capacityGib || 0), 0);
                 const usedCapacityGib = volumes.reduce((sum, v) => sum + Number(v.usedGib || 0), 0);
-                const utilizationPercent = totalCapacityGib > 0 
-                    ? (allocatedCapacityGib / totalCapacityGib) * 100 
+                const utilizationPercent = totalCapacityGib > 0
+                    ? (allocatedCapacityGib / totalCapacityGib) * 100
                     : 0;
 
-                const group = groupBy === 'storagePool' 
+                const group = groupBy === 'storagePool'
                     ? pool.name?.split('/').pop() || ''
                     : groupBy === 'serviceLevel'
                     ? pool.serviceLevel || ''
@@ -207,10 +294,10 @@ export const capacityUtilizationReportHandler: ToolHandler =
                 // Auto-tiering is a boolean field at the storage pool level (allowAutoTiering)
                 // Volumes can only enable auto-tiering if the pool has allowAutoTiering=true
                 const serviceLevel = pool.serviceLevel || '';
-                const autoTieringEnabled = (serviceLevel === 'PREMIUM' || serviceLevel === 'EXTREME') 
+                const autoTieringEnabled = (serviceLevel === 'PREMIUM' || serviceLevel === 'EXTREME')
                     ? ((pool as any).allowAutoTiering === true)
                     : false;
-                
+
                 // Estimate auto-tiering savings
                 const autoTieringSavings = autoTieringEnabled && usedCapacityGib > 0
                     ? (usedCapacityGib * 0.25 * 0.20 * 0.30) // 25% cold data, 20% tiered, 30% savings
@@ -262,7 +349,7 @@ export const capacityUtilizationReportHandler: ToolHandler =
     };
 
 // Cost Analysis Report Handler
-export const costAnalysisReportHandler: ToolHandler = 
+export const costAnalysisReportHandler: ToolHandler =
     async (args: { [key: string]: any }, extra: any) => {
         try {
             const { projectId, location, groupBy = 'serviceLevel', timeRange = 'monthly' } = args;
@@ -327,24 +414,45 @@ export const costAnalysisReportHandler: ToolHandler =
             for (const pool of pools) {
                 const serviceLevel = pool.serviceLevel || '';
                 const isEligible = (serviceLevel === 'PREMIUM' || serviceLevel === 'EXTREME');
-                
+
                 if (isEligible) {
                     // Auto-tiering is a boolean field at the storage pool level (allowAutoTiering)
                     // Volumes can only enable auto-tiering if the pool has allowAutoTiering=true
                     const autoTieringEnabled = (pool as any).allowAutoTiering === true;
-                    
+
                     if (autoTieringEnabled) {
                         poolsWithAutoTiering++;
-                        // Get volumes to calculate used capacity
+                        // Get volumes to calculate actual tiering savings
                         try {
                             const [volumes] = await netAppClient.listVolumes({
                                 parent,
                                 filter: `storagePool="${pool.name}"`
                             });
-                            const usedCapacityGib = volumes.reduce((sum: number, v: any) => 
-                                sum + Number(v.usedGib || 0), 0);
-                            const savings = usedCapacityGib * 0.25 * 0.20 * 0.30; // 25% cold, 20% tiered, 30% savings
-                            estimatedTotalSavings += savings;
+
+                            let totalColdTierGib = 0;
+                            let totalHotTierGib = 0;
+                            volumes.forEach((v: any) => {
+                                if (v.coldTierSizeGib !== undefined) {
+                                    totalColdTierGib += Number(v.coldTierSizeGib || 0);
+                                }
+                                if (v.hotTierSizeUsedGib !== undefined) {
+                                    totalHotTierGib += Number(v.hotTierSizeUsedGib || 0);
+                                }
+                            });
+
+                            // Calculate actual savings if tiering metrics available
+                            if (totalColdTierGib > 0) {
+                                const pricePerGibHot = serviceLevel === 'EXTREME' ? 0.40 : 0.30;
+                                const pricePerGibCold = pricePerGibHot * 0.70; // 30% savings
+                                const actualSavings = totalColdTierGib * (pricePerGibHot - pricePerGibCold);
+                                estimatedTotalSavings += actualSavings;
+                            } else {
+                                // Fallback to estimation
+                                const usedCapacityGib = volumes.reduce((sum: number, v: any) =>
+                                    sum + Number(v.usedGib || 0), 0);
+                                const savings = usedCapacityGib * 0.25 * 0.20 * 0.30; // Estimate
+                                estimatedTotalSavings += savings;
+                            }
                         } catch {
                             // Continue
                         }
@@ -356,7 +464,7 @@ export const costAnalysisReportHandler: ToolHandler =
                                 parent,
                                 filter: `storagePool="${pool.name}"`
                             });
-                            const usedCapacityGib = volumes.reduce((sum: number, v: any) => 
+                            const usedCapacityGib = volumes.reduce((sum: number, v: any) =>
                                 sum + Number(v.usedGib || 0), 0);
                             const potentialSavings = usedCapacityGib * 0.25 * 0.20 * 0.30;
                             estimatedTotalSavings += potentialSavings;

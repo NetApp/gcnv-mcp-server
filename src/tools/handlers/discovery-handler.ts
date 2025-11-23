@@ -1,26 +1,32 @@
 import { ToolHandler } from "../../types/tool.js";
 import { NetAppClientFactory } from "../../utils/netapp-client-factory.js";
+import { getVolumeBackupStatus } from "../../utils/backup-status-helper.js";
 
 // Advanced Volume Search Handler
-export const advancedVolumeSearchHandler: ToolHandler = 
+export const advancedVolumeSearchHandler: ToolHandler =
     async (args: { [key: string]: any }, extra: any) => {
         try {
-            const { 
-                projectId, 
-                location, 
-                protocols, 
-                minCapacityGib, 
-                maxCapacityGib, 
-                labels, 
+            const {
+                projectId,
+                location,
+                protocols,
+                minCapacityGib,
+                maxCapacityGib,
+                labels,
                 state,
                 hasSnapshots,
                 hasBackups,
                 hasReplication,
                 autoTieringEnabled,
                 autoTieringAction,
-                hasSnapshotPolicy
+                hasSnapshotPolicy,
+                smbAccessBasedEnumeration,
+                smbContinuouslyAvailable,
+                smbEncryptData,
+                smbShowSnapshot,
+                smbShowPreviousVersions
             } = args;
-            
+
             const netAppClient = NetAppClientFactory.createClient();
             const parent = `projects/${projectId}/locations/${location}`;
 
@@ -40,11 +46,11 @@ export const advancedVolumeSearchHandler: ToolHandler =
 
             // Filter by capacity range
             if (minCapacityGib !== undefined) {
-                filteredVolumes = filteredVolumes.filter((vol: any) => 
+                filteredVolumes = filteredVolumes.filter((vol: any) =>
                     Number(vol.capacityGib || 0) >= minCapacityGib);
             }
             if (maxCapacityGib !== undefined) {
-                filteredVolumes = filteredVolumes.filter((vol: any) => 
+                filteredVolumes = filteredVolumes.filter((vol: any) =>
                     Number(vol.capacityGib || 0) <= maxCapacityGib);
             }
 
@@ -57,7 +63,7 @@ export const advancedVolumeSearchHandler: ToolHandler =
             if (labels) {
                 filteredVolumes = filteredVolumes.filter((vol: any) => {
                     const volLabels = vol.labels || {};
-                    return Object.entries(labels).every(([key, value]) => 
+                    return Object.entries(labels).every(([key, value]) =>
                         volLabels[key] === value);
                 });
             }
@@ -70,7 +76,7 @@ export const advancedVolumeSearchHandler: ToolHandler =
                         const volumeId = nameParts[nameParts.length - 1];
                         const storagePoolParts = vol.storagePool?.split('/') || [];
                         const storagePoolId = storagePoolParts[storagePoolParts.length - 1];
-                        
+
                         try {
                             const [snapshots] = await netAppClient.listSnapshots({
                                 parent: vol.name?.replace(/\/volumes\/[^/]+$/, '') || parent,
@@ -87,30 +93,15 @@ export const advancedVolumeSearchHandler: ToolHandler =
                     .map((item: any) => item.vol);
             }
 
-            // Filter by backups (requires checking backup vaults)
+            // Filter by backups (requires checking backup vaults and policies)
             if (hasBackups !== undefined) {
                 const volumesWithBackups = await Promise.all(
                     filteredVolumes.map(async (vol: any) => {
                         try {
-                            // List all backup vaults and check for backups of this volume
-                            const [backupVaults] = await netAppClient.listBackupVaults({ parent });
-                            let foundBackup = false;
-                            
-                            for (const vault of backupVaults) {
-                                try {
-                                    const [backups] = await netAppClient.listBackups({
-                                        parent: vault.name || '',
-                                        filter: `volume="${vol.name}"`
-                                    });
-                                    if (backups.length > 0) {
-                                        foundBackup = true;
-                                        break;
-                                    }
-                                } catch {
-                                    // Continue checking other vaults
-                                }
-                            }
-                            return { vol, hasBackups: foundBackup };
+                            const backupStatus = await getVolumeBackupStatus(netAppClient, vol, parent);
+                            // Consider volume as having backups if it has recent backups OR has a backup policy assigned
+                            const hasBackups = backupStatus.hasRecentBackup || backupStatus.hasBackupPolicy;
+                            return { vol, hasBackups };
                         } catch {
                             return { vol, hasBackups: false };
                         }
@@ -152,32 +143,32 @@ export const advancedVolumeSearchHandler: ToolHandler =
                             if (!storagePoolName) {
                                 return { vol, tieringEnabled: false, tierAction: null };
                             }
-                            
+
                             const [pool] = await netAppClient.getStoragePool({ name: storagePoolName });
                             const poolAllowsTiering = (pool as any).allowAutoTiering === true;
-                            
+
                             if (!poolAllowsTiering) {
                                 return { vol, tieringEnabled: false, tierAction: null };
                             }
-                            
+
                             // Check volume's TieringPolicy
                             const tieringPolicy = (vol as any).tieringPolicy;
                             const tierAction = tieringPolicy?.tierAction || null;
                             const isTieringEnabled = tierAction === 'ENABLED';
-                            
+
                             return { vol, tieringEnabled: isTieringEnabled, tierAction };
                         } catch {
                             return { vol, tieringEnabled: false, tierAction: null };
                         }
                     })
                 );
-                
+
                 if (autoTieringEnabled !== undefined) {
                     filteredVolumes = volumesWithTiering
                         .filter((item: any) => item.tieringEnabled === autoTieringEnabled)
                         .map((item: any) => item.vol);
                 }
-                
+
                 if (autoTieringAction !== undefined) {
                     filteredVolumes = volumesWithTiering
                         .filter((item: any) => item.tierAction === autoTieringAction)
@@ -194,12 +185,55 @@ export const advancedVolumeSearchHandler: ToolHandler =
                 });
             }
 
+            // Filter by SMB share settings (check for enum values in settings array)
+            if (smbAccessBasedEnumeration !== undefined || smbContinuouslyAvailable !== undefined ||
+                smbEncryptData !== undefined || smbShowSnapshot !== undefined || smbShowPreviousVersions !== undefined) {
+                filteredVolumes = filteredVolumes.filter((vol: any) => {
+                    const volProtocols = vol.shareProtocols || vol.protocols || [];
+                    const isSmbVolume = volProtocols.includes('SMB') || volProtocols.includes('DUAL');
+
+                    if (!isSmbVolume) return false;
+
+                    const shareSettings = (vol as any).shareSettings || (vol as any).smbSettings;
+                    const settingsArray = Array.isArray(shareSettings)
+                        ? shareSettings
+                        : (shareSettings?.settings || shareSettings?.smbSettings || []);
+
+                    if (smbAccessBasedEnumeration !== undefined) {
+                        const hasAbe = settingsArray.includes('ACCESS_BASED_ENUMERATION');
+                        if (hasAbe !== smbAccessBasedEnumeration) return false;
+                    }
+
+                    if (smbContinuouslyAvailable !== undefined) {
+                        const hasCa = settingsArray.includes('CONTINUOUSLY_AVAILABLE');
+                        if (hasCa !== smbContinuouslyAvailable) return false;
+                    }
+
+                    if (smbEncryptData !== undefined) {
+                        const hasEncrypt = settingsArray.includes('ENCRYPT_DATA');
+                        if (hasEncrypt !== smbEncryptData) return false;
+                    }
+
+                    if (smbShowSnapshot !== undefined) {
+                        const hasSnapshot = settingsArray.includes('SHOW_SNAPSHOT');
+                        if (hasSnapshot !== smbShowSnapshot) return false;
+                    }
+
+                    if (smbShowPreviousVersions !== undefined) {
+                        const hasPrevVersions = settingsArray.includes('SHOW_PREVIOUS_VERSIONS');
+                        if (hasPrevVersions !== smbShowPreviousVersions) return false;
+                    }
+
+                    return true;
+                });
+            }
+
             // Format results - need to get pool info for tiering policy
             const formattedVolumes = await Promise.all(
                 filteredVolumes.map(async (vol: any) => {
                     const nameParts = vol.name?.split('/') || [];
                     const volumeId = nameParts[nameParts.length - 1] || '';
-                    
+
                     // Get tiering policy if parent pool allows it
                     let tieringPolicy = undefined;
                     const storagePoolName = vol.storagePool;
@@ -207,7 +241,7 @@ export const advancedVolumeSearchHandler: ToolHandler =
                         try {
                             const [pool] = await netAppClient.getStoragePool({ name: storagePoolName });
                             const poolAllowsTiering = (pool as any).allowAutoTiering === true;
-                            
+
                             if (poolAllowsTiering && (vol as any).tieringPolicy) {
                                 const tp = (vol as any).tieringPolicy;
                                 tieringPolicy = {
@@ -219,7 +253,7 @@ export const advancedVolumeSearchHandler: ToolHandler =
                             // Continue without tiering policy
                         }
                     }
-                    
+
                     // Get snapshot policy
                     const snapshotPolicy = (vol as any).snapshotPolicy ? {
                         enabled: (vol as any).snapshotPolicy.enabled !== false,
@@ -228,7 +262,50 @@ export const advancedVolumeSearchHandler: ToolHandler =
                         weeklySchedule: (vol as any).snapshotPolicy.weeklySchedule || null,
                         monthlySchedule: (vol as any).snapshotPolicy.monthlySchedule || null
                     } : undefined;
-                    
+
+                    // Get backup status
+                    const backupStatus = await getVolumeBackupStatus(netAppClient, vol, parent);
+
+                    // Get tiering metrics if available
+                    let tieringMetrics = undefined;
+                    if (vol.hotTierSizeUsedGib !== undefined || vol.coldTierSizeGib !== undefined) {
+                        const hotTierGib = vol.hotTierSizeUsedGib ? Number(vol.hotTierSizeUsedGib) : 0;
+                        const coldTierGib = vol.coldTierSizeGib ? Number(vol.coldTierSizeGib) : 0;
+                        const usedGib = Number(vol.usedGib || 0);
+                        tieringMetrics = {
+                            hotTierSizeUsedGib: hotTierGib,
+                            coldTierSizeGib: coldTierGib,
+                            hotTierPercentage: usedGib > 0 ? Math.round((hotTierGib / usedGib) * 10000) / 100 : 0,
+                            coldTierPercentage: usedGib > 0 ? Math.round((coldTierGib / usedGib) * 10000) / 100 : 0,
+                            tieringRatio: hotTierGib > 0 ? Math.round((coldTierGib / hotTierGib) * 100) / 100 : (coldTierGib > 0 ? Infinity : 0)
+                        };
+                    }
+
+                    // Get SMB share settings
+                    const volProtocols = vol.shareProtocols || vol.protocols || [];
+                    const isSmbVolume = volProtocols.includes('SMB') || volProtocols.includes('DUAL');
+                    let shareSettings = undefined;
+                    if (isSmbVolume) {
+                        const ss = (vol as any).shareSettings || (vol as any).smbSettings;
+                        const settingsArray = Array.isArray(ss)
+                            ? ss
+                            : (ss?.settings || ss?.smbSettings || []);
+
+                        shareSettings = {
+                            shareName: vol.shareName || '',
+                            settings: settingsArray,
+                            hasAccessBasedEnumeration: settingsArray.includes('ACCESS_BASED_ENUMERATION'),
+                            hasContinuouslyAvailable: settingsArray.includes('CONTINUOUSLY_AVAILABLE'),
+                            hasEncryptData: settingsArray.includes('ENCRYPT_DATA'),
+                            hasBrowsable: settingsArray.includes('BROWSABLE'),
+                            hasChangeNotify: settingsArray.includes('CHANGE_NOTIFY'),
+                            hasNonBrowsable: settingsArray.includes('NON_BROWSABLE'),
+                            hasOplocks: settingsArray.includes('OPLOCKS'),
+                            hasShowSnapshot: settingsArray.includes('SHOW_SNAPSHOT'),
+                            hasShowPreviousVersions: settingsArray.includes('SHOW_PREVIOUS_VERSIONS')
+                        };
+                    }
+
                     return {
                         volumeId,
                         capacityGib: Number(vol.capacityGib || 0),
@@ -238,15 +315,27 @@ export const advancedVolumeSearchHandler: ToolHandler =
                         labels: vol.labels || {},
                         storagePool: vol.storagePool || '',
                         tieringPolicy,
-                        snapshotPolicy
+                        tieringMetrics,
+                        snapshotPolicy,
+                        backupStatus: {
+                            status: backupStatus.status,
+                            hasBackupPolicy: backupStatus.hasBackupPolicy,
+                            backupPolicyId: backupStatus.backupPolicyId,
+                            backupPolicyEnabled: backupStatus.backupPolicyEnabled,
+                            hasRecentBackup: backupStatus.hasRecentBackup,
+                            lastBackupTime: backupStatus.lastBackupTime?.toISOString(),
+                            backupVault: backupStatus.backupVault,
+                            backupCount: backupStatus.backupCount
+                        },
+                        shareSettings
                     };
                 })
             );
 
             // Calculate summary
             const totalCapacityGib = formattedVolumes.reduce((sum, v) => sum + v.capacityGib, 0);
-            const averageCapacityGib = formattedVolumes.length > 0 
-                ? totalCapacityGib / formattedVolumes.length 
+            const averageCapacityGib = formattedVolumes.length > 0
+                ? totalCapacityGib / formattedVolumes.length
                 : 0;
 
             return {
@@ -283,7 +372,7 @@ export const advancedVolumeSearchHandler: ToolHandler =
     };
 
 // Find Volumes by Export Policy Handler
-export const findVolumesByExportPolicyHandler: ToolHandler = 
+export const findVolumesByExportPolicyHandler: ToolHandler =
     async (args: { [key: string]: any }, extra: any) => {
         try {
             const { projectId, location, allowedClientCidr, accessType, hasRootAccess, kerberosRequired } = args;
@@ -313,7 +402,7 @@ export const findVolumesByExportPolicyHandler: ToolHandler =
                         ruleMatches = false;
                     }
                     if (hasRootAccess !== undefined) {
-                        const ruleHasRootAccess = (rule as any).hasRootAccess === true || 
+                        const ruleHasRootAccess = (rule as any).hasRootAccess === true ||
                             ((rule as any).nfsOptions && !(rule as any).nfsOptions.rootSquash);
                         if (ruleHasRootAccess !== hasRootAccess) {
                             ruleMatches = false;
@@ -333,7 +422,7 @@ export const findVolumesByExportPolicyHandler: ToolHandler =
                         matchingRules.push({
                             allowedClients: rule.allowedClients || '',
                             accessType: rule.accessType,
-                            hasRootAccess: (rule as any).hasRootAccess === true || 
+                            hasRootAccess: (rule as any).hasRootAccess === true ||
                                 ((rule as any).nfsOptions && !(rule as any).nfsOptions.rootSquash),
                             kerberos5ReadOnly: (rule as any).kerberos_5ReadOnly,
                             kerberos5ReadWrite: (rule as any).kerberos_5ReadWrite
@@ -388,7 +477,7 @@ export const findVolumesByExportPolicyHandler: ToolHandler =
     };
 
 // Find Volumes by Mount Point Handler
-export const findVolumesByMountPointHandler: ToolHandler = 
+export const findVolumesByMountPointHandler: ToolHandler =
     async (args: { [key: string]: any }, extra: any) => {
         try {
             const { projectId, location, ipAddress, exportPath, protocol } = args;
@@ -463,7 +552,7 @@ export const findVolumesByMountPointHandler: ToolHandler =
     };
 
 // Find Resources by Labels Handler
-export const findResourcesByLabelsHandler: ToolHandler = 
+export const findResourcesByLabelsHandler: ToolHandler =
     async (args: { [key: string]: any }, extra: any) => {
         try {
             const { projectId, location, resourceType, labels, matchAll = true } = args;
@@ -549,8 +638,8 @@ export const findResourcesByLabelsHandler: ToolHandler =
                     const [volumesForReplication] = await netAppClient.listVolumes({ parent });
                     for (const vol of volumesForReplication) {
                         try {
-                            const [replications] = await netAppClient.listReplications({ 
-                                parent: vol.name || '' 
+                            const [replications] = await netAppClient.listReplications({
+                                parent: vol.name || ''
                             });
                             allResources.push(...replications.map((r: any) => ({
                                 resource: r,
@@ -570,14 +659,14 @@ export const findResourcesByLabelsHandler: ToolHandler =
             const labelEntries = Object.entries(labels || {});
             const matchingResources = allResources.filter((item: any) => {
                 const resourceLabels = item.labels || {};
-                
+
                 if (matchAll) {
                     // Must match all label key-value pairs
-                    return labelEntries.every(([key, value]) => 
+                    return labelEntries.every(([key, value]) =>
                         resourceLabels[key] === value);
                 } else {
                     // Match any label key-value pair
-                    return labelEntries.some(([key, value]) => 
+                    return labelEntries.some(([key, value]) =>
                         resourceLabels[key] === value);
                 }
             });

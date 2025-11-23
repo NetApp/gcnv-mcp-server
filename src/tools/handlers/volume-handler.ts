@@ -1,5 +1,6 @@
 import { ToolHandler } from "../../types/tool.js";
 import { NetAppClientFactory } from "../../utils/netapp-client-factory.js";
+import { getVolumeBackupStatus } from "../../utils/backup-status-helper.js";
 
 // Interface for volume
 interface Volume {
@@ -39,7 +40,7 @@ interface Volume {
 // Helper to format volume data for responses
 function formatVolumeData(volume: any): any {
     const result: any = {};
-    
+
     if (!volume) return result;
 
     if (volume.name) {
@@ -50,22 +51,22 @@ function formatVolumeData(volume: any): any {
     }
 
     // Extract storage pool from name
-    if (volume.storagePool) {        
+    if (volume.storagePool) {
        result.storagePool = volume.storagePool
     }
-    
+
     // Copy basic properties
     if (volume.capacityGib) result.capacityGib = Number(volume.capacityGib);
     if (volume.usedGib) result.usedGib = Number(volume.usedGib);
     if (volume.state) result.state = volume.state;
     if (volume.shareName) result.shareName = volume.shareName;
     if (volume.protocols) result.protocols = volume.protocols;
-    
+
     // Format timestamps if they exist
     if (volume.createTime) {
         result.createTime = new Date(volume.createTime.seconds * 1000);
     }
-    
+
     // Copy optional properties
     if (volume.description) result.description = volume.description;
     if (volume.labels) result.labels = volume.labels;
@@ -89,6 +90,24 @@ function formatVolumeData(volume: any): any {
         };
     }
 
+    // Format Auto-Tiering Metrics (hotTierSizeUsedGib and coldTierSizeGib)
+    // These fields are present when auto-tiering is active
+    if ((volume as any).hotTierSizeUsedGib !== undefined || (volume as any).coldTierSizeGib !== undefined) {
+        const hotTierGib = (volume as any).hotTierSizeUsedGib ? Number((volume as any).hotTierSizeUsedGib) : 0;
+        const coldTierGib = (volume as any).coldTierSizeGib ? Number((volume as any).coldTierSizeGib) : 0;
+        const totalTieredGib = hotTierGib + coldTierGib;
+        const usedGib = Number(volume.usedGib || 0);
+
+        result.tieringMetrics = {
+            hotTierSizeUsedGib: hotTierGib,
+            coldTierSizeGib: coldTierGib,
+            totalTieredGib: totalTieredGib,
+            hotTierPercentage: usedGib > 0 ? Math.round((hotTierGib / usedGib) * 10000) / 100 : 0,
+            coldTierPercentage: usedGib > 0 ? Math.round((coldTierGib / usedGib) * 10000) / 100 : 0,
+            tieringRatio: hotTierGib > 0 ? Math.round((coldTierGib / hotTierGib) * 100) / 100 : (coldTierGib > 0 ? Infinity : 0)
+        };
+    }
+
     // Format SnapshotPolicy
     if ((volume as any).snapshotPolicy) {
         const sp = (volume as any).snapshotPolicy;
@@ -101,21 +120,50 @@ function formatVolumeData(volume: any): any {
         };
     }
 
+    // Format SMB Share Settings (for SMB volumes)
+    // SMB share settings are an array of enum values from:
+    // SMB_SETTINGS_UNSPECIFIED, ENCRYPT_DATA, BROWSABLE, CHANGE_NOTIFY, NON_BROWSABLE,
+    // OPLOCKS, SHOW_SNAPSHOT, SHOW_PREVIOUS_VERSIONS, ACCESS_BASED_ENUMERATION, CONTINUOUSLY_AVAILABLE
+    const protocols = volume.shareProtocols || volume.protocols || [];
+    const isSmbVolume = protocols.includes('SMB') || protocols.includes('DUAL');
+
+    if (isSmbVolume) {
+        const shareSettings = (volume as any).shareSettings || (volume as any).smbSettings;
+        // shareSettings can be an array of enum strings or an object with a settings array
+        const settingsArray = Array.isArray(shareSettings)
+            ? shareSettings
+            : (shareSettings?.settings || shareSettings?.smbSettings || []);
+
+        result.shareSettings = {
+            shareName: volume.shareName || '',
+            settings: settingsArray || [],
+            hasAccessBasedEnumeration: settingsArray.includes('ACCESS_BASED_ENUMERATION'),
+            hasContinuouslyAvailable: settingsArray.includes('CONTINUOUSLY_AVAILABLE'),
+            hasEncryptData: settingsArray.includes('ENCRYPT_DATA'),
+            hasBrowsable: settingsArray.includes('BROWSABLE'),
+            hasChangeNotify: settingsArray.includes('CHANGE_NOTIFY'),
+            hasNonBrowsable: settingsArray.includes('NON_BROWSABLE'),
+            hasOplocks: settingsArray.includes('OPLOCKS'),
+            hasShowSnapshot: settingsArray.includes('SHOW_SNAPSHOT'),
+            hasShowPreviousVersions: settingsArray.includes('SHOW_PREVIOUS_VERSIONS')
+        };
+    }
+
     return result;
 }
 
 // Create Volume Handler
-export const createVolumeHandler: ToolHandler = 
+export const createVolumeHandler: ToolHandler =
     async (args: { [key: string]: any }, extra: any) => {
         try {
-            const { 
-                projectId, 
-                location, 
+            const {
+                projectId,
+                location,
                 storagePoolId,
                 volumeId,
-                capacityGib, 
+                capacityGib,
                 protocols,
-                description, 
+                description,
                 labels,
                 exportPolicy,
                 shareName
@@ -150,7 +198,7 @@ export const createVolumeHandler: ToolHandler =
             return {
                 content: [{
                     type: "text" as const,
-                    text: `Created volume ${volumeId} with operation: ${JSON.stringify(operation, null, 2)}`  
+                    text: `Created volume ${volumeId} with operation: ${JSON.stringify(operation, null, 2)}`
                 }],
                 structuredContent: {
                     name: `projects/${projectId}/locations/${location}/volumes/${volumeId}`,
@@ -165,12 +213,12 @@ export const createVolumeHandler: ToolHandler =
                     type: "text" as const,
                     text: `Error creating volume: ${error.message || 'Unknown error'}`
                 }]
-            }; 
+            };
         }
     };
 
 // Delete Volume Handler
-export const deleteVolumeHandler: ToolHandler = 
+export const deleteVolumeHandler: ToolHandler =
     async (args: { [key: string]: any }, extra: any) => {
         try {
             const { projectId, location, volumeId, force = false } = args;
@@ -220,7 +268,7 @@ export const deleteVolumeHandler: ToolHandler =
     };
 
 // Get Volume Handler
-export const getVolumeHandler: ToolHandler = 
+export const getVolumeHandler: ToolHandler =
     async (args: { [key: string]: any }, extra: any) => {
         try {
             const { projectId, location, volumeId } = args;
@@ -230,6 +278,7 @@ export const getVolumeHandler: ToolHandler =
 
             // Format the name for the volume
             const name = `projects/${projectId}/locations/${location}/volumes/${volumeId}`;
+            const parent = `projects/${projectId}/locations/${location}`;
 
             // Call the API to get the volume
             console.log("Get Volume Request:", { name });
@@ -238,6 +287,24 @@ export const getVolumeHandler: ToolHandler =
 
             // Format the volume data
             const formattedVolume = formatVolumeData(volume);
+
+            // Get backup status
+            try {
+                const backupStatus = await getVolumeBackupStatus(netAppClient, volume, parent);
+                formattedVolume.backupStatus = {
+                    status: backupStatus.status,
+                    hasBackupPolicy: backupStatus.hasBackupPolicy,
+                    backupPolicyId: backupStatus.backupPolicyId,
+                    backupPolicyEnabled: backupStatus.backupPolicyEnabled,
+                    hasRecentBackup: backupStatus.hasRecentBackup,
+                    lastBackupTime: backupStatus.lastBackupTime?.toISOString(),
+                    backupVault: backupStatus.backupVault,
+                    backupCount: backupStatus.backupCount,
+                    daysSinceLastBackup: backupStatus.daysSinceLastBackup
+                };
+            } catch {
+                // Continue without backup status if there's an error
+            }
 
             return {
                 content: [{
@@ -259,7 +326,7 @@ export const getVolumeHandler: ToolHandler =
     };
 
 // List Volumes Handler
-export const listVolumesHandler: ToolHandler = 
+export const listVolumesHandler: ToolHandler =
     async (args: { [key: string]: any }, extra: any) => {
         try {
             const { projectId, location, filter, pageSize, pageToken } = args;
@@ -286,7 +353,7 @@ export const listVolumesHandler: ToolHandler =
             return {
                 content: [{
                     type: "text" as const,
-                    text: JSON.stringify({ volumes: volumes, nextPageToken: nextPageToken }, null, 2)   
+                    text: JSON.stringify({ volumes: volumes, nextPageToken: nextPageToken }, null, 2)
                   }],
                 structuredContent: {
                     volumes: formattedVolumes,
@@ -308,17 +375,17 @@ export const listVolumesHandler: ToolHandler =
 // Update Volume Handler
 // TODO: update is not tested
 // FIX_ME: errors "reason: 'RESOURCE_PROJECT_INVALID'
-export const updateVolumeHandler: ToolHandler = 
+export const updateVolumeHandler: ToolHandler =
     async (args: { [key: string]: any }, extra: any) => {
         try {
-            const { 
-                projectId, 
-                location, 
-                volumeId, 
-                capacityGib, 
-                description, 
+            const {
+                projectId,
+                location,
+                volumeId,
+                capacityGib,
+                description,
                 labels,
-                exportPolicy 
+                exportPolicy
             } = args;
 
             // Create a new NetApp client using the factory

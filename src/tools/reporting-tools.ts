@@ -25,6 +25,24 @@ export const resourceSummaryReportTool: ToolConfig = {
             resourcesInError: z.number(),
             resourcesInWarning: z.number()
         }).optional().describe("Health summaries"),
+        backupStatusSummary: z.object({
+            totalVolumes: z.number(),
+            volumesWithBackupPolicy: z.number(),
+            volumesWithRecentBackup: z.number(),
+            volumesCompliant: z.number(),
+            compliancePercentage: z.number()
+        }).optional().describe("Backup status summary"),
+        smbShareSettingsSummary: z.object({
+            totalSmbVolumes: z.number(),
+            volumesWithAbe: z.number(),
+            volumesWithShowSnapshot: z.number(),
+            volumesContinuouslyAvailable: z.number(),
+            volumesWithEncryptData: z.number(),
+            volumesWithoutEncryptData: z.number(),
+            abePercentage: z.number(),
+            showSnapshotPercentage: z.number(),
+            encryptDataPercentage: z.number()
+        }).optional().describe("SMB share settings summary"),
         costEstimate: z.object({
             estimatedMonthlyCost: z.number(),
             estimatedYearlyCost: z.number(),

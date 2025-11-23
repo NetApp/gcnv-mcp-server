@@ -1,8 +1,9 @@
 import { ToolHandler } from "../../types/tool.js";
 import { NetAppClientFactory } from "../../utils/netapp-client-factory.js";
+import { getVolumeBackupStatus } from "../../utils/backup-status-helper.js";
 
 // Volume Comparison Handler
-export const volumeComparisonHandler: ToolHandler = 
+export const volumeComparisonHandler: ToolHandler =
     async (args: { [key: string]: any }, extra: any) => {
         try {
             const { projectId, location, volumeIds } = args;
@@ -16,13 +17,14 @@ export const volumeComparisonHandler: ToolHandler =
                 volumes.push(volume);
             }
 
-            const formattedVolumes = volumes.map((vol: any) => {
+            const parent = `projects/${projectId}/locations/${location}`;
+            const formattedVolumes = await Promise.all(volumes.map(async (vol: any) => {
                 // Get tiering policy if present
                 const tieringPolicy = (vol as any).tieringPolicy ? {
                     tierAction: (vol as any).tieringPolicy.tierAction || null,
                     coolingThresholdDays: (vol as any).tieringPolicy.coolingThresholdDays || null
                 } : undefined;
-                
+
                 // Get snapshot policy if present
                 const snapshotPolicy = (vol as any).snapshotPolicy ? {
                     enabled: (vol as any).snapshotPolicy.enabled !== false,
@@ -31,7 +33,50 @@ export const volumeComparisonHandler: ToolHandler =
                     weeklySchedule: (vol as any).snapshotPolicy.weeklySchedule || null,
                     monthlySchedule: (vol as any).snapshotPolicy.monthlySchedule || null
                 } : undefined;
-                
+
+                // Get SMB share settings
+                const volProtocols = (vol as any).shareProtocols || vol.protocols || [];
+                const isSmbVolume = volProtocols.includes('SMB') || volProtocols.includes('DUAL');
+                let shareSettings = undefined;
+                if (isSmbVolume) {
+                    const ss = (vol as any).shareSettings || (vol as any).smbSettings;
+                    const settingsArray = Array.isArray(ss)
+                        ? ss
+                        : (ss?.settings || ss?.smbSettings || []);
+
+                    shareSettings = {
+                        shareName: vol.shareName || '',
+                        settings: settingsArray,
+                        hasAccessBasedEnumeration: settingsArray.includes('ACCESS_BASED_ENUMERATION'),
+                        hasContinuouslyAvailable: settingsArray.includes('CONTINUOUSLY_AVAILABLE'),
+                        hasEncryptData: settingsArray.includes('ENCRYPT_DATA'),
+                        hasBrowsable: settingsArray.includes('BROWSABLE'),
+                        hasChangeNotify: settingsArray.includes('CHANGE_NOTIFY'),
+                        hasNonBrowsable: settingsArray.includes('NON_BROWSABLE'),
+                        hasOplocks: settingsArray.includes('OPLOCKS'),
+                        hasShowSnapshot: settingsArray.includes('SHOW_SNAPSHOT'),
+                        hasShowPreviousVersions: settingsArray.includes('SHOW_PREVIOUS_VERSIONS')
+                    };
+                }
+
+                // Get backup status
+                const backupStatus = await getVolumeBackupStatus(netAppClient, vol, parent);
+
+                // Get tiering metrics if available
+                let tieringMetrics = undefined;
+                if (vol.hotTierSizeUsedGib !== undefined || vol.coldTierSizeGib !== undefined) {
+                    const hotTierGib = vol.hotTierSizeUsedGib ? Number(vol.hotTierSizeUsedGib) : 0;
+                    const coldTierGib = vol.coldTierSizeGib ? Number(vol.coldTierSizeGib) : 0;
+                    const usedGib = Number(vol.usedGib || 0);
+                    tieringMetrics = {
+                        hotTierSizeUsedGib: hotTierGib,
+                        coldTierSizeGib: coldTierGib,
+                        hotTierPercentage: usedGib > 0 ? Math.round((hotTierGib / usedGib) * 10000) / 100 : 0,
+                        coldTierPercentage: usedGib > 0 ? Math.round((coldTierGib / usedGib) * 10000) / 100 : 0,
+                        tieringRatio: hotTierGib > 0 ? Math.round((coldTierGib / hotTierGib) * 100) / 100 : (coldTierGib > 0 ? Infinity : 0)
+                    };
+                }
+
                 return {
                     volumeId: vol.name?.split('/').pop() || '',
                     capacityGib: Number(vol.capacityGib || 0),
@@ -39,14 +84,26 @@ export const volumeComparisonHandler: ToolHandler =
                     protocols: (vol as any).shareProtocols || vol.protocols || [],
                     exportPolicy: vol.exportPolicy,
                     labels: vol.labels || {},
-                    backupStatus: 'unknown', // Would need to check backups
+                    backupStatus: {
+                        status: backupStatus.status,
+                        hasBackupPolicy: backupStatus.hasBackupPolicy,
+                        backupPolicyId: backupStatus.backupPolicyId,
+                        backupPolicyEnabled: backupStatus.backupPolicyEnabled,
+                        hasRecentBackup: backupStatus.hasRecentBackup,
+                        lastBackupTime: backupStatus.lastBackupTime?.toISOString(),
+                        backupVault: backupStatus.backupVault,
+                        backupCount: backupStatus.backupCount,
+                        daysSinceLastBackup: backupStatus.daysSinceLastBackup
+                    },
                     replicationStatus: 'unknown', // Would need to check replications
                     state: vol.state || '',
                     createTime: vol.createTime ? new Date(vol.createTime.seconds * 1000).toISOString() : '',
                     tieringPolicy,
-                    snapshotPolicy
+                    tieringMetrics,
+                    snapshotPolicy,
+                    shareSettings
                 };
-            });
+            }));
 
             // Find differences
             const differences: any[] = [];
@@ -82,7 +139,7 @@ export const volumeComparisonHandler: ToolHandler =
     };
 
 // Find Similar Volumes Handler
-export const findSimilarVolumesHandler: ToolHandler = 
+export const findSimilarVolumesHandler: ToolHandler =
     async (args: { [key: string]: any }, extra: any) => {
         try {
             const { projectId, location, volumeId, similarityCriteria, tolerance = 10 } = args;
@@ -162,7 +219,7 @@ export const findSimilarVolumesHandler: ToolHandler =
     };
 
 // Storage Pool Comparison Handler
-export const storagePoolComparisonHandler: ToolHandler = 
+export const storagePoolComparisonHandler: ToolHandler =
     async (args: { [key: string]: any }, extra: any) => {
         try {
             const { projectId, location, storagePoolIds } = args;
@@ -174,7 +231,7 @@ export const storagePoolComparisonHandler: ToolHandler =
                 const [pool] = await netAppClient.getStoragePool({
                     name: `projects/${projectId}/locations/${location}/storagePools/${poolId}`
                 });
-                
+
                 // Get volumes in pool
                 const [volumes] = await netAppClient.listVolumes({
                     parent,
@@ -182,14 +239,14 @@ export const storagePoolComparisonHandler: ToolHandler =
                 });
 
                 const totalCapacityGib = Number(pool.capacityGib || 0);
-                const allocatedCapacityGib = volumes.reduce((sum: number, vol: any) => 
+                const allocatedCapacityGib = volumes.reduce((sum: number, vol: any) =>
                     sum + Number(vol.capacityGib || 0), 0);
                 const availableCapacityGib = totalCapacityGib - allocatedCapacityGib;
-                const utilizationPercent = totalCapacityGib > 0 
-                    ? (allocatedCapacityGib / totalCapacityGib) * 100 
+                const utilizationPercent = totalCapacityGib > 0
+                    ? (allocatedCapacityGib / totalCapacityGib) * 100
                     : 0;
-                const averageVolumeSize = volumes.length > 0 
-                    ? allocatedCapacityGib / volumes.length 
+                const averageVolumeSize = volumes.length > 0
+                    ? allocatedCapacityGib / volumes.length
                     : 0;
 
                 pools.push({

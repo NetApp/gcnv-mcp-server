@@ -2,7 +2,7 @@ import { ToolHandler } from "../../types/tool.js";
 import { NetAppClientFactory } from "../../utils/netapp-client-factory.js";
 
 // Volume Capacity Analysis Handler
-export const volumeCapacityAnalysisHandler: ToolHandler = 
+export const volumeCapacityAnalysisHandler: ToolHandler =
     async (args: { [key: string]: any }, extra: any) => {
         try {
             const { projectId, location, storagePoolId, thresholdPercent = 80 } = args;
@@ -22,6 +22,10 @@ export const volumeCapacityAnalysisHandler: ToolHandler =
             const highUtilizationVolumes: any[] = [];
             const lowUtilizationVolumes: any[] = [];
 
+            let totalHotTierGib = 0;
+            let totalColdTierGib = 0;
+            const volumesWithTiering: any[] = [];
+
             volumes.forEach((volume: any) => {
                 const capacityGib = Number(volume.capacityGib || 0);
                 const usedGib = Number(volume.usedGib || 0);
@@ -33,12 +37,30 @@ export const volumeCapacityAnalysisHandler: ToolHandler =
                 const nameParts = volume.name?.split('/') || [];
                 const volumeId = nameParts[nameParts.length - 1] || '';
 
-                const volumeInfo = {
+                // Extract tiering metrics if available
+                const hotTierGib = volume.hotTierSizeUsedGib ? Number(volume.hotTierSizeUsedGib) : undefined;
+                const coldTierGib = volume.coldTierSizeGib ? Number(volume.coldTierSizeGib) : undefined;
+
+                if (hotTierGib !== undefined) totalHotTierGib += hotTierGib;
+                if (coldTierGib !== undefined) totalColdTierGib += coldTierGib;
+
+                const volumeInfo: any = {
                     volumeId,
                     capacityGib,
                     usedGib,
                     utilizationPercent: Math.round(utilizationPercent * 100) / 100
                 };
+
+                // Add tiering metrics if available
+                if (hotTierGib !== undefined || coldTierGib !== undefined) {
+                    volumeInfo.tieringMetrics = {
+                        hotTierSizeUsedGib: hotTierGib || 0,
+                        coldTierSizeGib: coldTierGib || 0,
+                        hotTierPercentage: usedGib > 0 && hotTierGib ? Math.round((hotTierGib / usedGib) * 10000) / 100 : 0,
+                        coldTierPercentage: usedGib > 0 && coldTierGib ? Math.round((coldTierGib / usedGib) * 10000) / 100 : 0
+                    };
+                    volumesWithTiering.push(volumeInfo);
+                }
 
                 if (utilizationPercent >= thresholdPercent) {
                     highUtilizationVolumes.push(volumeInfo);
@@ -47,8 +69,8 @@ export const volumeCapacityAnalysisHandler: ToolHandler =
                 }
             });
 
-            const averageUtilizationPercent = totalAllocatedGib > 0 
-                ? (totalUsedGib / totalAllocatedGib) * 100 
+            const averageUtilizationPercent = totalAllocatedGib > 0
+                ? (totalUsedGib / totalAllocatedGib) * 100
                 : 0;
 
             const recommendations: string[] = [];
@@ -61,6 +83,18 @@ export const volumeCapacityAnalysisHandler: ToolHandler =
             if (averageUtilizationPercent > 80) {
                 recommendations.push("Overall capacity utilization is high - consider adding more storage capacity");
             }
+            if (volumesWithTiering.length > 0 && totalColdTierGib > 0) {
+                const coldTierPercentage = totalUsedGib > 0 ? Math.round((totalColdTierGib / totalUsedGib) * 10000) / 100 : 0;
+                recommendations.push(`${volumesWithTiering.length} volumes using auto-tiering: ${Math.round(totalColdTierGib * 100) / 100} GiB in cold tier (${coldTierPercentage}% of used capacity)`);
+            }
+
+            const tieringSummary = volumesWithTiering.length > 0 ? {
+                volumesWithTiering: volumesWithTiering.length,
+                totalHotTierGib: Math.round(totalHotTierGib * 100) / 100,
+                totalColdTierGib: Math.round(totalColdTierGib * 100) / 100,
+                hotTierPercentage: totalUsedGib > 0 ? Math.round((totalHotTierGib / totalUsedGib) * 10000) / 100 : 0,
+                coldTierPercentage: totalUsedGib > 0 ? Math.round((totalColdTierGib / totalUsedGib) * 10000) / 100 : 0
+            } : undefined;
 
             return {
                 content: [{
@@ -71,6 +105,7 @@ export const volumeCapacityAnalysisHandler: ToolHandler =
                         averageUtilizationPercent: Math.round(averageUtilizationPercent * 100) / 100,
                         highUtilizationVolumes,
                         lowUtilizationVolumes,
+                        tieringSummary,
                         recommendations
                     }, null, 2)
                 }],
@@ -80,6 +115,7 @@ export const volumeCapacityAnalysisHandler: ToolHandler =
                     averageUtilizationPercent: Math.round(averageUtilizationPercent * 100) / 100,
                     highUtilizationVolumes,
                     lowUtilizationVolumes,
+                    tieringSummary,
                     recommendations
                 }
             };
@@ -96,7 +132,7 @@ export const volumeCapacityAnalysisHandler: ToolHandler =
     };
 
 // Storage Pool Capacity Planning Handler
-export const storagePoolCapacityPlanningHandler: ToolHandler = 
+export const storagePoolCapacityPlanningHandler: ToolHandler =
     async (args: { [key: string]: any }, extra: any) => {
         try {
             const { projectId, location, requiredCapacityGib, serviceLevel } = args;
@@ -116,7 +152,7 @@ export const storagePoolCapacityPlanningHandler: ToolHandler =
                 storagePools.map(async (pool: any) => {
                     const poolNameParts = pool.name?.split('/') || [];
                     const poolId = poolNameParts[poolNameParts.length - 1] || '';
-                    
+
                     // List volumes in this pool
                     const volumeRequest = {
                         parent,
@@ -125,30 +161,61 @@ export const storagePoolCapacityPlanningHandler: ToolHandler =
                     const [volumes] = await netAppClient.listVolumes(volumeRequest);
 
                     const totalCapacityGib = Number(pool.capacityGib || 0);
-                    const allocatedCapacityGib = volumes.reduce((sum: number, vol: any) => 
+                    const allocatedCapacityGib = volumes.reduce((sum: number, vol: any) =>
                         sum + Number(vol.capacityGib || 0), 0);
                     const availableCapacityGib = totalCapacityGib - allocatedCapacityGib;
-                    const utilizationPercent = totalCapacityGib > 0 
-                        ? (allocatedCapacityGib / totalCapacityGib) * 100 
+                    const utilizationPercent = totalCapacityGib > 0
+                        ? (allocatedCapacityGib / totalCapacityGib) * 100
                         : 0;
 
                     // Check if auto-tiering is enabled at pool level (available for PREMIUM and EXTREME service levels)
                     // Auto-tiering is a boolean field at the storage pool level (allowAutoTiering)
                     // Volumes can only enable auto-tiering if the pool has allowAutoTiering=true
                     const serviceLevel = pool.serviceLevel || '';
-                    const autoTieringEnabled = (serviceLevel === 'PREMIUM' || serviceLevel === 'EXTREME') 
+                    const autoTieringEnabled = (serviceLevel === 'PREMIUM' || serviceLevel === 'EXTREME')
                         ? ((pool as any).allowAutoTiering === true)
                         : false;
-                    
-                    // Calculate used capacity for savings estimation
-                    const usedCapacityGib = volumes.reduce((sum: number, vol: any) => 
-                        sum + Number(vol.usedGib || 0), 0);
-                    
-                    // Estimate auto-tiering savings (typically 20-30% of cold data storage costs)
-                    // Auto-tiering moves infrequently used data to cold storage, saving ~20-30%
-                    const autoTieringSavings = autoTieringEnabled && usedCapacityGib > 0
-                        ? (usedCapacityGib * 0.25 * 0.20 * 0.30) // Assume 25% cold data, 20% of data tiered, 30% savings on tiered data
-                        : undefined;
+
+                    // Calculate used capacity and actual tiering metrics
+                    let usedCapacityGib = 0;
+                    let totalHotTierGib = 0;
+                    let totalColdTierGib = 0;
+
+                    volumes.forEach((vol: any) => {
+                        usedCapacityGib += Number(vol.usedGib || 0);
+                        // Use actual tiering metrics if available (when auto-tiering is active)
+                        if (vol.hotTierSizeUsedGib !== undefined) {
+                            totalHotTierGib += Number(vol.hotTierSizeUsedGib || 0);
+                        }
+                        if (vol.coldTierSizeGib !== undefined) {
+                            totalColdTierGib += Number(vol.coldTierSizeGib || 0);
+                        }
+                    });
+
+                    // Calculate actual auto-tiering savings if tiering metrics are available
+                    // Cold tier typically costs ~30% less than hot tier
+                    let autoTieringSavings: number | undefined = undefined;
+                    let autoTieringAnalysis: any = undefined;
+
+                    if (autoTieringEnabled && totalColdTierGib > 0) {
+                        // Calculate actual savings: cold tier saves ~30% compared to hot tier
+                        // Assuming PREMIUM/EXTREME pricing: $0.30/GiB hot, ~$0.21/GiB cold (30% savings)
+                        const pricePerGibHot = serviceLevel === 'EXTREME' ? 0.40 : 0.30;
+                        const pricePerGibCold = pricePerGibHot * 0.70; // 30% savings
+                        const monthlySavings = totalColdTierGib * (pricePerGibHot - pricePerGibCold);
+                        autoTieringSavings = monthlySavings;
+
+                        autoTieringAnalysis = {
+                            totalHotTierGib: Math.round(totalHotTierGib * 100) / 100,
+                            totalColdTierGib: Math.round(totalColdTierGib * 100) / 100,
+                            hotTierPercentage: usedCapacityGib > 0 ? Math.round((totalHotTierGib / usedCapacityGib) * 10000) / 100 : 0,
+                            coldTierPercentage: usedCapacityGib > 0 ? Math.round((totalColdTierGib / usedCapacityGib) * 10000) / 100 : 0,
+                            actualSavings: Math.round(monthlySavings * 100) / 100
+                        };
+                    } else if (autoTieringEnabled && usedCapacityGib > 0) {
+                        // Fallback to estimation if tiering metrics not available yet
+                        autoTieringSavings = usedCapacityGib * 0.25 * 0.20 * 0.30; // Estimate
+                    }
 
                     return {
                         storagePoolId: poolId,
@@ -158,11 +225,12 @@ export const storagePoolCapacityPlanningHandler: ToolHandler =
                         availableCapacityGib,
                         utilizationPercent: Math.round(utilizationPercent * 100) / 100,
                         volumeCount: volumes.length,
-                        canAccommodate: requiredCapacityGib 
-                            ? availableCapacityGib >= requiredCapacityGib 
+                        canAccommodate: requiredCapacityGib
+                            ? availableCapacityGib >= requiredCapacityGib
                             : undefined,
                         autoTieringEnabled,
-                        autoTieringSavings: autoTieringSavings ? Math.round(autoTieringSavings * 100) / 100 : undefined
+                        autoTieringSavings: autoTieringSavings ? Math.round(autoTieringSavings * 100) / 100 : undefined,
+                        autoTieringAnalysis
                     };
                 })
             );
@@ -171,7 +239,7 @@ export const storagePoolCapacityPlanningHandler: ToolHandler =
             if (requiredCapacityGib) {
                 const suitablePools = poolAnalysis.filter(p => p.canAccommodate);
                 if (suitablePools.length > 0) {
-                    const bestPool = suitablePools.sort((a, b) => 
+                    const bestPool = suitablePools.sort((a, b) =>
                         a.utilizationPercent - b.utilizationPercent)[0];
                     recommendations.push(`Recommended: ${bestPool.storagePoolId} (${bestPool.serviceLevel}) - ${bestPool.availableCapacityGib} GiB available`);
                     if (bestPool.autoTieringEnabled && bestPool.autoTieringSavings) {
@@ -183,9 +251,9 @@ export const storagePoolCapacityPlanningHandler: ToolHandler =
                     recommendations.push(`No storage pools have enough capacity for ${requiredCapacityGib} GiB`);
                 }
             }
-            
+
             // Add auto-tiering recommendations for eligible pools
-            const eligiblePools = poolAnalysis.filter(p => 
+            const eligiblePools = poolAnalysis.filter(p =>
                 (p.serviceLevel === 'PREMIUM' || p.serviceLevel === 'EXTREME') && !p.autoTieringEnabled
             );
             if (eligiblePools.length > 0) {
@@ -215,7 +283,7 @@ export const storagePoolCapacityPlanningHandler: ToolHandler =
     };
 
 // Resource Cost Estimation Handler
-export const resourceCostEstimationHandler: ToolHandler = 
+export const resourceCostEstimationHandler: ToolHandler =
     async (args: { [key: string]: any }, extra: any) => {
         try {
             const { projectId, location, resourceType, capacityGib, serviceLevel, durationDays } = args;
@@ -258,8 +326,8 @@ export const resourceCostEstimationHandler: ToolHandler =
             const yearlyCost = monthlyCost * 12;
 
             // Comparison with other service levels (for volumes/pools)
-            const comparisonWithOtherServiceLevels = 
-                (resourceType === 'volume' || resourceType === 'storagePool') 
+            const comparisonWithOtherServiceLevels =
+                (resourceType === 'volume' || resourceType === 'storagePool')
                     ? ['STANDARD', 'PREMIUM', 'EXTREME', 'FLEX']
                         .filter(level => !serviceLevel || level !== serviceLevel)
                         .map(level => ({

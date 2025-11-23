@@ -38,7 +38,9 @@ export const backupComplianceCheckTool: ToolConfig = {
     outputSchema: {
         volumesWithoutRecentBackups: z.array(z.object({
             volumeId: z.string(),
-            daysSinceLastBackup: z.number().optional()
+            daysSinceLastBackup: z.number().optional(),
+            lastBackupTime: z.string().optional(),
+            backupVault: z.string().optional()
         })).describe("Volumes without recent backups"),
         volumesWithoutPolicies: z.array(z.object({
             volumeId: z.string(),
@@ -47,7 +49,9 @@ export const backupComplianceCheckTool: ToolConfig = {
         backupPolicyViolations: z.array(z.object({
             volumeId: z.string(),
             backupPolicyId: z.string(),
-            violation: z.string()
+            violationReason: z.string(),
+            lastBackupTime: z.string().optional(),
+            daysSinceLastBackup: z.number().optional()
         })).describe("Backup policy violations"),
         compliancePercentage: z.number().describe("Percentage of volumes that are compliant"),
         recommendations: z.array(z.string()).describe("Recommendations for improving compliance")
@@ -82,6 +86,21 @@ export const securityComplianceCheckTool: ToolConfig = {
             volumeId: z.string(),
             protocols: z.array(z.string())
         })).describe("Volumes with insecure protocols only"),
+        smbVolumesWithoutAbe: z.array(z.object({
+            volumeId: z.string(),
+            shareName: z.string(),
+            issue: z.string()
+        })).describe("SMB volumes without Access-Based Enumeration enabled"),
+        smbVolumesWithoutVss: z.array(z.object({
+            volumeId: z.string(),
+            shareName: z.string(),
+            issue: z.string()
+        })).describe("SMB volumes without VSS (Volume Shadow Copy Service) enabled"),
+        smbVolumesWithUnencryptedAccess: z.array(z.object({
+            volumeId: z.string(),
+            shareName: z.string(),
+            issue: z.string()
+        })).describe("SMB volumes allowing unencrypted access"),
         securityRecommendations: z.array(z.string()).describe("Security recommendations")
     }
 };

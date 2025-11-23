@@ -1,8 +1,9 @@
 import { ToolHandler } from "../../types/tool.js";
 import { NetAppClientFactory } from "../../utils/netapp-client-factory.js";
+import { getVolumeBackupStatus } from "../../utils/backup-status-helper.js";
 
 // Label Compliance Check Handler
-export const labelComplianceCheckHandler: ToolHandler = 
+export const labelComplianceCheckHandler: ToolHandler =
     async (args: { [key: string]: any }, extra: any) => {
         try {
             const { projectId, location, requiredLabels, resourceType = 'all' } = args;
@@ -20,7 +21,7 @@ export const labelComplianceCheckHandler: ToolHandler =
                     const nameParts = resource.name?.split('/') || [];
                     const resourceId = nameParts[nameParts.length - 1] || '';
                     const labels = resource.labels || {};
-                    
+
                     const missingLabels = requiredLabels.filter((key: string) => !labels[key]);
                     if (missingLabels.length > 0) {
                         nonCompliantResources.push({
@@ -47,8 +48,8 @@ export const labelComplianceCheckHandler: ToolHandler =
                 });
             }
 
-            const compliancePercentage = totalResources > 0 
-                ? ((totalResources - nonCompliantResources.length) / totalResources) * 100 
+            const compliancePercentage = totalResources > 0
+                ? ((totalResources - nonCompliantResources.length) / totalResources) * 100
                 : 100;
 
             const recommendations: string[] = [];
@@ -81,7 +82,7 @@ export const labelComplianceCheckHandler: ToolHandler =
     };
 
 // Backup Compliance Check Handler
-export const backupComplianceCheckHandler: ToolHandler = 
+export const backupComplianceCheckHandler: ToolHandler =
     async (args: { [key: string]: any }, extra: any) => {
         try {
             const { projectId, location, backupPolicyId, maxDaysWithoutBackup = 7 } = args;
@@ -95,65 +96,56 @@ export const backupComplianceCheckHandler: ToolHandler =
             const volumesWithoutPolicies: any[] = [];
             const backupPolicyViolations: any[] = [];
 
-            const cutoffDate = new Date();
-            cutoffDate.setDate(cutoffDate.getDate() - maxDaysWithoutBackup);
-
             for (const vol of volumes) {
                 const nameParts = vol.name?.split('/') || [];
                 const volumeId = nameParts[nameParts.length - 1] || '';
 
-                let hasRecentBackup = false;
-                let lastBackupTime: Date | undefined;
+                // Get comprehensive backup status
+                const backupStatus = await getVolumeBackupStatus(netAppClient, vol, parent, maxDaysWithoutBackup);
 
-                for (const vault of backupVaults) {
-                    try {
-                        const [backups] = await netAppClient.listBackups({
-                            parent: vault.name || '',
-                            filter: `volume="${vol.name}"`
-                        });
-
-                        const recentBackup = backups.find((b: any) => {
-                            if (!b.createTime) return false;
-                            const backupTime = new Date(b.createTime.seconds * 1000);
-                            if (backupTime > cutoffDate) {
-                                if (!lastBackupTime || backupTime > lastBackupTime) {
-                                    lastBackupTime = backupTime;
-                                }
-                                return true;
-                            }
-                            return false;
-                        });
-
-                        if (recentBackup) {
-                            hasRecentBackup = true;
-                        }
-                    } catch {
-                        // Continue
-                    }
-                }
-
-                if (!hasRecentBackup) {
-                    const daysSince = lastBackupTime 
-                        ? Math.floor((Date.now() - lastBackupTime.getTime()) / (1000 * 60 * 60 * 24))
-                        : undefined;
+                // Check for volumes without recent backups
+                if (!backupStatus.hasRecentBackup) {
                     volumesWithoutRecentBackups.push({
                         volumeId,
-                        daysSinceLastBackup: daysSince
+                        daysSinceLastBackup: backupStatus.daysSinceLastBackup,
+                        lastBackupTime: backupStatus.lastBackupTime?.toISOString(),
+                        backupVault: backupStatus.backupVault
                     });
                 }
 
-                // Check for backup policy assignment
-                // Note: Would need to check volume's backup policy assignment
-                volumesWithoutPolicies.push({
-                    volumeId,
-                    recommendedPolicy: undefined
-                });
+                // Check for volumes without backup policies
+                if (!backupStatus.hasBackupPolicy) {
+                    volumesWithoutPolicies.push({
+                        volumeId,
+                        recommendedPolicy: undefined
+                    });
+                }
+
+                // Check for backup policy violations (policy assigned but not compliant)
+                if (backupStatus.hasBackupPolicy && backupStatus.status === 'non_compliant') {
+                    backupPolicyViolations.push({
+                        volumeId,
+                        backupPolicyId: backupStatus.backupPolicyId || '',
+                        violationReason: `No recent backup within ${maxDaysWithoutBackup} days`,
+                        lastBackupTime: backupStatus.lastBackupTime?.toISOString(),
+                        daysSinceLastBackup: backupStatus.daysSinceLastBackup
+                    });
+                }
+
+                // If specific backup policy ID is provided, check if volume should have it
+                if (backupPolicyId && (!backupStatus.hasBackupPolicy || backupStatus.backupPolicyId !== backupPolicyId.split('/').pop())) {
+                    backupPolicyViolations.push({
+                        volumeId,
+                        backupPolicyId: backupPolicyId,
+                        violationReason: 'Volume does not have the specified backup policy assigned'
+                    });
+                }
             }
 
             const totalVolumes = volumes.length;
             const compliantVolumes = totalVolumes - volumesWithoutRecentBackups.length;
-            const compliancePercentage = totalVolumes > 0 
-                ? (compliantVolumes / totalVolumes) * 100 
+            const compliancePercentage = totalVolumes > 0
+                ? (compliantVolumes / totalVolumes) * 100
                 : 100;
 
             const recommendations: string[] = [];
@@ -192,7 +184,7 @@ export const backupComplianceCheckHandler: ToolHandler =
     };
 
 // Security Compliance Check Handler
-export const securityComplianceCheckHandler: ToolHandler = 
+export const securityComplianceCheckHandler: ToolHandler =
     async (args: { [key: string]: any }, extra: any) => {
         try {
             const { projectId, location, securityRules } = args;
@@ -205,6 +197,9 @@ export const securityComplianceCheckHandler: ToolHandler =
             const volumesWithRootAccess: any[] = [];
             const volumesWithoutKerberos: any[] = [];
             const volumesWithInsecureProtocols: any[] = [];
+            const smbVolumesWithoutAbe: any[] = [];
+            const smbVolumesWithoutVss: any[] = [];
+            const smbVolumesWithUnencryptedAccess: any[] = [];
 
             volumes.forEach((vol: any) => {
                 const nameParts = vol.name?.split('/') || [];
@@ -214,9 +209,9 @@ export const securityComplianceCheckHandler: ToolHandler =
 
                 // Check for permissive policies (0.0.0.0/0)
                 if (exportPolicy?.rules) {
-                    const hasPermissive = exportPolicy.rules.some((rule: any) => 
+                    const hasPermissive = exportPolicy.rules.some((rule: any) =>
                         rule.allowedClients === '0.0.0.0/0');
-                    
+
                     if (hasPermissive) {
                         volumesWithPermissivePolicies.push({
                             volumeId,
@@ -226,10 +221,10 @@ export const securityComplianceCheckHandler: ToolHandler =
                     }
 
                     // Check for root access
-                    const hasRootAccess = exportPolicy.rules.some((rule: any) => 
-                        (rule as any).hasRootAccess === true || 
+                    const hasRootAccess = exportPolicy.rules.some((rule: any) =>
+                        (rule as any).hasRootAccess === true ||
                         ((rule as any).nfsOptions && !(rule as any).nfsOptions.rootSquash));
-                    
+
                     if (hasRootAccess) {
                         volumesWithRootAccess.push({
                             volumeId,
@@ -242,7 +237,7 @@ export const securityComplianceCheckHandler: ToolHandler =
                         rule.kerberos_5ReadOnly || rule.kerberos_5ReadWrite ||
                         rule.kerberos_5iReadOnly || rule.kerberos_5iReadWrite ||
                         rule.kerberos_5pReadOnly || rule.kerberos_5pReadWrite);
-                    
+
                     if (!hasKerberos) {
                         volumesWithoutKerberos.push({
                             volumeId,
@@ -257,6 +252,42 @@ export const securityComplianceCheckHandler: ToolHandler =
                         volumeId,
                         protocols
                     });
+                }
+
+                // Check SMB share settings
+                const isSmbVolume = protocols.includes('SMB') || protocols.includes('DUAL');
+                if (isSmbVolume) {
+                    const shareSettings = (vol as any).shareSettings || (vol as any).smbSettings;
+                    const settingsArray = Array.isArray(shareSettings)
+                        ? shareSettings
+                        : (shareSettings?.settings || shareSettings?.smbSettings || []);
+
+                    // Check for Access-Based Enumeration
+                    if (!settingsArray.includes('ACCESS_BASED_ENUMERATION')) {
+                        smbVolumesWithoutAbe.push({
+                            volumeId,
+                            shareName: vol.shareName || '',
+                            issue: 'ACCESS_BASED_ENUMERATION is not enabled - users can see all files/folders'
+                        });
+                    }
+
+                    // Check for SHOW_SNAPSHOT (similar to VSS functionality)
+                    if (!settingsArray.includes('SHOW_SNAPSHOT')) {
+                        smbVolumesWithoutVss.push({
+                            volumeId,
+                            shareName: vol.shareName || '',
+                            issue: 'SHOW_SNAPSHOT is not enabled - snapshots may not be visible'
+                        });
+                    }
+
+                    // Check for encryption (ENCRYPT_DATA not present means unencrypted access is allowed)
+                    if (!settingsArray.includes('ENCRYPT_DATA')) {
+                        smbVolumesWithUnencryptedAccess.push({
+                            volumeId,
+                            shareName: vol.shareName || '',
+                            issue: 'ENCRYPT_DATA is not enabled - unencrypted access is allowed (security risk)'
+                        });
+                    }
                 }
             });
 
@@ -273,6 +304,15 @@ export const securityComplianceCheckHandler: ToolHandler =
             if (volumesWithInsecureProtocols.length > 0) {
                 securityRecommendations.push(`Consider upgrading ${volumesWithInsecureProtocols.length} volumes to NFSV4 or enable security`);
             }
+            if (smbVolumesWithoutAbe.length > 0) {
+                securityRecommendations.push(`Enable Access-Based Enumeration for ${smbVolumesWithoutAbe.length} SMB volumes`);
+            }
+            if (smbVolumesWithoutVss.length > 0) {
+                securityRecommendations.push(`Enable VSS for ${smbVolumesWithoutVss.length} SMB volumes to enable backup/recovery`);
+            }
+            if (smbVolumesWithUnencryptedAccess.length > 0) {
+                securityRecommendations.push(`Disable unencrypted access for ${smbVolumesWithUnencryptedAccess.length} SMB volumes`);
+            }
 
             return {
                 content: [{
@@ -282,6 +322,9 @@ export const securityComplianceCheckHandler: ToolHandler =
                         volumesWithRootAccess,
                         volumesWithoutKerberos,
                         volumesWithInsecureProtocols,
+                        smbVolumesWithoutAbe,
+                        smbVolumesWithoutVss,
+                        smbVolumesWithUnencryptedAccess,
                         securityRecommendations
                     }, null, 2)
                 }],
@@ -290,6 +333,9 @@ export const securityComplianceCheckHandler: ToolHandler =
                     volumesWithRootAccess,
                     volumesWithoutKerberos,
                     volumesWithInsecureProtocols,
+                    smbVolumesWithoutAbe,
+                    smbVolumesWithoutVss,
+                    smbVolumesWithUnencryptedAccess,
                     securityRecommendations
                 }
             };

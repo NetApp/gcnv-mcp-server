@@ -1,5 +1,6 @@
 import { ToolHandler } from "../../types/tool.js";
 import { NetAppClientFactory } from "../../utils/netapp-client-factory.js";
+import { getVolumeBackupStatus } from "../../utils/backup-status-helper.js";
 
 // Resource Health Check Handler
 export const resourceHealthCheckHandler: ToolHandler = 
@@ -117,41 +118,19 @@ export const resourceHealthCheckHandler: ToolHandler =
             // Check backups (volumes without recent backups)
             if (resourceType === 'all' || resourceType === 'backup') {
                 const [volumes] = await netAppClient.listVolumes({ parent });
-                const [backupVaults] = await netAppClient.listBackupVaults({ parent });
                 
                 for (const vol of volumes) {
-                    let hasRecentBackup = false;
-                    const sevenDaysAgo = new Date();
-                    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-                    for (const vault of backupVaults) {
-                        try {
-                            const [backups] = await netAppClient.listBackups({
-                                parent: vault.name || '',
-                                filter: `volume="${vol.name}"`
-                            });
-                            
-                            const recentBackup = backups.find((b: any) => {
-                                if (!b.createTime) return false;
-                                const backupTime = new Date(b.createTime.seconds * 1000);
-                                return backupTime > sevenDaysAgo;
-                            });
-                            
-                            if (recentBackup) {
-                                hasRecentBackup = true;
-                                break;
-                            }
-                        } catch {
-                            // Continue checking other vaults
-                        }
-                    }
-
-                    if (!hasRecentBackup) {
+                    const backupStatus = await getVolumeBackupStatus(netAppClient, vol, parent, 7);
+                    
+                    if (!backupStatus.hasRecentBackup || backupStatus.status === 'non_compliant' || backupStatus.status === 'no_policy') {
                         const nameParts = vol.name?.split('/') || [];
                         const volumeId = nameParts[nameParts.length - 1] || '';
                         volumesWithoutRecentBackups.push({
                             volumeId,
-                            lastBackupTime: undefined
+                            lastBackupTime: backupStatus.lastBackupTime?.toISOString(),
+                            hasBackupPolicy: backupStatus.hasBackupPolicy,
+                            backupPolicyId: backupStatus.backupPolicyId,
+                            status: backupStatus.status
                         });
                     }
                 }

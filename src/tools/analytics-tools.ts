@@ -20,14 +20,33 @@ export const volumeCapacityAnalysisTool: ToolConfig = {
             volumeId: z.string(),
             capacityGib: z.number(),
             usedGib: z.number(),
-            utilizationPercent: z.number()
+            utilizationPercent: z.number(),
+            tieringMetrics: z.object({
+                hotTierSizeUsedGib: z.number(),
+                coldTierSizeGib: z.number(),
+                hotTierPercentage: z.number(),
+                coldTierPercentage: z.number()
+            }).optional()
         })).describe("Volumes with utilization above threshold"),
         lowUtilizationVolumes: z.array(z.object({
             volumeId: z.string(),
             capacityGib: z.number(),
             usedGib: z.number(),
-            utilizationPercent: z.number()
+            utilizationPercent: z.number(),
+            tieringMetrics: z.object({
+                hotTierSizeUsedGib: z.number(),
+                coldTierSizeGib: z.number(),
+                hotTierPercentage: z.number(),
+                coldTierPercentage: z.number()
+            }).optional()
         })).describe("Volumes with utilization below 20%"),
+        tieringSummary: z.object({
+            volumesWithTiering: z.number(),
+            totalHotTierGib: z.number(),
+            totalColdTierGib: z.number(),
+            hotTierPercentage: z.number(),
+            coldTierPercentage: z.number()
+        }).optional().describe("Summary of auto-tiering metrics across volumes"),
         recommendations: z.array(z.string()).describe("Capacity optimization recommendations")
     }
 };
@@ -54,7 +73,14 @@ export const storagePoolCapacityPlanningTool: ToolConfig = {
             volumeCount: z.number(),
             canAccommodate: z.boolean().optional().describe("Whether this pool can accommodate the required capacity"),
             autoTieringEnabled: z.boolean().optional().describe("Whether auto-tiering is enabled at pool level (allowAutoTiering field, available for PREMIUM and EXTREME service levels)"),
-            autoTieringSavings: z.number().optional().describe("Estimated cost savings from auto-tiering in USD per month")
+            autoTieringSavings: z.number().optional().describe("Actual or estimated cost savings from auto-tiering in USD per month"),
+            autoTieringAnalysis: z.object({
+                totalHotTierGib: z.number().describe("Total hot tier storage used in GiB"),
+                totalColdTierGib: z.number().describe("Total cold tier storage used in GiB"),
+                hotTierPercentage: z.number().describe("Percentage of used capacity in hot tier"),
+                coldTierPercentage: z.number().describe("Percentage of used capacity in cold tier"),
+                actualSavings: z.number().describe("Actual monthly savings calculated from cold tier usage")
+            }).optional().describe("Detailed auto-tiering analysis with actual hot/cold tier metrics")
         })).describe("Storage pools with capacity information"),
         recommendations: z.array(z.string()).describe("Recommendations for which pool to use")
     }
