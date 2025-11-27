@@ -75,34 +75,35 @@ The Google Cloud NetApp Volumes MCP Server is built using the Model Context Prot
    npm run build
    ```
 
-4. Authenticate with Google Cloud:
-   Ensure you have valid Google Cloud credentials set up. You can use one of the following methods:
-   - Set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable pointing to a service account key file
-   - Use Application Default Credentials (ADC) with `gcloud auth application-default login`
+4. Link the Gemini extension so the CLI can launch the MCP server over stdio:
+
+   ```bash
+   gemini extension link .
+   ```
+
+5. Confirm the extension is registered and ready. The MCP server should appear in the list:
+
+   ```bash
+   gemini mcp list
+   ```
+
+> Gemini automatically forks the MCP server whenever a linked extension needs it, so once the build output exists and the extension is linked, no manual `npm start` is required for normal usage.
+
+## Google Cloud Authentication
+
+Ensure you have valid Google Cloud credentials set up before invoking tools:
+- Set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable pointing to a service account key file, or
+- Use Application Default Credentials (ADC) with `gcloud auth application-default login`
 
 ## Usage
 
 ### Starting the Server
 
-Start the server with default configuration (port 3001):
+The MCP server speaks stdio and is launched by Gemini CLI when a linked extension requires it.
 
-```bash
-npm start
-```
-
-Start with specific HTTP port:
-
-```bash
-npm run start:http:port
-```
-
-For development with auto-build:
-
-```bash
-npm run dev
-```
-
-The server will start on `http://localhost:3001/mcp` by default.
+- After running `gemini extension link .`, you can verify that Gemini sees the server with `gemini mcp list`.
+- Trigger any MCP interaction from Gemini (for example, invoke a registered tool) and the CLI will spawn the `gcnv-mcp` process automatically.
+- For manual debugging you can run `npm start`, which starts the stdio transport and waits for a client connection on stdin/stdout.
 
 ### Available Tools
 
@@ -204,66 +205,44 @@ The server exposes the following tools through the MCP interface:
 5. **gcnv_backup_restore** - Restore a backup to a new or existing volume
    - Inputs: projectId, location, backupVaultId, backupId, targetStoragePoolId, targetVolumeId, restoreOption
 
-### Example Request (using cURL)
-
-```bash
-curl -X POST http://localhost:3001/mcp \
-  -H "Content-Type: application/json" \
-  -d '{
-    "type": "invoke",
-    "id": "12345",
-    "name": "storage_pool_list",
-    "parameters": {
-      "projectId": "your-project-id",
-      "location": "us-central1"
-    }
-  }'
-```
-
 ## Architecture
 
 The project follows a modular architecture:
 
-- **Server**: Express.js based server with MCP integration
+- **Server**: MCP stdio transport that links directly with Gemini CLI
 - **Tools**: Defined using Zod schemas for input validation
 - **Handlers**: Implementation for each tool's functionality
 - **Factory Pattern**: Uses a factory for managing NetApp client instances with caching
 
 ## Integrating with Chat AI Applications (e.g., Gemini)
 
-To use the MCP server in a chat AI application like Gemini, follow these steps:
+To use the MCP server with Gemini CLI or other MCP-aware clients:
 
-1. **Deploy the MCP Server**  
-  Ensure the MCP server is running and accessible over HTTP (e.g., `http://localhost:3001/mcp`).
+1. **Link the Extension**  
+   After building the project, register the extension with the Gemini CLI. This enables Gemini to fork the stdio-based server on demand.
 
-1. **Configure the Chat AI Application**  
+   ```bash
+   gemini extension link .
+   ```
 
-- In your chat AI platform, add a tool or function that sends HTTP requests to the MCP server endpoint.
-- Set the endpoint URL to your MCP server.
+2. **(Optional) Customize the Extension**  
+   Edit `gemini-extension.json` if you need to pass environment variables or adjust the command/arguments that Gemini executes when launching the MCP server.
 
-1. **Configure Gemini CLI for MCP Server**  
-  To use the MCP server with Gemini CLI, add a tool configuration referencing your MCP server endpoint. For example, in your `.gemini/settings.json`:
+3. **Verify the Registration**  
+   Confirm that Gemini recognizes the MCP server:
 
-  ```json
-  "mcpServers": {
-       "gcnv-http" : {
-          "httpUrl" : "http://localhost:3001/mcp",
-          "env" : {
-              "GCNV_ACCESS_TOKEN" : "${GCNV_ACCESS_TOKEN}"
-           }
-       }
-  }
-  ```
+   ```bash
+   gemini mcp list
+   ```
 
-  Ensure the schema matches the MCP server's API. After configuration, you can invoke MCP tools directly from Gemini CLI using the defined tool name.
+4. **Invoke Tools via Chat**  
+   Trigger MCP interactions from Gemini. When a chat session or CLI command references the `gcnv-mcp` server, Gemini starts the compiled `build/index.js` process and communicates with it over stdio.
+   No extra launch step is necessary—the CLI takes care of process lifecycle each time the server is needed.
 
-1. **Invoke Tools via Chat**  
-  Users can interact with the chat AI and trigger MCP server tools by providing the required parameters. The AI will send requests to the MCP server and return results in the chat.
+5. **Maintain Authentication**  
+   Ensure the MCP process has access to Google Cloud credentials as outlined in the prerequisites.
 
-1. **Authentication**  
-  Ensure the MCP server has access to valid Google Cloud credentials as described in the "Prerequisites" section.
-
-For more advanced integration, refer to your chat AI application's documentation on custom tool/function configuration.
+For other chat AI applications, follow their documentation for linking stdio-based MCP servers; most can reuse the `gemini-extension.json` structure as a template.
 
 ### Key Components
 
@@ -322,7 +301,6 @@ src/
 
 - `@modelcontextprotocol/sdk` - MCP server implementation
 - `@google-cloud/netapp` - Google Cloud NetApp Volumes client library
-- `express` - Web server framework
 - `zod` - Schema validation library
 
 ## License

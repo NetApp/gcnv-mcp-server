@@ -1,0 +1,14 @@
+{
+    "name": "gcnv-mcp",
+    "version": "1.0.0",
+    "contextFileName": "GEMINI.md",
+    "mcpServers": {
+        "gcnv-mcp": {
+            "command": "node",
+            "transport": "jsonrpc",
+            "args": [
+                "${extensionPath}${/}build${/}index.js"
+            ]
+        }
+    }
+}
