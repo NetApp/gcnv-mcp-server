@@ -3,15 +3,16 @@
   "version": "1.0.0",
   "description": "Google Cloud NetApp Volumes MCP Server - A Model Context Protocol server for managing GCNV Backup, StoragePool, Volume and Replication resources",
   "main": "build/index.js",
+  "bin": {
+    "gcnv-mcp": "build/index.js"
+  },
   "type": "module",
   "scripts": {
     "build": "tsc",
     "start": "node build/index.js",
-    "start:http": "node build/index.js --http",
-    "start:http:port": "node build/index.js --http=3001",
     "dev": "tsc && node build/index.js",
-    "dev:http": "tsc && node build/index.js --http",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run --coverage",
+    "test:e2e": "vitest run tests/e2e"
   },
   "keywords": [
     "mcp",
@@ -24,18 +25,16 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.3",
     "@types/node": "^24.1.0",
-    "typescript": "^5.8.3"
+    "@vitest/coverage-v8": "^4.0.14",
+    "typescript": "^5.8.3",
+    "vitest": "^4.0.14"
   },
   "dependencies": {
-    "@google-cloud/netapp": "^0.14.1",
     "@google-cloud/local-auth": "3.0.1",
+    "@google-cloud/netapp": "^0.14.1",
     "@modelcontextprotocol/sdk": "^1.20.1",
     "axios": "^1.6.3",
-    "cors": "^2.8.5",
-    "express": "^5.1.0",
     "zod": "^3.25.76"
   }
 }

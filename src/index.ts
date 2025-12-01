@@ -1,45 +1,38 @@
+#!/usr/bin/env node
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import express from 'express';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { registerAllTools } from './registry/register-tools.js';
 
+async function startStdioTransport(mcpServer: McpServer) {
+    const transport = new StdioServerTransport();
+    await mcpServer.connect(transport);
+    console.error('MCP Server listening on stdio');
+    await new Promise<void>((resolve, reject) => {
+        const originalClose = transport.onclose;
+        transport.onclose = () => {
+            originalClose?.();
+            resolve();
+        };
+        const originalError = transport.onerror;
+        transport.onerror = (error) => {
+            originalError?.(error);
+            reject(error);
+        };
+    });
+}
 
-
-function main() {
-    
+async function main() {
     const mcpServer = new McpServer({
-        name: 'gcnv-mcp-local',
+        name: 'gcnv-mcp',
         version: '1.0.0',
     });
 
     registerAllTools(mcpServer);
-    
-    const app = express();
-    app.use(express.json());
-    app.post('/mcp', async (req, res) => {
-        // Create a new transport for each request to prevent request ID collisions
-        const transport = new StreamableHTTPServerTransport({
-            sessionIdGenerator: undefined,
-            enableJsonResponse: true
-        });
-    
-        res.on('close', () => {
-            transport.close();
-        });
-    
-        await mcpServer.connect(transport);
-        await transport.handleRequest(req, res, req.body);
-    });
 
-
-    const port = parseInt(process.env.PORT || '3001');
-    app.listen(port, () => {
-        console.log(`Demo MCP Server running on http://localhost:${port}/mcp`);
-    }).on('error', error => {
-        console.error('Server error:', error);
-        process.exit(1);
-    });
+    await startStdioTransport(mcpServer);
 }
 
-
-main();
+main().catch(error => {
+    console.error('Fatal server error:', error);
+    process.exit(1);
+});

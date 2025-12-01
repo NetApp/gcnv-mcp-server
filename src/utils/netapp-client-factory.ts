@@ -1,5 +1,6 @@
 import { NetAppClient } from "@google-cloud/netapp";
 import { ClientOptions } from "google-gax";
+import { MockNetAppClient } from "./mock-netapp-client.js";
 
 /**
  * Factory class for creating NetAppClient instances
@@ -33,6 +34,22 @@ export class NetAppClientFactory {
    * @returns A configured NetAppClient instance
    */
   public static createClient(options?: ClientOptions, cacheKey?: string): NetAppClient {
+    const mockServerUrl = process.env.NETAPP_MOCK_SERVER_URL;
+
+    if (mockServerUrl) {
+      if (cacheKey && this.clientCache[cacheKey]) {
+        return this.clientCache[cacheKey];
+      }
+
+      const mockClient = new MockNetAppClient(mockServerUrl) as unknown as NetAppClient;
+
+      if (cacheKey) {
+        this.clientCache[cacheKey] = mockClient;
+      }
+
+      return mockClient;
+    }
+
     // If a cache key is provided and a client exists, return the cached client
     if (cacheKey && this.clientCache[cacheKey]) {
       return this.clientCache[cacheKey];
