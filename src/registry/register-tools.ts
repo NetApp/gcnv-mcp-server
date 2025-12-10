@@ -4,19 +4,21 @@
  * Registers all tool definitions and their handlers to the tool registry
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { 
+import {
   createStoragePoolTool,
   deleteStoragePoolTool,
   getStoragePoolTool,
   listStoragePoolsTool,
-  updateStoragePoolTool
+  updateStoragePoolTool,
+  validateDirectoryServiceTool
 } from "../tools/storage-pool-tools.js";
 import {
   createStoragePoolHandler,
   deleteStoragePoolHandler,
   getStoragePoolHandler,
   listStoragePoolsHandler,
-  updateStoragePoolHandler
+  updateStoragePoolHandler,
+  validateDirectoryServiceHandler
 } from "../tools/handlers/storage-pool-handler.js";
 import {
   createVolumeTool,
@@ -37,14 +39,16 @@ import {
   deleteSnapshotTool,
   getSnapshotTool,
   listSnapshotsTool,
-  revertVolumeToSnapshotTool
+  revertVolumeToSnapshotTool,
+  updateSnapshotTool
 } from "../tools/snapshot-tools.js";
 import {
   createSnapshotHandler,
   deleteSnapshotHandler,
   getSnapshotHandler,
   listSnapshotsHandler,
-  revertVolumeToSnapshotHandler
+  revertVolumeToSnapshotHandler,
+  updateSnapshotHandler
 } from "../tools/handlers/snapshot-handler.js";
 import {
   createBackupVaultTool,
@@ -65,14 +69,16 @@ import {
   deleteBackupTool,
   getBackupTool,
   listBackupsTool,
-  restoreBackupTool
+  restoreBackupTool,
+  updateBackupTool
 } from "../tools/backup-tools.js";
 import {
   createBackupHandler,
   deleteBackupHandler,
   getBackupHandler,
   listBackupsHandler,
-  restoreBackupHandler
+  restoreBackupHandler,
+  updateBackupHandler
 } from "../tools/handlers/backup-handler.js";
 import {
   getOperationTool,
@@ -102,7 +108,9 @@ import {
   updateReplicationTool,
   resumeReplicationTool,
   stopReplicationTool,
-  reverseReplicationDirectionTool
+  reverseReplicationDirectionTool,
+  establishPeeringTool,
+  syncReplicationTool
 } from "../tools/replication-tools.js";
 import {
   createReplicationHandler,
@@ -112,8 +120,56 @@ import {
   updateReplicationHandler,
   resumeReplicationHandler,
   stopReplicationHandler,
-  reverseReplicationDirectionHandler
+  reverseReplicationDirectionHandler,
+  establishPeeringHandler,
+  syncReplicationHandler
 } from "../tools/handlers/replication-handler.js";
+import {
+  createActiveDirectoryTool,
+  deleteActiveDirectoryTool,
+  getActiveDirectoryTool,
+  listActiveDirectoriesTool,
+  updateActiveDirectoryTool
+} from "../tools/active-directory-tools.js";
+import {
+  createActiveDirectoryHandler,
+  deleteActiveDirectoryHandler,
+  getActiveDirectoryHandler,
+  listActiveDirectoriesHandler,
+  updateActiveDirectoryHandler
+} from "../tools/handlers/active-directory-handler.js";
+import {
+  createKmsConfigTool,
+  deleteKmsConfigTool,
+  getKmsConfigTool,
+  listKmsConfigsTool,
+  updateKmsConfigTool,
+  verifyKmsConfigTool,
+  encryptVolumesTool
+} from "../tools/kms-config-tools.js";
+import {
+  createKmsConfigHandler,
+  deleteKmsConfigHandler,
+  getKmsConfigHandler,
+  listKmsConfigsHandler,
+  updateKmsConfigHandler,
+  verifyKmsConfigHandler,
+  encryptVolumesHandler
+} from "../tools/handlers/kms-config-handler.js";
+import {
+  createQuotaRuleTool,
+  deleteQuotaRuleTool,
+  getQuotaRuleTool,
+  listQuotaRulesTool,
+  updateQuotaRuleTool
+} from "../tools/quota-rule-tools.js";
+import {
+  createQuotaRuleHandler,
+  deleteQuotaRuleHandler,
+  getQuotaRuleHandler,
+  listQuotaRulesHandler,
+  updateQuotaRuleHandler
+} from "../tools/handlers/quota-rule-handler.js";
 
 /**
  * Register all tools and their handlers to the tool registry
@@ -125,6 +181,7 @@ export function registerAllTools(mcpServer: McpServer) {
   mcpServer.registerTool(getStoragePoolTool.name, getStoragePoolTool, getStoragePoolHandler);
   mcpServer.registerTool(listStoragePoolsTool.name, listStoragePoolsTool, listStoragePoolsHandler);
   mcpServer.registerTool(updateStoragePoolTool.name, updateStoragePoolTool, updateStoragePoolHandler);
+  mcpServer.registerTool(validateDirectoryServiceTool.name, validateDirectoryServiceTool, validateDirectoryServiceHandler);
   
   // Register volume tools
   mcpServer.registerTool(createVolumeTool.name, createVolumeTool, createVolumeHandler);
@@ -139,6 +196,7 @@ export function registerAllTools(mcpServer: McpServer) {
   mcpServer.registerTool(getSnapshotTool.name, getSnapshotTool, getSnapshotHandler);
   mcpServer.registerTool(listSnapshotsTool.name, listSnapshotsTool, listSnapshotsHandler);
   mcpServer.registerTool(revertVolumeToSnapshotTool.name, revertVolumeToSnapshotTool, revertVolumeToSnapshotHandler);
+  mcpServer.registerTool(updateSnapshotTool.name, updateSnapshotTool, updateSnapshotHandler);
   
   // Register backup vault tools
   mcpServer.registerTool(createBackupVaultTool.name, createBackupVaultTool, createBackupVaultHandler);
@@ -153,6 +211,7 @@ export function registerAllTools(mcpServer: McpServer) {
   mcpServer.registerTool(getBackupTool.name, getBackupTool, getBackupHandler);
   mcpServer.registerTool(listBackupsTool.name, listBackupsTool, listBackupsHandler);
   mcpServer.registerTool(restoreBackupTool.name, restoreBackupTool, restoreBackupHandler);
+  mcpServer.registerTool(updateBackupTool.name, updateBackupTool, updateBackupHandler);
   
   // Register operation tools
   mcpServer.registerTool(getOperationTool.name, getOperationTool, getOperationHandler);
@@ -175,4 +234,29 @@ export function registerAllTools(mcpServer: McpServer) {
   mcpServer.registerTool(resumeReplicationTool.name, resumeReplicationTool, resumeReplicationHandler);
   mcpServer.registerTool(stopReplicationTool.name, stopReplicationTool, stopReplicationHandler);
   mcpServer.registerTool(reverseReplicationDirectionTool.name, reverseReplicationDirectionTool, reverseReplicationDirectionHandler);
+  mcpServer.registerTool(establishPeeringTool.name, establishPeeringTool, establishPeeringHandler);
+  mcpServer.registerTool(syncReplicationTool.name, syncReplicationTool, syncReplicationHandler);
+  
+  // Register active directory tools
+  mcpServer.registerTool(createActiveDirectoryTool.name, createActiveDirectoryTool, createActiveDirectoryHandler);
+  mcpServer.registerTool(deleteActiveDirectoryTool.name, deleteActiveDirectoryTool, deleteActiveDirectoryHandler);
+  mcpServer.registerTool(getActiveDirectoryTool.name, getActiveDirectoryTool, getActiveDirectoryHandler);
+  mcpServer.registerTool(listActiveDirectoriesTool.name, listActiveDirectoriesTool, listActiveDirectoriesHandler);
+  mcpServer.registerTool(updateActiveDirectoryTool.name, updateActiveDirectoryTool, updateActiveDirectoryHandler);
+  
+  // Register KMS config tools
+  mcpServer.registerTool(createKmsConfigTool.name, createKmsConfigTool, createKmsConfigHandler);
+  mcpServer.registerTool(deleteKmsConfigTool.name, deleteKmsConfigTool, deleteKmsConfigHandler);
+  mcpServer.registerTool(getKmsConfigTool.name, getKmsConfigTool, getKmsConfigHandler);
+  mcpServer.registerTool(listKmsConfigsTool.name, listKmsConfigsTool, listKmsConfigsHandler);
+  mcpServer.registerTool(updateKmsConfigTool.name, updateKmsConfigTool, updateKmsConfigHandler);
+  mcpServer.registerTool(verifyKmsConfigTool.name, verifyKmsConfigTool, verifyKmsConfigHandler);
+  mcpServer.registerTool(encryptVolumesTool.name, encryptVolumesTool, encryptVolumesHandler);
+  
+  // Register quota rule tools
+  mcpServer.registerTool(createQuotaRuleTool.name, createQuotaRuleTool, createQuotaRuleHandler);
+  mcpServer.registerTool(deleteQuotaRuleTool.name, deleteQuotaRuleTool, deleteQuotaRuleHandler);
+  mcpServer.registerTool(getQuotaRuleTool.name, getQuotaRuleTool, getQuotaRuleHandler);
+  mcpServer.registerTool(listQuotaRulesTool.name, listQuotaRulesTool, listQuotaRulesHandler);
+  mcpServer.registerTool(updateQuotaRuleTool.name, updateQuotaRuleTool, updateQuotaRuleHandler);
 }

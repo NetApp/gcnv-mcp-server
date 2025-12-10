@@ -128,3 +128,22 @@ export const restoreBackupTool: ToolConfig = {
         operationId: z.string().describe("The ID of the long-running operation for restoring the backup")
     }
 };
+
+// Update Backup Tool
+export const updateBackupTool: ToolConfig = {
+    name: "gcnv_backup_update",
+    title: "Update Backup",
+    description: "Updates a backup with full spec",
+    inputSchema: {
+        projectId: z.string().describe("The ID of the Google Cloud project"),
+        location: z.string().describe("The location of the backup"),
+        backupVaultId: z.string().describe("The ID of the backup vault containing the backup"),
+        backupId: z.string().describe("The ID of the backup to update"),
+        description: z.string().optional().describe("New description of the backup"),
+        labels: z.record(z.string()).optional().describe("New labels to apply to the backup")
+    },
+    outputSchema: {
+        name: z.string().describe("The name of the updated backup"),
+        operationId: z.string().describe("The ID of the long-running operation for updating the backup")
+    }
+};

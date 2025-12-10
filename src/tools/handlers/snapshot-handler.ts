@@ -287,3 +287,66 @@ export const revertVolumeToSnapshotHandler: ToolHandler =
             };
         }
     };
+
+// Update Snapshot Handler
+export const updateSnapshotHandler: ToolHandler = 
+    async (args: { [key: string]: any }, extra: any) => {
+        try {
+            const { projectId, location, volumeId, snapshotId, description, labels } = args;
+
+            // Create a new NetApp client using the factory
+            const netAppClient = NetAppClientFactory.createClient();
+
+            // Format the name for the snapshot
+            const name = `projects/${projectId}/locations/${location}/volumes/${volumeId}/snapshots/${snapshotId}`;
+
+            // Prepare the update mask based on provided fields
+            const updateMask: string[] = [];
+            const snapshot: any = { name };
+
+            if (description !== undefined) {
+                snapshot.description = description;
+                updateMask.push('description');
+            }
+
+            if (labels !== undefined) {
+                snapshot.labels = labels;
+                updateMask.push('labels');
+            }
+
+            // Call the API to update the snapshot
+            const request = {
+                snapshot,
+                updateMask: {
+                    paths: updateMask
+                }
+            };
+
+            console.log("Update Snapshot Request:", request);
+            const [operation] = await netAppClient.updateSnapshot(request);
+            console.log("Update Snapshot Operation:", operation);
+
+            return {
+                content: [{
+                    type: "text" as const,
+                    text: JSON.stringify({
+                        message: `Snapshot '${snapshotId}' update operation started`,
+                        operation: operation
+                    }, null, 2)
+                }],
+                structuredContent: {
+                    name: name,
+                    operationId: operation.name || ''
+                }
+            };
+        } catch (error: any) {
+            console.error("Error updating snapshot:", error);
+            return {
+                isError: true,
+                content: [{
+                    type: "text" as const,
+                    text: `Error updating snapshot: ${error.message || 'Unknown error'}`
+                }]
+            };
+        }
+    };

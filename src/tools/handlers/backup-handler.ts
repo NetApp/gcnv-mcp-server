@@ -401,3 +401,75 @@ export const restoreBackupHandler: ToolHandler =
             };
         }
     };
+
+// Update Backup Handler
+export const updateBackupHandler: ToolHandler = 
+    async (args: { [key: string]: any }, extra: any) => {
+        try {
+            const { projectId, location, backupVaultId, backupId, description, labels } = args;
+
+            // Create a new NetApp client using the factory
+            const netAppClient = NetAppClientFactory.createClient();
+
+            // Format the name for the backup
+            const name = `projects/${projectId}/locations/${location}/backupVaults/${backupVaultId}/backups/${backupId}`;
+
+            // Prepare the update mask based on provided fields
+            const updateMask: string[] = [];
+            const backup: any = { name };
+
+            if (description !== undefined) {
+                backup.description = description;
+                updateMask.push('description');
+            }
+
+            if (labels !== undefined) {
+                backup.labels = labels;
+                updateMask.push('labels');
+            }
+
+            // Call the API to update the backup
+            const request = {
+                backup,
+                updateMask: {
+                    paths: updateMask
+                }
+            };
+
+            console.log("Update Backup Request:", request);
+            const [operation] = await netAppClient.updateBackup(request);
+            console.log("Update Backup Operation:", operation);
+
+            return {
+                content: [{
+                    type: "text" as const,
+                    text: JSON.stringify({
+                        message: `Backup '${backupId}' update operation started`,
+                        operation: operation
+                    }, null, 2)
+                }],
+                structuredContent: {
+                    name: name,
+                    operationId: operation.name || ''
+                }
+            };
+        } catch (error: any) {
+            console.error("Error updating backup:", error);
+            
+            let errorMessage = `Failed to update backup: ${error.message}`;
+            
+            if (error.code === 5) { // NOT_FOUND
+                errorMessage = `Backup not found: projects/${args.projectId}/locations/${args.location}/backupVaults/${args.backupVaultId}/backups/${args.backupId}`;
+            } else if (error.code === 7) { // PERMISSION_DENIED
+                errorMessage = "Permission denied. Please check your credentials and access rights.";
+            }
+            
+            return {
+                isError: true,
+                content: [{
+                    type: "text" as const,
+                    text: errorMessage
+                }]
+            };
+        }
+    };
