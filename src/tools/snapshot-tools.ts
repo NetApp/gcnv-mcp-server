@@ -102,3 +102,22 @@ export const revertVolumeToSnapshotTool: ToolConfig = {
         operationId: z.string().describe("The ID of the long-running operation for reverting the volume")
     }
 };
+
+// Update Snapshot Tool
+export const updateSnapshotTool: ToolConfig = {
+    name: "gcnv_snapshot_update",
+    title: "Update Snapshot",
+    description: "Updates the settings of a specific snapshot",
+    inputSchema: {
+        projectId: z.string().describe("The ID of the Google Cloud project"),
+        location: z.string().describe("The location of the volume"),
+        volumeId: z.string().describe("The ID of the volume containing the snapshot"),
+        snapshotId: z.string().describe("The ID of the snapshot to update"),
+        description: z.string().optional().describe("New description of the snapshot"),
+        labels: z.record(z.string()).optional().describe("New labels to apply to the snapshot")
+    },
+    outputSchema: {
+        name: z.string().describe("The name of the updated snapshot"),
+        operationId: z.string().describe("The ID of the long-running operation for updating the snapshot")
+    }
+};

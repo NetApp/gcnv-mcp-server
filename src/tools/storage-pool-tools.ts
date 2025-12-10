@@ -114,3 +114,20 @@ export const updateStoragePoolTool: ToolConfig = {
         operationId: z.string().optional().describe("The ID of the long-running operation for updating the storage pool")
     }
 };
+
+// Validate Directory Service Tool
+export const validateDirectoryServiceTool: ToolConfig = {
+    name: "gcnv_storage_pool_validate_directory_service",
+    title: "Validate Directory Service",
+    description: "Validates directory service policy attached to a storage pool",
+    inputSchema: {
+        projectId: z.string().describe("The ID of the Google Cloud project"),
+        location: z.string().describe("The location of the storage pool"),
+        storagePoolId: z.string().describe("The ID of the storage pool"),
+        directoryServiceType: z.enum(["ACTIVE_DIRECTORY", "LDAP"]).describe("Type of directory service policy attached to the storage pool")
+    },
+    outputSchema: {
+        success: z.boolean().describe("Whether the validation was successful"),
+        operationId: z.string().describe("The ID of the long-running operation for validating directory service")
+    }
+};

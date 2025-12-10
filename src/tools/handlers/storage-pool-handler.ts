@@ -313,3 +313,48 @@ export const updateStoragePoolHandler: ToolHandler =
             };
         }
     };
+
+// Validate Directory Service Handler
+export const validateDirectoryServiceHandler: ToolHandler = 
+    async (args: { [key: string]: any }, extra: any) => {
+        try {
+            const { projectId, location, storagePoolId, directoryServiceType } = args;
+
+            // Create a new NetApp client using the factory
+            const netAppClient = NetAppClientFactory.createClient();
+
+            // Format the name for the storage pool
+            const name = `projects/${projectId}/locations/${location}/storagePools/${storagePoolId}`;
+
+            // Call the API to validate directory service
+            const [operation] = await netAppClient.validateDirectoryService({
+                name,
+                directoryServiceType
+            });
+
+            console.log("Validate Directory Service Operation:", operation);
+
+            return {
+                content: [{
+                    type: "text" as const,
+                    text: JSON.stringify({ 
+                        message: `Directory service validation initiated for storage pool ${storagePoolId}`,
+                        operation: operation 
+                    }, null, 2)
+                }],
+                structuredContent: {
+                    success: true,
+                    operationId: operation.name || ''
+                }
+            };
+        } catch (error: any) {
+            console.error("Error validating directory service:", error);
+            return {
+                isError: true,
+                content: [{
+                    type: "text" as const,
+                    text: `Error validating directory service: ${error.message || 'Unknown error'}`
+                }]
+            };
+        }
+    };

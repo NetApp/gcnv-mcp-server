@@ -157,3 +157,41 @@ export const reverseReplicationDirectionTool: ToolConfig = {
         operationId: z.string().describe("The ID of the long-running operation for reversing the replication direction")
     }
 };
+
+// Establish Peering Tool
+export const establishPeeringTool: ToolConfig = {
+    name: "gcnv_replication_establish_peering",
+    title: "Establish Replication Peering",
+    description: "Establishes replication peering between clusters",
+    inputSchema: {
+        projectId: z.string().describe("The ID of the Google Cloud project"),
+        location: z.string().describe("The location of the replication"),
+        volumeId: z.string().describe("The ID of the volume containing the replication"),
+        replicationId: z.string().describe("The ID of the replication"),
+        peerClusterName: z.string().describe("Name of the user's local source cluster to be peered with the destination cluster"),
+        peerSvmName: z.string().describe("Name of the user's local source vserver svm to be peered with the destination vserver svm"),
+        peerVolumeName: z.string().describe("Name of the user's local source volume to be peered with the destination volume"),
+        peerIpAddresses: z.array(z.string()).optional().describe("Optional list of IPv4 ip addresses to be used for peering")
+    },
+    outputSchema: {
+        name: z.string().describe("The name of the replication"),
+        operationId: z.string().describe("The ID of the long-running operation for establishing peering")
+    }
+};
+
+// Sync Replication Tool
+export const syncReplicationTool: ToolConfig = {
+    name: "gcnv_replication_sync",
+    title: "Sync Replication",
+    description: "Syncs the replication - invokes one time volume data transfer from source to destination",
+    inputSchema: {
+        projectId: z.string().describe("The ID of the Google Cloud project"),
+        location: z.string().describe("The location of the replication"),
+        volumeId: z.string().describe("The ID of the volume containing the replication"),
+        replicationId: z.string().describe("The ID of the replication to sync")
+    },
+    outputSchema: {
+        name: z.string().describe("The name of the replication"),
+        operationId: z.string().describe("The ID of the long-running operation for syncing the replication")
+    }
+};

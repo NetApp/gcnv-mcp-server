@@ -439,3 +439,100 @@ export const reverseReplicationDirectionHandler: ToolHandler =
             };
         }
     };
+
+// Establish Peering Handler
+export const establishPeeringHandler: ToolHandler = 
+    async (args: { [key: string]: any }, extra: any) => {
+        try {
+            const { projectId, location, volumeId, replicationId, peerClusterName, peerSvmName, peerVolumeName, peerIpAddresses } = args;
+
+            // Create a new NetApp client using the factory
+            const netAppClient = NetAppClientFactory.createClient();
+
+            // Format the name for the replication
+            const name = `projects/${projectId}/locations/${location}/volumes/${volumeId}/replications/${replicationId}`;
+
+            // Call the API to establish peering
+            const request: any = {
+                name,
+                peerClusterName,
+                peerSvmName,
+                peerVolumeName
+            };
+
+            if (peerIpAddresses && peerIpAddresses.length > 0) {
+                request.peerIpAddresses = peerIpAddresses;
+            }
+            
+            console.log("Establish Peering Request:", request);
+            const [operation] = await netAppClient.establishPeering(request);
+            console.log("Establish Peering Operation:", operation);
+
+            return {
+                content: [{
+                    type: "text" as const,
+                    text: JSON.stringify({
+                        message: `Replication peering establishment requested for ${replicationId}`,
+                        operation: operation
+                    }, null, 2)
+                }],
+                structuredContent: {
+                    name: name,
+                    operationId: operation.name || ''
+                }
+            };
+        } catch (error: any) {
+            console.error("Error establishing peering:", error);
+            return {
+                isError: true,
+                content: [{
+                    type: "text" as const,
+                    text: `Error establishing peering: ${error.message || 'Unknown error'}`
+                }]
+            };
+        }
+    };
+
+// Sync Replication Handler
+export const syncReplicationHandler: ToolHandler = 
+    async (args: { [key: string]: any }, extra: any) => {
+        try {
+            const { projectId, location, volumeId, replicationId } = args;
+
+            // Create a new NetApp client using the factory
+            const netAppClient = NetAppClientFactory.createClient();
+
+            // Format the name for the replication
+            const name = `projects/${projectId}/locations/${location}/volumes/${volumeId}/replications/${replicationId}`;
+
+            // Call the API to sync replication
+            const request = { name };
+            
+            console.log("Sync Replication Request:", request);
+            const [operation] = await netAppClient.syncReplication(request);
+            console.log("Sync Replication Operation:", operation);
+
+            return {
+                content: [{
+                    type: "text" as const,
+                    text: JSON.stringify({
+                        message: `Replication sync requested for ${replicationId}`,
+                        operation: operation
+                    }, null, 2)
+                }],
+                structuredContent: {
+                    name: name,
+                    operationId: operation.name || ''
+                }
+            };
+        } catch (error: any) {
+            console.error("Error syncing replication:", error);
+            return {
+                isError: true,
+                content: [{
+                    type: "text" as const,
+                    text: `Error syncing replication: ${error.message || 'Unknown error'}`
+                }]
+            };
+        }
+    };
