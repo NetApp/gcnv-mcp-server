@@ -1,133 +1,228 @@
 import { z } from 'zod';
-import { ToolConfig } from "../types/tool.js";
+import { ToolConfig } from '../types/tool.js';
 
 // Create Storage Pool Tool
 export const createStoragePoolTool: ToolConfig = {
-    name: "gcnv_storage_pool_create",
-    title: "Create Storage Pool",
-    description: "Creates a new storage pool in the specified project and location",
-    inputSchema: {
-        projectId: z.string().describe("The ID of the Google Cloud project"),
-        location: z.string().describe("The location where the storage pool should be created"),
-        storagePoolId: z.string().describe("The ID to assign to the storage pool"),
-        capacityGib: z.number().describe("The capacity of the storage pool in GiB"),
-        serviceLevel: z.enum(["STANDARD", "PREMIUM", "EXTREME"]).describe("The service level of the storage pool"),
-        description: z.string().optional().describe("Optional description of the storage pool"),
-        labels: z.record(z.string()).optional().describe("Optional labels to apply to the storage pool"),
-        networkConfig: z.object({
-            network: z.string().describe("The VPC network to use for the storage pool"),
-        }).optional().describe("Optional network configuration")
-    },
-    outputSchema: {
-        name: z.string().describe("The name of the created storage pool"),
-        operationId: z.string().describe("The ID of the long-running operation for creating the storage pool")
-    }
+  name: 'gcnv_storage_pool_create',
+  title: 'Create Storage Pool',
+  description: 'Creates a new storage pool in the specified project and location',
+  inputSchema: {
+    projectId: z.string().describe('The ID of the Google Cloud project'),
+    location: z.string().describe('The location where the storage pool should be created'),
+    storagePoolId: z.string().describe('The ID to assign to the storage pool'),
+    capacityGib: z.number().describe('The capacity of the storage pool in GiB'),
+    serviceLevel: z
+      .enum(['STANDARD', 'PREMIUM', 'EXTREME'])
+      .describe('The service level of the storage pool'),
+    description: z.string().optional().describe('Optional description of the storage pool'),
+    labels: z
+      .record(z.string())
+      .optional()
+      .describe('Optional labels to apply to the storage pool'),
+    network: z
+      .string()
+      .optional()
+      .describe(
+        'The VPC network to use for the storage pool (projects/{project}/global/networks/{network})'
+      ),
+    activeDirectory: z
+      .string()
+      .optional()
+      .describe('The Active Directory policy resource to attach to SMB volumes'),
+    kmsConfig: z
+      .string()
+      .optional()
+      .describe(
+        'The CMEK KMS config to use for pool encryption (projects/{project}/locations/{location}/kmsConfigs/{kmsConfigId})'
+      ),
+    encryptionType: z
+      .enum(['SERVICE_MANAGED', 'CLOUD_KMS'])
+      .optional()
+      .describe('Encryption type for the pool; use CLOUD_KMS with kmsConfig'),
+    ldapEnabled: z
+      .boolean()
+      .optional()
+      .describe('Whether LDAP should be enabled for NFS volume access'),
+    psaRange: z
+      .string()
+      .optional()
+      .describe('CIDR range for Private Service Access allocated to the pool'),
+    globalAccessAllowed: z
+      .boolean()
+      .optional()
+      .describe('Allow clients from other regions to access volumes in this pool'),
+    allowAutoTiering: z
+      .boolean()
+      .optional()
+      .describe('Enable auto-tiering to manage capacity for the pool'),
+  },
+  outputSchema: {
+    name: z.string().describe('The name of the created storage pool'),
+    operationId: z
+      .string()
+      .describe('The ID of the long-running operation for creating the storage pool'),
+  },
 };
 
 // Delete Storage Pool Tool
 export const deleteStoragePoolTool: ToolConfig = {
-    name: "gcnv_storage_pool_delete",
-    title: "Delete Storage Pool",
-    description: "Deletes a storage pool in the specified project and location",
-    inputSchema: {
-        projectId: z.string().describe("The ID of the Google Cloud project"),
-        location: z.string().describe("The location of the storage pool"),
-        storagePoolId: z.string().describe("The ID of the storage pool to delete"),
-        force: z.boolean().optional().describe("Force deletion even if the pool contains resources")
-    },
-    outputSchema: {
-        success: z.boolean().describe("Whether the deletion was successful"),
-        operationId: z.string().optional().describe("The ID of the long-running operation")
-    }
+  name: 'gcnv_storage_pool_delete',
+  title: 'Delete Storage Pool',
+  description: 'Deletes a storage pool in the specified project and location',
+  inputSchema: {
+    projectId: z.string().describe('The ID of the Google Cloud project'),
+    location: z.string().describe('The location of the storage pool'),
+    storagePoolId: z.string().describe('The ID of the storage pool to delete'),
+    force: z.boolean().optional().describe('Force deletion even if the pool contains resources'),
+  },
+  outputSchema: {
+    success: z.boolean().describe('Whether the deletion was successful'),
+    operationId: z.string().optional().describe('The ID of the long-running operation'),
+  },
 };
 
 // Get Storage Pool Tool
 export const getStoragePoolTool: ToolConfig = {
-    name: "gcnv_storage_pool_get",
-    title: "Get Storage Pool",
-    description: "Gets details of a specific storage pool",
-    inputSchema: {
-        projectId: z.string().describe("The ID of the Google Cloud project"),
-        location: z.string().describe("The location of the storage pool"),
-        storagePoolId: z.string().describe("The ID of the storage pool to retrieve")
-    },
-    outputSchema: {
-        name: z.string().describe("The name of the storage pool"),
-        storagePoolId: z.string().describe("The ID of the storage pool"),
-        serviceLevel: z.string().describe("The service level of the storage pool"),
-        capacityGib: z.number().describe("The capacity of the storage pool in GiB"),
-        volumeCapacityGib: z.number().describe("The total volume capacity in GiB"),
-        volumecount: z.number().describe("The number of volumes in the storage pool"),
-        state: z.string().describe("The current state of the storage pool"),
-        createTime: z.date().describe("The timestamp when the storage pool was created"),
-        description: z.string().optional().describe("The description of the storage pool"),
-        labels: z.record(z.string()).optional().describe("Labels applied to the storage pool"),
-        network: z.string().optional().describe("The VPC network used by the storage pool")
-    }
+  name: 'gcnv_storage_pool_get',
+  title: 'Get Storage Pool',
+  description: 'Gets details of a specific storage pool',
+  inputSchema: {
+    projectId: z.string().describe('The ID of the Google Cloud project'),
+    location: z.string().describe('The location of the storage pool'),
+    storagePoolId: z.string().describe('The ID of the storage pool to retrieve'),
+  },
+  outputSchema: {
+    name: z.string().describe('The name of the storage pool'),
+    storagePoolId: z.string().describe('The ID of the storage pool'),
+    serviceLevel: z.string().describe('The service level of the storage pool'),
+    capacityGib: z.number().describe('The capacity of the storage pool in GiB'),
+    volumeCapacityGib: z.number().describe('The total volume capacity in GiB'),
+    volumecount: z.number().describe('The number of volumes in the storage pool'),
+    state: z.string().describe('The current state of the storage pool'),
+    createTime: z.date().describe('The timestamp when the storage pool was created'),
+    description: z.string().optional().describe('The description of the storage pool'),
+    labels: z.record(z.string()).optional().describe('Labels applied to the storage pool'),
+    network: z.string().optional().describe('The VPC network used by the storage pool'),
+    activeDirectory: z
+      .string()
+      .optional()
+      .describe('The Active Directory policy attached to SMB volumes'),
+    kmsConfig: z.string().optional().describe('The CMEK KMS config applied to the pool'),
+    encryptionType: z.string().optional().describe('The encryption type configured for the pool'),
+    ldapEnabled: z.boolean().optional().describe('Whether LDAP is enabled for NFS volume access'),
+    psaRange: z
+      .string()
+      .optional()
+      .describe('CIDR range for Private Service Access allocated to the pool'),
+    globalAccessAllowed: z
+      .boolean()
+      .optional()
+      .describe('Indicates if cross-region volume access is allowed'),
+    allowAutoTiering: z
+      .boolean()
+      .optional()
+      .describe('Whether auto-tiering is enabled for the pool'),
+  },
 };
 
 // List Storage Pools Tool
 export const listStoragePoolsTool: ToolConfig = {
-    name: "gcnv_storage_pool_list",
-    title: "List Storage Pools",
-    description: "Lists all storage pools in the specified project and location",
-    inputSchema: {
-        projectId: z.string().describe("The ID of the Google Cloud project"),
-        location: z.string().describe("The location to list storage pools from"),
-        filter: z.string().optional().describe("Filter expression for filtering results"),
-        pageSize: z.number().optional().describe("The maximum number of storage pools to return"),
-        pageToken: z.string().optional().describe("Page token from a previous list request")
-    },
-    outputSchema: {
-        storagePools: z.array(z.object({
-            name: z.string().describe("The name of the storage pool"),
-            storagePoolId: z.string().describe("The ID of the storage pool"),
-            serviceLevel: z.string().describe("The service level of the storage pool"),
-            capacityGib: z.number().describe("The capacity of the storage pool in GiB"),
-            volumeCapacityGib: z.number().describe("The total volume capacity in GiB"),
-            volumecount: z.number().describe("The number of volumes in the storage pool"),
-            state: z.string().describe("The current state of the storage pool"),
-            createTime: z.date().describe("The timestamp when the storage pool was created"),
-            description: z.string().optional().describe("The description of the storage pool"),
-            labels: z.record(z.string()).optional().describe("Labels applied to the storage pool"),
-            network: z.string().optional().describe("The VPC network used by the storage pool")
-        })).describe("List of storage pools"),
-        nextPageToken: z.string().optional().describe("Token to retrieve the next page of results")
-    }
+  name: 'gcnv_storage_pool_list',
+  title: 'List Storage Pools',
+  description: 'Lists all storage pools in the specified project and location',
+  inputSchema: {
+    projectId: z.string().describe('The ID of the Google Cloud project'),
+    location: z.string().describe('The location to list storage pools from'),
+    filter: z.string().optional().describe('Filter expression for filtering results'),
+    pageSize: z.number().optional().describe('The maximum number of storage pools to return'),
+    pageToken: z.string().optional().describe('Page token from a previous list request'),
+  },
+  outputSchema: {
+    storagePools: z
+      .array(
+        z.object({
+          name: z.string().describe('The name of the storage pool'),
+          storagePoolId: z.string().describe('The ID of the storage pool'),
+          serviceLevel: z.string().describe('The service level of the storage pool'),
+          capacityGib: z.number().describe('The capacity of the storage pool in GiB'),
+          volumeCapacityGib: z.number().describe('The total volume capacity in GiB'),
+          volumecount: z.number().describe('The number of volumes in the storage pool'),
+          state: z.string().describe('The current state of the storage pool'),
+          createTime: z.date().describe('The timestamp when the storage pool was created'),
+          description: z.string().optional().describe('The description of the storage pool'),
+          labels: z.record(z.string()).optional().describe('Labels applied to the storage pool'),
+          network: z.string().optional().describe('The VPC network used by the storage pool'),
+          activeDirectory: z
+            .string()
+            .optional()
+            .describe('The Active Directory policy attached to SMB volumes'),
+          kmsConfig: z.string().optional().describe('The CMEK KMS config applied to the pool'),
+          encryptionType: z
+            .string()
+            .optional()
+            .describe('The encryption type configured for the pool'),
+          ldapEnabled: z
+            .boolean()
+            .optional()
+            .describe('Whether LDAP is enabled for NFS volume access'),
+          psaRange: z
+            .string()
+            .optional()
+            .describe('CIDR range for Private Service Access allocated to the pool'),
+          globalAccessAllowed: z
+            .boolean()
+            .optional()
+            .describe('Indicates if cross-region volume access is allowed'),
+          allowAutoTiering: z
+            .boolean()
+            .optional()
+            .describe('Whether auto-tiering is enabled for the pool'),
+        })
+      )
+      .describe('List of storage pools'),
+    nextPageToken: z.string().optional().describe('Token to retrieve the next page of results'),
+  },
 };
 
 // Update Storage Pool Tool
 export const updateStoragePoolTool: ToolConfig = {
-    name: "gcnv_storage_pool_update",
-    title: "Update Storage Pool",
-    description: "Updates a storage pool in the specified project and location",
-    inputSchema: {
-        projectId: z.string().describe("The ID of the Google Cloud project"),
-        location: z.string().describe("The location of the storage pool"),
-        storagePoolId: z.string().describe("The ID of the storage pool to update"),
-        capacityGib: z.number().optional().describe("The new capacity of the storage pool in GiB"),
-        description: z.string().optional().describe("New description of the storage pool"),
-        labels: z.record(z.string()).optional().describe("New labels to apply to the storage pool")
-    },
-    outputSchema: {
-        name: z.string().describe("The name of the updated storage pool"),
-        operationId: z.string().optional().describe("The ID of the long-running operation for updating the storage pool")
-    }
+  name: 'gcnv_storage_pool_update',
+  title: 'Update Storage Pool',
+  description: 'Updates a storage pool in the specified project and location',
+  inputSchema: {
+    projectId: z.string().describe('The ID of the Google Cloud project'),
+    location: z.string().describe('The location of the storage pool'),
+    storagePoolId: z.string().describe('The ID of the storage pool to update'),
+    capacityGib: z.number().optional().describe('The new capacity of the storage pool in GiB'),
+    description: z.string().optional().describe('New description of the storage pool'),
+    labels: z.record(z.string()).optional().describe('New labels to apply to the storage pool'),
+  },
+  outputSchema: {
+    name: z.string().describe('The name of the updated storage pool'),
+    operationId: z
+      .string()
+      .optional()
+      .describe('The ID of the long-running operation for updating the storage pool'),
+  },
 };
 
 // Validate Directory Service Tool
 export const validateDirectoryServiceTool: ToolConfig = {
-    name: "gcnv_storage_pool_validate_directory_service",
-    title: "Validate Directory Service",
-    description: "Validates directory service policy attached to a storage pool",
-    inputSchema: {
-        projectId: z.string().describe("The ID of the Google Cloud project"),
-        location: z.string().describe("The location of the storage pool"),
-        storagePoolId: z.string().describe("The ID of the storage pool"),
-        directoryServiceType: z.enum(["ACTIVE_DIRECTORY", "LDAP"]).describe("Type of directory service policy attached to the storage pool")
-    },
-    outputSchema: {
-        success: z.boolean().describe("Whether the validation was successful"),
-        operationId: z.string().describe("The ID of the long-running operation for validating directory service")
-    }
+  name: 'gcnv_storage_pool_validate_directory_service',
+  title: 'Validate Directory Service',
+  description: 'Validates directory service policy attached to a storage pool',
+  inputSchema: {
+    projectId: z.string().describe('The ID of the Google Cloud project'),
+    location: z.string().describe('The location of the storage pool'),
+    storagePoolId: z.string().describe('The ID of the storage pool'),
+    directoryServiceType: z
+      .enum(['ACTIVE_DIRECTORY', 'LDAP'])
+      .describe('Type of directory service policy attached to the storage pool'),
+  },
+  outputSchema: {
+    success: z.boolean().describe('Whether the validation was successful'),
+    operationId: z
+      .string()
+      .describe('The ID of the long-running operation for validating directory service'),
+  },
 };
