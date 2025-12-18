@@ -43,6 +43,11 @@ The Google Cloud NetApp Volumes MCP Server is built using the Model Context Prot
   - Delete backups when they are no longer needed
   - Restore backups to new or existing volumes
 
+- **Replication Management**:
+  - Create, list, get, update, stop, resume, reverse direction, sync, and establish peering for replications
+  - Replication is only supported between specific region pairs for Standard/Premium/Extreme, or within the same region group for Flex. Always validate the requested source/destination regions against the official matrix before creating a replication. See the Google Cloud NetApp Volumes replication guide: https://docs.cloud.google.com/netapp/volumes/docs/protect-data/about-volume-replication
+  - When creating a replication, the destination volume is auto-created by specifying only the destination storage pool. Users can also choose a replication schedule (`EVERY_10_MINUTES`, `HOURLY`, or `DAILY`; defaults to `HOURLY`).
+
 - **Long-running Operations Management**:
   - Get details of an operation by ID
   - Cancel in-progress operations
@@ -55,6 +60,14 @@ The Google Cloud NetApp Volumes MCP Server is built using the Model Context Prot
 - Google Cloud authentication credentials
 
 ## Installation
+
+If you just want to run the published package (no local build), use:
+
+```bash
+npx @gcnv/gcnv-mcp-server@latest --transport stdio
+```
+
+Then configure `gemini-extension.json` (or your linked extension) to call the same command. To work from source, follow the steps below.
 
 1. Clone this repository:
 
@@ -69,7 +82,7 @@ The Google Cloud NetApp Volumes MCP Server is built using the Model Context Prot
    npm install
    ```
 
-3. Build the project:
+3. Build the project (required when working from source or before publishing):
 
    ```bash
    npm run build
@@ -87,11 +100,12 @@ The Google Cloud NetApp Volumes MCP Server is built using the Model Context Prot
    gemini mcp list
    ```
 
-> Gemini automatically forks the MCP server whenever a linked extension needs it, so once the build output exists and the extension is linked, no manual `npm start` is required for normal usage.
+> Gemini automatically forks the MCP server whenever a linked extension needs it, so once the build output exists (or the published package is available via `npx`) and the extension is linked, no manual `npm start` is required for normal usage.
 
 ## Google Cloud Authentication
 
 Ensure you have valid Google Cloud credentials set up before invoking tools:
+
 - Set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable pointing to a service account key file, or
 - Use Application Default Credentials (ADC) with `gcloud auth application-default login`
 
@@ -114,6 +128,7 @@ The stdio transport is the default mode and is launched by Gemini CLI when a lin
 The server can also run as an HTTP server using Server-Sent Events (SSE) for MCP communication.
 
 **Basic Usage:**
+
 ```bash
 # Start HTTP server on default port 3000
 npm run start:http
@@ -129,14 +144,17 @@ npm start -- -t http -p 8080
 ```
 
 **Command-Line Options:**
+
 - `--transport` or `-t`: Transport mode (`stdio` or `http`). Default: `stdio`
 - `--port` or `-p`: HTTP server port (only used with HTTP transport). Default: `3000`
 
 **HTTP Endpoint:**
 When running in HTTP mode, the server listens on:
+
 - `http://localhost:<port>/message` - SSE endpoint for MCP communication
 
 **Development Mode:**
+
 ```bash
 # Build and start with stdio (default)
 npm run dev
@@ -261,7 +279,7 @@ The project follows a modular architecture:
 To use the MCP server with Gemini CLI or other MCP-aware clients:
 
 1. **Link the Extension**  
-   After building the project, register the extension with the Gemini CLI. This enables Gemini to fork the stdio-based server on demand.
+   After building the project from source (or when relying on the published package via `npx @gcnv/gcnv-mcp-server@latest`), register the extension with the Gemini CLI. This enables Gemini to fork the stdio-based server on demand.
 
    ```bash
    gemini extension link .
@@ -278,9 +296,9 @@ To use the MCP server with Gemini CLI or other MCP-aware clients:
    ```
 
 4. **Invoke Tools via Chat**  
-   Trigger MCP interactions from Gemini. When a chat session or CLI command references the `gcnv-mcp` server, Gemini starts the compiled `build/index.js` process and communicates with it over stdio (default).
+   Trigger MCP interactions from Gemini. When a chat session or CLI command references the `gcnv-mcp` server, Gemini starts the `gcnv-mcp` CLI (from the published package via `npx`, or from your local `build/index.js` when linked from source) and communicates with it over stdio (default).
    No extra launch step is necessary—the CLI takes care of process lifecycle each time the server is needed.
-   
+
    **Note**: For HTTP transport mode, you'll need to manually start the server and configure your MCP client to connect to the HTTP endpoint instead of using stdio.
 
 5. **Maintain Authentication**  

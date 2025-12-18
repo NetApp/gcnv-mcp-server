@@ -1,5 +1,5 @@
-import { NetAppClient } from "@google-cloud/netapp";
-import { ClientOptions } from "google-gax";
+import { NetAppClient } from '@google-cloud/netapp';
+import { ClientOptions } from 'google-gax';
 
 /**
  * Factory class for creating NetAppClient instances
@@ -8,26 +8,26 @@ import { ClientOptions } from "google-gax";
 export class NetAppClientFactory {
   // Cache for storing client instances (singleton pattern)
   private static clientCache: { [key: string]: NetAppClient } = {};
-  
+
   // Default configuration that will be used if no specific options are provided
   private static defaultConfig: {
     // Default API endpoint
     // apiEndpoint: 'autopush-netapp.sandbox.googleapis.com',
-        
+
     // Default timeout in milliseconds
-    timeout: 60000,
-    
+    timeout: 60000;
+
     // Default retry configuration
     retry: {
-      initialDelayMs: 1000,
-      maxDelayMs: 30000,
-      maxRetries: 5
-    }
-  }
+      initialDelayMs: 1000;
+      maxDelayMs: 30000;
+      maxRetries: 5;
+    };
+  };
 
   /**
    * Create a new NetAppClient instance
-   * 
+   *
    * @param options - Options for the NetApp client, will override default config if both exist
    * @param cacheKey - Optional key for caching the client instance
    * @returns A configured NetAppClient instance
@@ -40,17 +40,17 @@ export class NetAppClientFactory {
 
     // Merge default config with provided options, with options taking precedence
     let mergedOptions: ClientOptions | undefined;
-    
+
     if (this.defaultConfig || options) {
       mergedOptions = {
         ...(this.defaultConfig || {}),
-        ...(options || {})
+        ...(options || {}),
       };
     }
 
     // Create a new client with the merged options
     const client = mergedOptions ? new NetAppClient(mergedOptions) : new NetAppClient();
-    
+
     // If a cache key is provided, store the client for future use
     if (cacheKey) {
       this.clientCache[cacheKey] = client;
@@ -66,7 +66,7 @@ export class NetAppClientFactory {
   public static clearCache(): void {
     this.clientCache = {};
   }
-  
+
   /**
    * Reset the factory to its initial state
    * Clears both the cache and default configuration
