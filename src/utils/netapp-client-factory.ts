@@ -10,19 +10,19 @@ export class NetAppClientFactory {
   private static clientCache: { [key: string]: NetAppClient } = {};
 
   // Default configuration that will be used if no specific options are provided
-  private static defaultConfig: {
+  private static defaultConfig: ClientOptions = {
     // Default API endpoint
     // apiEndpoint: 'autopush-netapp.sandbox.googleapis.com',
 
     // Default timeout in milliseconds
-    timeout: 60000;
+    timeout: 60000,
 
     // Default retry configuration
     retry: {
-      initialDelayMs: 1000;
-      maxDelayMs: 30000;
-      maxRetries: 5;
-    };
+      initialDelayMs: 1000,
+      maxDelayMs: 30000,
+      maxRetries: 5,
+    },
   };
 
   /**

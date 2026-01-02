@@ -21,6 +21,19 @@ export function registerTool(tool: Tool, handler: ToolHandler): void {
 }
 
 /**
+ * Clear all registered tools and handlers.
+ * Primarily useful for unit tests and hot-reload scenarios.
+ */
+export function clearToolRegistry(): void {
+  for (const key of Object.keys(toolRegistry)) {
+    delete toolRegistry[key];
+  }
+  for (const key of Object.keys(toolHandlers)) {
+    delete toolHandlers[key];
+  }
+}
+
+/**
  * Get all tool definitions
  */
 export function getAllToolDefinitions(): Tool[] {
