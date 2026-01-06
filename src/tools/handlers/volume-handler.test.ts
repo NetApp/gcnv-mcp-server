@@ -153,6 +153,40 @@ describe('volume-handler', () => {
     expect(result.structuredContent).toMatchObject({ operationId: 'operations/op-del2' });
   });
 
+  it('deleteVolumeHandler falls back to empty operationId when operation.name is missing', async () => {
+    const deleteVolume = vi.fn().mockResolvedValue([{}]);
+    createClientMock.mockReturnValue({ deleteVolume });
+
+    const { deleteVolumeHandler } = await import('./volume-handler.js');
+    const result = await deleteVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+      force: false,
+    });
+
+    expect(result.structuredContent).toEqual({ success: true, operationId: '' });
+  });
+
+  it('delete/get/list handlers return "Unknown error" when thrown error has no message', async () => {
+    const err = {};
+
+    const { deleteVolumeHandler, getVolumeHandler, listVolumesHandler } = await import('./volume-handler.js');
+
+    createClientMock.mockReturnValue({ deleteVolume: vi.fn().mockRejectedValue(err) });
+    expect(((await deleteVolumeHandler({ projectId: 'p1', location: 'l', volumeId: 'v' })) as any).content?.[0]?.text).toContain(
+      'Unknown error'
+    );
+
+    createClientMock.mockReturnValue({ getVolume: vi.fn().mockRejectedValue(err) });
+    expect(((await getVolumeHandler({ projectId: 'p1', location: 'l', volumeId: 'v' })) as any).content?.[0]?.text).toContain(
+      'Unknown error'
+    );
+
+    createClientMock.mockReturnValue({ listVolumes: vi.fn().mockRejectedValue(err) });
+    expect(((await listVolumesHandler({ projectId: 'p1', location: 'l' })) as any).content?.[0]?.text).toContain('Unknown error');
+  });
+
   it('getVolumeHandler calls getVolume and returns formatted volume in structuredContent', async () => {
     const getVolume = vi.fn().mockResolvedValue([
       {

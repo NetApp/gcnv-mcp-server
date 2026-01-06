@@ -454,7 +454,7 @@ export const updateQuotaRuleHandler: ToolHandler = async (args: { [key: string]:
 
     const request = {
       quotaRule,
-      updateMask: updateMask.length > 0 ? { paths: updateMask } : undefined,
+      updateMask: { paths: updateMask },
     };
 
     log.info({ request }, 'Update Quota Rule request');

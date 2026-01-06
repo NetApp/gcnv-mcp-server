@@ -89,6 +89,26 @@ describe('active-directory-handler', () => {
     expect(result.structuredContent).toMatchObject({ operationId: 'op-create-all' });
   });
 
+  it('createActiveDirectoryHandler falls back to empty operationId when operation.name is missing', async () => {
+    const createActiveDirectory = vi.fn().mockResolvedValue([{}]);
+    createClientMock.mockReturnValue({ createActiveDirectory });
+
+    const { createActiveDirectoryHandler } = await import('./active-directory-handler.js');
+    const result = await createActiveDirectoryHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      activeDirectoryId: 'ad1',
+      domain: 'example.com',
+      username: 'u',
+      password: 'p',
+    });
+
+    expect(result.structuredContent).toEqual({
+      name: 'projects/p1/locations/us-central1/activeDirectories/ad1',
+      operationId: '',
+    });
+  });
+
   it('deleteActiveDirectoryHandler calls deleteActiveDirectory', async () => {
     const deleteActiveDirectory = vi.fn().mockResolvedValue([{ name: 'op-del' }]);
     createClientMock.mockReturnValue({ deleteActiveDirectory });
@@ -104,6 +124,20 @@ describe('active-directory-handler', () => {
       name: 'projects/p1/locations/us-central1/activeDirectories/ad1',
     });
     expect(result.structuredContent).toEqual({ success: true, operationId: 'op-del' });
+  });
+
+  it('deleteActiveDirectoryHandler falls back to empty operationId when operation.name is missing', async () => {
+    const deleteActiveDirectory = vi.fn().mockResolvedValue([{}]);
+    createClientMock.mockReturnValue({ deleteActiveDirectory });
+
+    const { deleteActiveDirectoryHandler } = await import('./active-directory-handler.js');
+    const result = await deleteActiveDirectoryHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      activeDirectoryId: 'ad1',
+    });
+
+    expect(result.structuredContent).toEqual({ success: true, operationId: '' });
   });
 
   it('getActiveDirectoryHandler calls getActiveDirectory and returns formatted AD', async () => {
@@ -258,6 +292,24 @@ describe('active-directory-handler', () => {
     });
   });
 
+  it('updateActiveDirectoryHandler falls back to empty operationId when operation.name is missing', async () => {
+    const updateActiveDirectory = vi.fn().mockResolvedValue([{}]);
+    createClientMock.mockReturnValue({ updateActiveDirectory });
+
+    const { updateActiveDirectoryHandler } = await import('./active-directory-handler.js');
+    const result = await updateActiveDirectoryHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      activeDirectoryId: 'ad1',
+      dns: '1.1.1.1',
+    });
+
+    expect(result.structuredContent).toEqual({
+      name: 'projects/p1/locations/us-central1/activeDirectories/ad1',
+      operationId: '',
+    });
+  });
+
   it('returns isError for each handler when the underlying client call throws', async () => {
     const err = new Error('boom');
     createClientMock.mockReturnValue({
@@ -281,6 +333,40 @@ describe('active-directory-handler', () => {
     expect(((await getActiveDirectoryHandler({ projectId: 'p1', location: 'l', activeDirectoryId: 'ad1' })) as any).isError).toBe(true);
     expect(((await listActiveDirectoriesHandler({ projectId: 'p1', location: 'l' })) as any).isError).toBe(true);
     expect(((await updateActiveDirectoryHandler({ projectId: 'p1', location: 'l', activeDirectoryId: 'ad1', dns: 'd' })) as any).isError).toBe(true);
+  });
+
+  it('handlers fall back to "Unknown error" when error.message is missing', async () => {
+    const err = { code: 500 } as any;
+    const {
+      createActiveDirectoryHandler,
+      deleteActiveDirectoryHandler,
+      getActiveDirectoryHandler,
+      listActiveDirectoriesHandler,
+      updateActiveDirectoryHandler,
+    } = await import('./active-directory-handler.js');
+
+    createClientMock.mockReturnValue({ createActiveDirectory: vi.fn().mockRejectedValue(err) });
+    expect(((await createActiveDirectoryHandler({ projectId: 'p1', location: 'l', activeDirectoryId: 'ad1' })) as any).content[0].text).toContain(
+      'Unknown error'
+    );
+
+    createClientMock.mockReturnValue({ deleteActiveDirectory: vi.fn().mockRejectedValue(err) });
+    expect(((await deleteActiveDirectoryHandler({ projectId: 'p1', location: 'l', activeDirectoryId: 'ad1' })) as any).content[0].text).toContain(
+      'Unknown error'
+    );
+
+    createClientMock.mockReturnValue({ getActiveDirectory: vi.fn().mockRejectedValue(err) });
+    expect(((await getActiveDirectoryHandler({ projectId: 'p1', location: 'l', activeDirectoryId: 'ad1' })) as any).content[0].text).toContain(
+      'Unknown error'
+    );
+
+    createClientMock.mockReturnValue({ listActiveDirectories: vi.fn().mockRejectedValue(err) });
+    expect(((await listActiveDirectoriesHandler({ projectId: 'p1', location: 'l' })) as any).content[0].text).toContain('Unknown error');
+
+    createClientMock.mockReturnValue({ updateActiveDirectory: vi.fn().mockRejectedValue(err) });
+    expect(((await updateActiveDirectoryHandler({ projectId: 'p1', location: 'l', activeDirectoryId: 'ad1', dns: 'd' })) as any).content[0].text).toContain(
+      'Unknown error'
+    );
   });
 
   it('updateActiveDirectoryHandler includes additional fields in updateMask when provided', async () => {

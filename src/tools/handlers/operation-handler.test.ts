@@ -236,6 +236,19 @@ describe('operation-handler', () => {
     expect(result.structuredContent).toMatchObject({ success: false, message: 'net' });
   });
 
+  it('cancelOperationHandler falls back to "Unknown error" when error.message is missing', async () => {
+    createClientMock.mockReturnValue({
+      auth: { getAccessToken: vi.fn().mockResolvedValue('tok') },
+    });
+    axiosRequestMock.mockRejectedValue({});
+
+    const { cancelOperationHandler } = await import('./operation-handler.js');
+    const result = await cancelOperationHandler({ operationName: 'operations/op1' });
+
+    expect(result.structuredContent).toEqual({ success: false, message: 'Unknown error' });
+    expect((result as any).content?.[0]?.text).toContain('Unknown error');
+  });
+
   it('listOperationsHandler returns error structuredContent on axios failure', async () => {
     createClientMock.mockReturnValue({
       auth: { getAccessToken: vi.fn().mockResolvedValue('tok') },

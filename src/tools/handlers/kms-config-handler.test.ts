@@ -32,6 +32,24 @@ describe('kms-config-handler', () => {
     });
   });
 
+  it('createKmsConfigHandler falls back to empty operationId when operation.name is missing', async () => {
+    const createKmsConfig = vi.fn().mockResolvedValue([{}]);
+    createClientMock.mockReturnValue({ createKmsConfig });
+
+    const { createKmsConfigHandler } = await import('./kms-config-handler.js');
+    const result = await createKmsConfigHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      kmsConfigId: 'k1',
+      cryptoKeyName: 'ck',
+    });
+
+    expect(result.structuredContent).toEqual({
+      name: 'projects/p1/locations/us-central1/kmsConfigs/k1',
+      operationId: '',
+    });
+  });
+
   it('createKmsConfigHandler includes optional fields (description/labels/instructions) when provided', async () => {
     const createKmsConfig = vi.fn().mockResolvedValue([{ name: 'op-create-all' }]);
     createClientMock.mockReturnValue({ createKmsConfig });
@@ -103,6 +121,16 @@ describe('kms-config-handler', () => {
     expect(result.structuredContent).toEqual({ success: true, operationId: 'op-del' });
   });
 
+  it('deleteKmsConfigHandler falls back to empty operationId when operation.name is missing', async () => {
+    const deleteKmsConfig = vi.fn().mockResolvedValue([{}]);
+    createClientMock.mockReturnValue({ deleteKmsConfig });
+
+    const { deleteKmsConfigHandler } = await import('./kms-config-handler.js');
+    const result = await deleteKmsConfigHandler({ projectId: 'p1', location: 'us-central1', kmsConfigId: 'k1' });
+
+    expect(result.structuredContent).toEqual({ success: true, operationId: '' });
+  });
+
   it('deleteKmsConfigHandler covers error path', async () => {
     const deleteKmsConfig = vi.fn().mockRejectedValue(new Error('boom'));
     createClientMock.mockReturnValue({ deleteKmsConfig });
@@ -167,6 +195,16 @@ describe('kms-config-handler', () => {
       labels: { a: 'b' },
     });
     expect((result.structuredContent as any).createTime).toBeInstanceOf(Date);
+  });
+
+  it('getKmsConfigHandler returns isError when API returns undefined config (covers formatKmsConfigData !config branch)', async () => {
+    const getKmsConfig = vi.fn().mockResolvedValue([undefined]);
+    createClientMock.mockReturnValue({ getKmsConfig });
+
+    const { getKmsConfigHandler } = await import('./kms-config-handler.js');
+    const result = await getKmsConfigHandler({ projectId: 'p1', location: 'us-central1', kmsConfigId: 'k1' });
+
+    expect((result as any).isError).toBe(true);
   });
 
   it('getKmsConfigHandler covers error path', async () => {
@@ -357,6 +395,24 @@ describe('kms-config-handler', () => {
     });
   });
 
+  it('updateKmsConfigHandler falls back to empty operationId when operation.name is missing', async () => {
+    const updateKmsConfig = vi.fn().mockResolvedValue([{}]);
+    createClientMock.mockReturnValue({ updateKmsConfig });
+
+    const { updateKmsConfigHandler } = await import('./kms-config-handler.js');
+    const result = await updateKmsConfigHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      kmsConfigId: 'k1',
+      description: 'd',
+    });
+
+    expect(result.structuredContent).toEqual({
+      name: 'projects/p1/locations/us-central1/kmsConfigs/k1',
+      operationId: '',
+    });
+  });
+
   it('updateKmsConfigHandler supports updating instructions', async () => {
     const updateKmsConfig = vi.fn().mockResolvedValue([{ name: 'op-upd2' }]);
     createClientMock.mockReturnValue({ updateKmsConfig });
@@ -437,6 +493,19 @@ describe('kms-config-handler', () => {
     expect(result.structuredContent).toEqual({
       name: 'projects/p1/locations/us-central1/kmsConfigs/k1',
       operationId: 'op-enc',
+    });
+  });
+
+  it('encryptVolumesHandler falls back to empty operationId when operation.name is missing', async () => {
+    const encryptVolumes = vi.fn().mockResolvedValue([{}]);
+    createClientMock.mockReturnValue({ encryptVolumes });
+
+    const { encryptVolumesHandler } = await import('./kms-config-handler.js');
+    const result = await encryptVolumesHandler({ projectId: 'p1', location: 'us-central1', kmsConfigId: 'k1' });
+
+    expect(result.structuredContent).toEqual({
+      name: 'projects/p1/locations/us-central1/kmsConfigs/k1',
+      operationId: '',
     });
   });
 

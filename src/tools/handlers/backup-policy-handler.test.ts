@@ -33,6 +33,24 @@ describe('backup-policy-handler', () => {
     });
   });
 
+  it('createBackupPolicyHandler falls back to empty operationId when operation.name is missing', async () => {
+    const createBackupPolicy = vi.fn().mockResolvedValue([{}]);
+    createClientMock.mockReturnValue({ createBackupPolicy });
+
+    const { createBackupPolicyHandler } = await import('./backup-policy-handler.js');
+    const result = await createBackupPolicyHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupPolicyId: 'bp1',
+      dailyBackupLimit: 1,
+    });
+
+    expect(result.structuredContent).toEqual({
+      name: 'projects/p1/locations/us-central1/backupPolicy/bp1',
+      operationId: '',
+    });
+  });
+
   it('createBackupPolicyHandler filters undefined fields out of backupPolicy payload', async () => {
     const createBackupPolicy = vi.fn().mockResolvedValue([{ name: 'op-create2' }]);
     createClientMock.mockReturnValue({ createBackupPolicy });
@@ -75,6 +93,20 @@ describe('backup-policy-handler', () => {
       name: 'projects/p1/locations/us-central1/backupPolicies/bp1',
     });
     expect(result.structuredContent).toEqual({ success: true, operationId: 'op-del' });
+  });
+
+  it('deleteBackupPolicyHandler falls back to empty operationId when operation.name is missing', async () => {
+    const deleteBackupPolicy = vi.fn().mockResolvedValue([{}]);
+    createClientMock.mockReturnValue({ deleteBackupPolicy });
+
+    const { deleteBackupPolicyHandler } = await import('./backup-policy-handler.js');
+    const result = await deleteBackupPolicyHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupPolicyId: 'bp1',
+    });
+
+    expect(result.structuredContent).toEqual({ success: true, operationId: '' });
   });
 
   it('getBackupPolicyHandler calls getBackupPolicy and returns formatted policy', async () => {

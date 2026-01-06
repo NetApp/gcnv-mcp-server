@@ -80,6 +80,22 @@ describe('backup-vault-handler', () => {
     expect((result.structuredContent as any).createTime).toBeInstanceOf(Date);
   });
 
+  it('getBackupVaultHandler handles undefined backupVault (covers formatBackupVaultData !backupVault branch)', async () => {
+    const getBackupVault = vi.fn().mockResolvedValue([undefined]);
+    createClientMock.mockReturnValue({ getBackupVault });
+
+    const { getBackupVaultHandler } = await import('./backup-vault-handler.js');
+    const result = await getBackupVaultHandler({ projectId: 'p1', location: 'us-central1', backupVaultId: 'bv1' });
+
+    expect(result.structuredContent).toMatchObject({
+      backupVaultType: 'STANDARD',
+      sourceRegion: 'us-central1',
+      backupRegion: 'us-central1',
+      sourceBackupVault: '',
+      destinationBackupVault: '',
+    });
+  });
+
   it('getBackupVaultHandler formats backupRetentionPolicy when present', async () => {
     const getBackupVault = vi.fn().mockResolvedValue([
       {
@@ -109,6 +125,36 @@ describe('backup-vault-handler', () => {
         weeklyBackupImmutable: false,
         monthlyBackupImmutable: true,
         manualBackupImmutable: false,
+      },
+    });
+  });
+
+  it('getBackupVaultHandler applies backupRetentionPolicy fallbacks for missing/falsey fields', async () => {
+    const getBackupVault = vi.fn().mockResolvedValue([
+      {
+        name: 'projects/p1/locations/us-central1/backupVaults/bv1',
+        backupRetentionPolicy: {
+          // Intentionally missing/undefined to exercise `||` fallbacks
+          backupMinimumEnforcedRetentionDays: undefined,
+          dailyBackupImmutable: undefined,
+          weeklyBackupImmutable: true,
+          monthlyBackupImmutable: undefined,
+          manualBackupImmutable: true,
+        },
+      },
+    ]);
+    createClientMock.mockReturnValue({ getBackupVault });
+
+    const { getBackupVaultHandler } = await import('./backup-vault-handler.js');
+    const result = await getBackupVaultHandler({ projectId: 'p1', location: 'us-central1', backupVaultId: 'bv1' });
+
+    expect(result.structuredContent).toMatchObject({
+      backupRetentionPolicy: {
+        backupMinimumEnforcedRetentionDays: 0,
+        dailyBackupImmutable: false,
+        weeklyBackupImmutable: true,
+        monthlyBackupImmutable: false,
+        manualBackupImmutable: true,
       },
     });
   });
@@ -239,6 +285,32 @@ describe('backup-vault-handler', () => {
     expect(result.structuredContent).toEqual({
       name: 'projects/p1/locations/us-central1/backupVaults/bv1',
       operationId: 'op-upd',
+    });
+  });
+
+  it('updateBackupVaultHandler includes labels in updateMask when provided', async () => {
+    const updateBackupVault = vi.fn().mockResolvedValue([{ name: 'op-upd2' }]);
+    createClientMock.mockReturnValue({ updateBackupVault });
+
+    const { updateBackupVaultHandler } = await import('./backup-vault-handler.js');
+    const result = await updateBackupVaultHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+      labels: { a: 'b' },
+    });
+
+    expect(updateBackupVault).toHaveBeenCalledWith({
+      backupVault: {
+        name: 'projects/p1/locations/us-central1/backupVaults/bv1',
+        description: undefined,
+        labels: { a: 'b' },
+      },
+      updateMask: { paths: ['labels'] },
+    });
+    expect(result.structuredContent).toEqual({
+      name: 'projects/p1/locations/us-central1/backupVaults/bv1',
+      operationId: 'op-upd2',
     });
   });
 

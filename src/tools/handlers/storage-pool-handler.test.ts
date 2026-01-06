@@ -128,6 +128,20 @@ describe('storage-pool-handler', () => {
     expect(result.structuredContent).toEqual({ success: true, operationId: 'op-del' });
   });
 
+  it('deleteStoragePoolHandler falls back to empty operationId when operation[0].name is missing', async () => {
+    const deleteStoragePool = vi.fn().mockResolvedValue([{}]);
+    createClientMock.mockReturnValue({ deleteStoragePool });
+
+    const { deleteStoragePoolHandler } = await import('./storage-pool-handler.js');
+    const result = await deleteStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+    });
+
+    expect(result.structuredContent).toEqual({ success: true, operationId: '' });
+  });
+
   it('deleteStoragePoolHandler does not include force when false', async () => {
     const deleteStoragePool = vi.fn().mockResolvedValue([{ name: 'op-del2' }]);
     createClientMock.mockReturnValue({ deleteStoragePool });
@@ -182,6 +196,30 @@ describe('storage-pool-handler', () => {
       capacityGib: 1,
     });
     expect(result.structuredContent?.createTime).toBeInstanceOf(Date);
+  });
+
+  it('getStoragePoolHandler falls back for missing name/capacity fields (covers || 0 branches)', async () => {
+    const getStoragePool = vi.fn().mockResolvedValue([
+      {
+        // name missing => name || ''
+        capacityGib: undefined, // Number(undefined) => NaN => || 0
+        volumeCapacityGib: '0', // Number('0') => 0 => || 0
+      },
+    ]);
+    createClientMock.mockReturnValue({ getStoragePool });
+
+    const { getStoragePoolHandler } = await import('./storage-pool-handler.js');
+    const result = await getStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      name: '',
+      capacityGib: 0,
+      volumeCapacityGib: 0,
+    });
   });
 
   it('getStoragePoolHandler uses createTime fallback when missing', async () => {

@@ -256,7 +256,7 @@ export const listReplicationsHandler: ToolHandler = async (args: { [key: string]
         },
       ],
       structuredContent: {
-        replications: formattedReplications || [],
+        replications: formattedReplications,
         nextPageToken: nextPageToken || '',
       },
     };

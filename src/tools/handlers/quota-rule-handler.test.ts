@@ -56,6 +56,50 @@ describe('quota-rule-handler', () => {
     });
   });
 
+  it('createQuotaRuleHandler includes description/labels when provided', async () => {
+    const createQuotaRule = vi.fn().mockResolvedValue([{ name: 'op-create3' }]);
+    createClientMock.mockReturnValue({ createQuotaRule });
+
+    const { createQuotaRuleHandler } = await import('./quota-rule-handler.js');
+    const result = await createQuotaRuleHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+      quotaRuleId: 'qr1',
+      target: 'user:1000',
+      quotaType: 'INDIVIDUAL_USER_QUOTA',
+      diskLimitMib: 123,
+      description: 'd',
+      labels: { a: 'b' },
+    });
+
+    expect(createQuotaRule.mock.calls[0]?.[0]).toMatchObject({
+      quotaRule: {
+        target: 'user:1000',
+        diskLimitMib: 123,
+        description: 'd',
+        labels: { a: 'b' },
+      },
+    });
+    expect(result.structuredContent).toMatchObject({ operationId: 'op-create3' });
+  });
+
+  it('createQuotaRuleHandler returns isError for invalid diskLimitMib (covers diskLimitError branch)', async () => {
+    const { createQuotaRuleHandler } = await import('./quota-rule-handler.js');
+    const result = await createQuotaRuleHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+      quotaRuleId: 'qr1',
+      target: 'user:1000',
+      quotaType: 'INDIVIDUAL_USER_QUOTA',
+      diskLimitMib: -1,
+    });
+
+    expect((result as any).isError).toBe(true);
+    expect(result.content?.[0]?.text).toContain('diskLimitMib must be a non-negative number');
+  });
+
   it('createQuotaRuleHandler handles empty operation.name (covers operation.name || \"\" branch)', async () => {
     const createQuotaRule = vi.fn().mockResolvedValue([{ name: '' }]);
     createClientMock.mockReturnValue({ createQuotaRule });
@@ -221,6 +265,42 @@ describe('quota-rule-handler', () => {
       diskLimitMib: 10,
     });
     expect((result.structuredContent as any).createTime).toBeInstanceOf(Date);
+  });
+
+  it('getQuotaRuleHandler formats target/description when present (covers formatQuotaRuleData branches)', async () => {
+    const getQuotaRule = vi.fn().mockResolvedValue([
+      {
+        name: 'projects/p1/locations/us-central1/volumes/vol1/quotaRules/qr1',
+        target: 'user:1000',
+        description: 'd',
+      },
+    ]);
+    createClientMock.mockReturnValue({ getQuotaRule });
+
+    const { getQuotaRuleHandler } = await import('./quota-rule-handler.js');
+    const result = await getQuotaRuleHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+      quotaRuleId: 'qr1',
+    });
+
+    expect(result.structuredContent).toMatchObject({ quotaRuleId: 'qr1', target: 'user:1000', description: 'd' });
+  });
+
+  it('getQuotaRuleHandler returns empty structuredContent when quota rule is undefined (covers !rule branch)', async () => {
+    const getQuotaRule = vi.fn().mockResolvedValue([undefined]);
+    createClientMock.mockReturnValue({ getQuotaRule });
+
+    const { getQuotaRuleHandler } = await import('./quota-rule-handler.js');
+    const result = await getQuotaRuleHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+      quotaRuleId: 'qr1',
+    });
+
+    expect(result.structuredContent).toEqual({});
   });
 
   it('getQuotaRuleHandler formats state/createTime/labels when present', async () => {

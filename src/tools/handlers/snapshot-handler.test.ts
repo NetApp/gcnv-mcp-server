@@ -87,6 +87,21 @@ describe('snapshot-handler', () => {
     expect(result.structuredContent).toEqual({ success: true, operationId: 'op-del' });
   });
 
+  it('deleteSnapshotHandler falls back to empty operationId when operation.name is missing', async () => {
+    const deleteSnapshot = vi.fn().mockResolvedValue([{}]);
+    createClientMock.mockReturnValue({ deleteSnapshot });
+
+    const { deleteSnapshotHandler } = await import('./snapshot-handler.js');
+    const result = await deleteSnapshotHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+      snapshotId: 's1',
+    });
+
+    expect(result.structuredContent).toEqual({ success: true, operationId: '' });
+  });
+
   it('deleteSnapshotHandler covers error path', async () => {
     const deleteSnapshot = vi.fn().mockRejectedValue(new Error('boom'));
     createClientMock.mockReturnValue({ deleteSnapshot });

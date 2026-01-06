@@ -236,6 +236,23 @@ describe('backup-handler', () => {
     });
   });
 
+  it('listBackupsHandler omits nextPageToken when it is falsey and handles undefined backup entries', async () => {
+    const listBackups = vi.fn().mockResolvedValue([[undefined as any], undefined, '']);
+    createClientMock.mockReturnValue({ listBackups });
+
+    const { listBackupsHandler } = await import('./backup-handler.js');
+    const result = await listBackupsHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+    });
+
+    expect(result.structuredContent).toEqual({
+      backups: [{}],
+      nextPageToken: undefined,
+    });
+  });
+
   it('listBackupsHandler covers error-code branches', async () => {
     const { listBackupsHandler } = await import('./backup-handler.js');
     const mkErr = (code: number) => Object.assign(new Error('boom'), { code });
@@ -374,6 +391,25 @@ describe('backup-handler', () => {
     expect(result.structuredContent).toEqual({
       name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
       operationId: 'op-upd',
+    });
+  });
+
+  it('updateBackupHandler falls back to empty operationId when operation.name is missing', async () => {
+    const updateBackup = vi.fn().mockResolvedValue([{}]);
+    createClientMock.mockReturnValue({ updateBackup });
+
+    const { updateBackupHandler } = await import('./backup-handler.js');
+    const result = await updateBackupHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+      backupId: 'b1',
+      description: 'd',
+    });
+
+    expect(result.structuredContent).toEqual({
+      name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
+      operationId: '',
     });
   });
 

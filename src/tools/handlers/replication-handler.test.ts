@@ -40,6 +40,26 @@ describe('replication-handler', () => {
     });
   });
 
+  it('createReplicationHandler falls back to operationId="Unknown" when operation.name is missing', async () => {
+    const createReplication = vi.fn().mockResolvedValue([{}]);
+    createClientMock.mockReturnValue({ createReplication });
+
+    const { createReplicationHandler } = await import('./replication-handler.js');
+    const result = await createReplicationHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      replicationId: 'r1',
+      sourceVolumeId: 'vol1',
+      destinationStoragePool: 'projects/p1/locations/us-central1/storagePools/sp2',
+      replicationSchedule: 'DAILY',
+    });
+
+    expect(result.structuredContent).toEqual({
+      name: 'projects/p1/locations/us-central1/volumes/vol1/replications/r1',
+      operationId: 'Unknown',
+    });
+  });
+
   it('createReplicationHandler defaults replicationSchedule when provided value is unknown', async () => {
     const createReplication = vi.fn().mockResolvedValue([{ name: 'op-create-x' }]);
     createClientMock.mockReturnValue({ createReplication });
@@ -131,6 +151,21 @@ describe('replication-handler', () => {
       name: 'projects/p1/locations/us-central1/volumes/vol1/replications/r1',
     });
     expect(result.structuredContent).toEqual({ success: true, operationId: 'op-del' });
+  });
+
+  it('deleteReplicationHandler falls back to empty operationId when operation.name is missing', async () => {
+    const deleteReplication = vi.fn().mockResolvedValue([{}]);
+    createClientMock.mockReturnValue({ deleteReplication });
+
+    const { deleteReplicationHandler } = await import('./replication-handler.js');
+    const result = await deleteReplicationHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+      replicationId: 'r1',
+    });
+
+    expect(result.structuredContent).toEqual({ success: true, operationId: '' });
   });
 
   it('deleteReplicationHandler covers error path', async () => {
@@ -287,6 +322,21 @@ describe('replication-handler', () => {
     });
   });
 
+  it('listReplicationsHandler falls back to empty nextPageToken when API nextPageToken is missing', async () => {
+    const listReplications = vi
+      .fn()
+      .mockResolvedValue([[{ name: 'projects/p1/locations/us-central1/volumes/vol1/replications/r1' }], undefined, undefined]);
+    createClientMock.mockReturnValue({ listReplications });
+
+    const { listReplicationsHandler } = await import('./replication-handler.js');
+    const result = await listReplicationsHandler({ projectId: 'p1', location: 'us-central1', volumeId: 'vol1' });
+
+    expect(result.structuredContent).toMatchObject({
+      replications: [expect.objectContaining({ replicationId: 'r1' })],
+      nextPageToken: '',
+    });
+  });
+
   it('listReplicationsHandler passes filter/pageSize/pageToken when provided', async () => {
     const listReplications = vi.fn().mockResolvedValue([[], undefined, 'next']);
     createClientMock.mockReturnValue({ listReplications });
@@ -347,6 +397,25 @@ describe('replication-handler', () => {
     });
   });
 
+  it('updateReplicationHandler falls back to empty operationId when operation.name is missing', async () => {
+    const updateReplication = vi.fn().mockResolvedValue([{}]);
+    createClientMock.mockReturnValue({ updateReplication });
+
+    const { updateReplicationHandler } = await import('./replication-handler.js');
+    const result = await updateReplicationHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+      replicationId: 'r1',
+      labels: { a: 'b' },
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      name: 'projects/p1/locations/us-central1/volumes/vol1/replications/r1',
+      operationId: '',
+    });
+  });
+
   it('updateReplicationHandler covers error path', async () => {
     const updateReplication = vi.fn().mockRejectedValue(new Error('boom'));
     createClientMock.mockReturnValue({ updateReplication });
@@ -381,6 +450,21 @@ describe('replication-handler', () => {
     expect(result.structuredContent).toMatchObject({ operationId: 'op-resume' });
   });
 
+  it('resumeReplicationHandler falls back to empty operationId when operation.name is missing', async () => {
+    const resumeReplication = vi.fn().mockResolvedValue([{}]);
+    createClientMock.mockReturnValue({ resumeReplication });
+
+    const { resumeReplicationHandler } = await import('./replication-handler.js');
+    const result = await resumeReplicationHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+      replicationId: 'r1',
+    });
+
+    expect(result.structuredContent).toMatchObject({ operationId: '' });
+  });
+
   it('resumeReplicationHandler covers error path', async () => {
     const resumeReplication = vi.fn().mockRejectedValue(new Error('boom'));
     createClientMock.mockReturnValue({ resumeReplication });
@@ -412,6 +496,21 @@ describe('replication-handler', () => {
       name: 'projects/p1/locations/us-central1/volumes/vol1/replications/r1',
     });
     expect(result.structuredContent).toMatchObject({ operationId: 'op-stop' });
+  });
+
+  it('stopReplicationHandler falls back to empty operationId when operation.name is missing', async () => {
+    const stopReplication = vi.fn().mockResolvedValue([{}]);
+    createClientMock.mockReturnValue({ stopReplication });
+
+    const { stopReplicationHandler } = await import('./replication-handler.js');
+    const result = await stopReplicationHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+      replicationId: 'r1',
+    });
+
+    expect(result.structuredContent).toMatchObject({ operationId: '' });
   });
 
   it('reverseReplicationDirectionHandler calls reverseReplicationDirection', async () => {
