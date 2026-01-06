@@ -29,7 +29,9 @@ describe('replication-handler', () => {
       parent: 'projects/p1/locations/us-central1/volumes/vol1',
       replicationId: 'r1',
       replication: {
-        destinationVolumeParameters: { storagePool: 'projects/p1/locations/us-central1/storagePools/sp2' },
+        destinationVolumeParameters: {
+          storagePool: 'projects/p1/locations/us-central1/storagePools/sp2',
+        },
         sourceVolume: 'projects/p1/locations/us-central1/volumes/vol1',
       },
     });
@@ -299,11 +301,13 @@ describe('replication-handler', () => {
   });
 
   it('listReplicationsHandler calls listReplications and returns formatted list', async () => {
-    const listReplications = vi.fn().mockResolvedValue([
-      [{ name: 'projects/p1/locations/us-central1/volumes/vol1/replications/r1' }],
-      undefined,
-      'next',
-    ]);
+    const listReplications = vi
+      .fn()
+      .mockResolvedValue([
+        [{ name: 'projects/p1/locations/us-central1/volumes/vol1/replications/r1' }],
+        undefined,
+        'next',
+      ]);
     createClientMock.mockReturnValue({ listReplications });
 
     const { listReplicationsHandler } = await import('./replication-handler.js');
@@ -325,11 +329,19 @@ describe('replication-handler', () => {
   it('listReplicationsHandler falls back to empty nextPageToken when API nextPageToken is missing', async () => {
     const listReplications = vi
       .fn()
-      .mockResolvedValue([[{ name: 'projects/p1/locations/us-central1/volumes/vol1/replications/r1' }], undefined, undefined]);
+      .mockResolvedValue([
+        [{ name: 'projects/p1/locations/us-central1/volumes/vol1/replications/r1' }],
+        undefined,
+        undefined,
+      ]);
     createClientMock.mockReturnValue({ listReplications });
 
     const { listReplicationsHandler } = await import('./replication-handler.js');
-    const result = await listReplicationsHandler({ projectId: 'p1', location: 'us-central1', volumeId: 'vol1' });
+    const result = await listReplicationsHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+    });
 
     expect(result.structuredContent).toMatchObject({
       replications: [expect.objectContaining({ replicationId: 'r1' })],
@@ -365,7 +377,11 @@ describe('replication-handler', () => {
     createClientMock.mockReturnValue({ listReplications });
 
     const { listReplicationsHandler } = await import('./replication-handler.js');
-    const result = await listReplicationsHandler({ projectId: 'p1', location: 'us-central1', volumeId: 'vol1' });
+    const result = await listReplicationsHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+    });
 
     expect((result as any).isError).toBe(true);
   });
@@ -650,29 +666,34 @@ describe('replication-handler', () => {
 
   it('covers error paths for establishPeeringHandler and syncReplicationHandler', async () => {
     const err = new Error('boom');
-    const { establishPeeringHandler, syncReplicationHandler } = await import('./replication-handler.js');
+    const { establishPeeringHandler, syncReplicationHandler } =
+      await import('./replication-handler.js');
 
     createClientMock.mockReturnValue({ establishPeering: vi.fn().mockRejectedValue(err) });
     expect(
-      ((await establishPeeringHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-        replicationId: 'r1',
-        peerClusterName: 'c',
-        peerSvmName: 's',
-        peerVolumeName: 'v',
-      })) as any).isError
+      (
+        (await establishPeeringHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+          replicationId: 'r1',
+          peerClusterName: 'c',
+          peerSvmName: 's',
+          peerVolumeName: 'v',
+        })) as any
+      ).isError
     ).toBe(true);
 
     createClientMock.mockReturnValue({ syncReplication: vi.fn().mockRejectedValue(err) });
     expect(
-      ((await syncReplicationHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-        replicationId: 'r1',
-      })) as any).isError
+      (
+        (await syncReplicationHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+          replicationId: 'r1',
+        })) as any
+      ).isError
     ).toBe(true);
   });
 
@@ -705,125 +726,150 @@ describe('replication-handler', () => {
     } = await import('./replication-handler.js');
 
     expect(
-      ((await createReplicationHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        replicationId: 'r1',
-        sourceVolumeId: 'vol1',
-        destinationStoragePool: 'sp',
-        replicationSchedule: 'DAILY',
-      })) as any).content?.[0]?.text
+      (
+        (await createReplicationHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          replicationId: 'r1',
+          sourceVolumeId: 'vol1',
+          destinationStoragePool: 'sp',
+          replicationSchedule: 'DAILY',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await deleteReplicationHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-        replicationId: 'r1',
-      })) as any).content?.[0]?.text
+      (
+        (await deleteReplicationHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+          replicationId: 'r1',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await getReplicationHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-        replicationId: 'r1',
-      })) as any).content?.[0]?.text
+      (
+        (await getReplicationHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+          replicationId: 'r1',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await listReplicationsHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-      })) as any).content?.[0]?.text
+      (
+        (await listReplicationsHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await updateReplicationHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-        replicationId: 'r1',
-        description: 'd',
-      })) as any).content?.[0]?.text
+      (
+        (await updateReplicationHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+          replicationId: 'r1',
+          description: 'd',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await resumeReplicationHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-        replicationId: 'r1',
-      })) as any).content?.[0]?.text
+      (
+        (await resumeReplicationHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+          replicationId: 'r1',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await stopReplicationHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-        replicationId: 'r1',
-      })) as any).content?.[0]?.text
+      (
+        (await stopReplicationHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+          replicationId: 'r1',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await reverseReplicationDirectionHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-        replicationId: 'r1',
-      })) as any).content?.[0]?.text
+      (
+        (await reverseReplicationDirectionHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+          replicationId: 'r1',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await establishPeeringHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-        replicationId: 'r1',
-        peerClusterName: 'c',
-        peerSvmName: 's',
-        peerVolumeName: 'v',
-      })) as any).content?.[0]?.text
+      (
+        (await establishPeeringHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+          replicationId: 'r1',
+          peerClusterName: 'c',
+          peerSvmName: 's',
+          peerVolumeName: 'v',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await syncReplicationHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-        replicationId: 'r1',
-      })) as any).content?.[0]?.text
+      (
+        (await syncReplicationHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+          replicationId: 'r1',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
   });
 
   it('covers error paths for stopReplicationHandler and reverseReplicationDirectionHandler', async () => {
     const err = new Error('boom');
-    const { stopReplicationHandler, reverseReplicationDirectionHandler } = await import('./replication-handler.js');
+    const { stopReplicationHandler, reverseReplicationDirectionHandler } =
+      await import('./replication-handler.js');
 
     createClientMock.mockReturnValue({ stopReplication: vi.fn().mockRejectedValue(err) });
     expect(
-      ((await stopReplicationHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-        replicationId: 'r1',
-      })) as any).isError
+      (
+        (await stopReplicationHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+          replicationId: 'r1',
+        })) as any
+      ).isError
     ).toBe(true);
 
-    createClientMock.mockReturnValue({ reverseReplicationDirection: vi.fn().mockRejectedValue(err) });
+    createClientMock.mockReturnValue({
+      reverseReplicationDirection: vi.fn().mockRejectedValue(err),
+    });
     expect(
-      ((await reverseReplicationDirectionHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-        replicationId: 'r1',
-      })) as any).isError
+      (
+        (await reverseReplicationDirectionHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+          replicationId: 'r1',
+        })) as any
+      ).isError
     ).toBe(true);
   });
 });
-
-

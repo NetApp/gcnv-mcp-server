@@ -28,5 +28,3 @@ describe('registerAllTools', () => {
     expect(uniqueNames.size).toBe(calls.length);
   });
 });
-
-

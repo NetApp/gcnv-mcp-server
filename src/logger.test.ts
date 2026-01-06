@@ -35,5 +35,3 @@ describe('logger', () => {
     expect(destinationMock).toHaveBeenCalledTimes(1);
   });
 });
-
-

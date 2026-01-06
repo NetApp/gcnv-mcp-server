@@ -13,7 +13,7 @@ const typeCheckedWithProject = tseslint.configs.recommendedTypeChecked.map((conf
     ...config.languageOptions,
     parserOptions: {
       ...config.languageOptions?.parserOptions,
-      project: './tsconfig.json',
+      project: './tsconfig.eslint.json',
       tsconfigRootDir: __dirname,
     },
   },
@@ -21,7 +21,7 @@ const typeCheckedWithProject = tseslint.configs.recommendedTypeChecked.map((conf
 
 export default [
   {
-    ignores: ['build/**', 'node_modules/**', 'eslint.config.mjs'],
+    ignores: ['build/**', 'node_modules/**', '.vitest-coverage/**', 'eslint.config.mjs'],
   },
   js.configs.recommended,
   ...typeCheckedWithProject,
@@ -41,6 +41,15 @@ export default [
         'error',
         { checksVoidReturn: { attributes: false } },
       ],
+    },
+  },
+  {
+    files: ['**/*.test.ts', '**/*.spec.ts'],
+    rules: {
+      // Tests often use async callbacks without awaits, loose assertions, and string patterns.
+      '@typescript-eslint/require-await': 'off',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+      'no-useless-escape': 'off',
     },
   },
 ];

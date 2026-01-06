@@ -49,9 +49,9 @@ describe('tool-registry', () => {
     registerTool(toolA, handler);
     registerTool(toolB, handler);
 
-    const defs = getAllToolDefinitions().map((t) => t.name).sort();
+    const defs = getAllToolDefinitions()
+      .map((t) => t.name)
+      .sort();
     expect(defs).toEqual(['test.a', 'test.b']);
   });
 });
-
-

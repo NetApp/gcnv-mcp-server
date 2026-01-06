@@ -171,20 +171,25 @@ describe('volume-handler', () => {
   it('delete/get/list handlers return "Unknown error" when thrown error has no message', async () => {
     const err = {};
 
-    const { deleteVolumeHandler, getVolumeHandler, listVolumesHandler } = await import('./volume-handler.js');
+    const { deleteVolumeHandler, getVolumeHandler, listVolumesHandler } =
+      await import('./volume-handler.js');
 
     createClientMock.mockReturnValue({ deleteVolume: vi.fn().mockRejectedValue(err) });
-    expect(((await deleteVolumeHandler({ projectId: 'p1', location: 'l', volumeId: 'v' })) as any).content?.[0]?.text).toContain(
-      'Unknown error'
-    );
+    expect(
+      ((await deleteVolumeHandler({ projectId: 'p1', location: 'l', volumeId: 'v' })) as any)
+        .content?.[0]?.text
+    ).toContain('Unknown error');
 
     createClientMock.mockReturnValue({ getVolume: vi.fn().mockRejectedValue(err) });
-    expect(((await getVolumeHandler({ projectId: 'p1', location: 'l', volumeId: 'v' })) as any).content?.[0]?.text).toContain(
-      'Unknown error'
-    );
+    expect(
+      ((await getVolumeHandler({ projectId: 'p1', location: 'l', volumeId: 'v' })) as any)
+        .content?.[0]?.text
+    ).toContain('Unknown error');
 
     createClientMock.mockReturnValue({ listVolumes: vi.fn().mockRejectedValue(err) });
-    expect(((await listVolumesHandler({ projectId: 'p1', location: 'l' })) as any).content?.[0]?.text).toContain('Unknown error');
+    expect(
+      ((await listVolumesHandler({ projectId: 'p1', location: 'l' })) as any).content?.[0]?.text
+    ).toContain('Unknown error');
   });
 
   it('getVolumeHandler calls getVolume and returns formatted volume in structuredContent', async () => {
@@ -199,7 +204,11 @@ describe('volume-handler', () => {
 
     const { getVolumeHandler } = await import('./volume-handler.js');
 
-    const result = await getVolumeHandler({ projectId: 'p1', location: 'us-central1', volumeId: 'vol1' });
+    const result = await getVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+    });
 
     expect(getVolume).toHaveBeenCalledWith({
       name: 'projects/p1/locations/us-central1/volumes/vol1',
@@ -222,7 +231,11 @@ describe('volume-handler', () => {
     createClientMock.mockReturnValue({ getVolume });
 
     const { getVolumeHandler } = await import('./volume-handler.js');
-    const result = await getVolumeHandler({ projectId: 'p1', location: 'us-central1', volumeId: 'vol1' });
+    const result = await getVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+    });
 
     expect((result.structuredContent as any).volume.mountOptions).toEqual([
       { protocol: 'NFS3', ipAddress: '1.2.3.4', export: '/x', exportFull: '/x' },
@@ -239,7 +252,11 @@ describe('volume-handler', () => {
     createClientMock.mockReturnValue({ getVolume });
 
     const { getVolumeHandler } = await import('./volume-handler.js');
-    const result = await getVolumeHandler({ projectId: 'p1', location: 'us-central1', volumeId: 'vol1' });
+    const result = await getVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+    });
 
     expect((result.structuredContent as any).volume.storagePool).toBe(
       'projects/p1/locations/us-central1/storagePools/sp1'
@@ -291,7 +308,11 @@ describe('volume-handler', () => {
     createClientMock.mockReturnValue({ getVolume });
 
     const { getVolumeHandler } = await import('./volume-handler.js');
-    const result = await getVolumeHandler({ projectId: 'p1', location: 'us-central1', volumeId: 'vol1' });
+    const result = await getVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+    });
 
     const v = (result.structuredContent as any).volume;
     expect(v).toMatchObject({
@@ -321,7 +342,11 @@ describe('volume-handler', () => {
     createClientMock.mockReturnValue({ getVolume });
 
     const { getVolumeHandler } = await import('./volume-handler.js');
-    const result = await getVolumeHandler({ projectId: 'p1', location: 'us-central1', volumeId: 'vol1' });
+    const result = await getVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+    });
 
     expect((result.structuredContent as any).volume).toEqual({});
   });
@@ -336,7 +361,11 @@ describe('volume-handler', () => {
     createClientMock.mockReturnValue({ getVolume });
 
     const { getVolumeHandler } = await import('./volume-handler.js');
-    const result = await getVolumeHandler({ projectId: 'p1', location: 'us-central1', volumeId: 'vol1' });
+    const result = await getVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+    });
 
     expect((result.structuredContent as any).volume.mountOptions).toBeUndefined();
   });
@@ -558,25 +587,34 @@ describe('volume-handler', () => {
     } = await import('./volume-handler.js');
 
     expect(
-      ((await createVolumeHandler({
-        projectId: 'p1',
-        location: 'l',
-        storagePoolId: 'sp',
-        volumeId: 'v',
-      })) as any).isError
+      (
+        (await createVolumeHandler({
+          projectId: 'p1',
+          location: 'l',
+          storagePoolId: 'sp',
+          volumeId: 'v',
+        })) as any
+      ).isError
     ).toBe(true);
-    expect(((await deleteVolumeHandler({ projectId: 'p1', location: 'l', volumeId: 'v' })) as any).isError).toBe(true);
-    expect(((await getVolumeHandler({ projectId: 'p1', location: 'l', volumeId: 'v' })) as any).isError).toBe(true);
-    expect(((await listVolumesHandler({ projectId: 'p1', location: 'l' })) as any).isError).toBe(true);
     expect(
-      ((await updateVolumeHandler({
-        projectId: 'p1',
-        location: 'l',
-        volumeId: 'v',
-        description: 'd',
-      })) as any).isError
+      ((await deleteVolumeHandler({ projectId: 'p1', location: 'l', volumeId: 'v' })) as any)
+        .isError
+    ).toBe(true);
+    expect(
+      ((await getVolumeHandler({ projectId: 'p1', location: 'l', volumeId: 'v' })) as any).isError
+    ).toBe(true);
+    expect(((await listVolumesHandler({ projectId: 'p1', location: 'l' })) as any).isError).toBe(
+      true
+    );
+    expect(
+      (
+        (await updateVolumeHandler({
+          projectId: 'p1',
+          location: 'l',
+          volumeId: 'v',
+          description: 'd',
+        })) as any
+      ).isError
     ).toBe(true);
   });
 });
-
-

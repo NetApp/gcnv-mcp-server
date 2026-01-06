@@ -221,7 +221,11 @@ describe('operation-handler', () => {
     const result = await getOperationHandler({ operationName: 'operations/op1' });
 
     // Still returns, and includes the metadata field (set before parsing begins)
-    expect(result.structuredContent).toMatchObject({ name: 'operations/op1', done: true, success: true });
+    expect(result.structuredContent).toMatchObject({
+      name: 'operations/op1',
+      done: true,
+      success: true,
+    });
   });
 
   it('cancelOperationHandler returns error structuredContent on axios failure', async () => {
@@ -358,7 +362,11 @@ describe('operation-handler', () => {
     const { listOperationsHandler } = await import('./operation-handler.js');
     const result = await listOperationsHandler({ projectId: 'p1', location: 'us-central1' });
 
-    expect((result.structuredContent as any).operations[0]).toMatchObject({ name: '', done: true, success: true });
+    expect((result.structuredContent as any).operations[0]).toMatchObject({
+      name: '',
+      done: true,
+      success: true,
+    });
   });
 
   it('listOperationsHandler returns Unknown error when thrown error has no message', async () => {
@@ -385,5 +393,3 @@ describe('operation-handler', () => {
     expect(result.structuredContent).toEqual({ error: 'Unknown error' });
   });
 });
-
-

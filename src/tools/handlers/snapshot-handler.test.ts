@@ -226,11 +226,13 @@ describe('snapshot-handler', () => {
   });
 
   it('listSnapshotsHandler calls listSnapshots and returns formatted list', async () => {
-    const listSnapshots = vi.fn().mockResolvedValue([
-      [{ name: 'projects/p1/locations/us-central1/volumes/vol1/snapshots/s1' }],
-      undefined,
-      'next',
-    ]);
+    const listSnapshots = vi
+      .fn()
+      .mockResolvedValue([
+        [{ name: 'projects/p1/locations/us-central1/volumes/vol1/snapshots/s1' }],
+        undefined,
+        'next',
+      ]);
     createClientMock.mockReturnValue({ listSnapshots });
 
     const { listSnapshotsHandler } = await import('./snapshot-handler.js');
@@ -277,7 +279,11 @@ describe('snapshot-handler', () => {
     createClientMock.mockReturnValue({ listSnapshots });
 
     const { listSnapshotsHandler } = await import('./snapshot-handler.js');
-    const result = await listSnapshotsHandler({ projectId: 'p1', location: 'us-central1', volumeId: 'vol1' });
+    const result = await listSnapshotsHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+    });
 
     expect(result.structuredContent).toEqual({ snapshots: [], nextPageToken: '' });
   });
@@ -407,23 +413,28 @@ describe('snapshot-handler', () => {
     const revertVolume = vi.fn().mockRejectedValue(err);
     createClientMock.mockReturnValue({ listSnapshots, revertVolume });
 
-    const { listSnapshotsHandler, revertVolumeToSnapshotHandler } = await import('./snapshot-handler.js');
+    const { listSnapshotsHandler, revertVolumeToSnapshotHandler } =
+      await import('./snapshot-handler.js');
 
     expect(
-      ((await listSnapshotsHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-      })) as any).isError
+      (
+        (await listSnapshotsHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+        })) as any
+      ).isError
     ).toBe(true);
 
     expect(
-      ((await revertVolumeToSnapshotHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-        snapshotId: 's1',
-      })) as any).isError
+      (
+        (await revertVolumeToSnapshotHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+          snapshotId: 's1',
+        })) as any
+      ).isError
     ).toBe(true);
   });
 
@@ -448,59 +459,69 @@ describe('snapshot-handler', () => {
     } = await import('./snapshot-handler.js');
 
     expect(
-      ((await createSnapshotHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-        snapshotId: 's1',
-      })) as any).content?.[0]?.text
+      (
+        (await createSnapshotHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+          snapshotId: 's1',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await deleteSnapshotHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-        snapshotId: 's1',
-      })) as any).content?.[0]?.text
+      (
+        (await deleteSnapshotHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+          snapshotId: 's1',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await getSnapshotHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-        snapshotId: 's1',
-      })) as any).content?.[0]?.text
+      (
+        (await getSnapshotHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+          snapshotId: 's1',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await listSnapshotsHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-      })) as any).content?.[0]?.text
+      (
+        (await listSnapshotsHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await revertVolumeToSnapshotHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-        snapshotId: 's1',
-      })) as any).content?.[0]?.text
+      (
+        (await revertVolumeToSnapshotHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+          snapshotId: 's1',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await updateSnapshotHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-        snapshotId: 's1',
-        description: 'd',
-      })) as any).content?.[0]?.text
+      (
+        (await updateSnapshotHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+          snapshotId: 's1',
+          description: 'd',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
   });
 });
-
-

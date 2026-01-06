@@ -68,7 +68,12 @@ describe('kms-config-handler', () => {
     expect(createKmsConfig).toHaveBeenCalledWith({
       parent: 'projects/p1/locations/us-central1',
       kmsConfigId: 'k1',
-      kmsConfig: { cryptoKeyName: 'ck', description: 'd', labels: { a: 'b' }, instructions: 'do x' },
+      kmsConfig: {
+        cryptoKeyName: 'ck',
+        description: 'd',
+        labels: { a: 'b' },
+        instructions: 'do x',
+      },
     });
     expect(result.structuredContent).toMatchObject({ operationId: 'op-create-all' });
   });
@@ -113,7 +118,11 @@ describe('kms-config-handler', () => {
     createClientMock.mockReturnValue({ deleteKmsConfig });
 
     const { deleteKmsConfigHandler } = await import('./kms-config-handler.js');
-    const result = await deleteKmsConfigHandler({ projectId: 'p1', location: 'us-central1', kmsConfigId: 'k1' });
+    const result = await deleteKmsConfigHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      kmsConfigId: 'k1',
+    });
 
     expect(deleteKmsConfig).toHaveBeenCalledWith({
       name: 'projects/p1/locations/us-central1/kmsConfigs/k1',
@@ -126,7 +135,11 @@ describe('kms-config-handler', () => {
     createClientMock.mockReturnValue({ deleteKmsConfig });
 
     const { deleteKmsConfigHandler } = await import('./kms-config-handler.js');
-    const result = await deleteKmsConfigHandler({ projectId: 'p1', location: 'us-central1', kmsConfigId: 'k1' });
+    const result = await deleteKmsConfigHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      kmsConfigId: 'k1',
+    });
 
     expect(result.structuredContent).toEqual({ success: true, operationId: '' });
   });
@@ -136,7 +149,11 @@ describe('kms-config-handler', () => {
     createClientMock.mockReturnValue({ deleteKmsConfig });
 
     const { deleteKmsConfigHandler } = await import('./kms-config-handler.js');
-    const result = await deleteKmsConfigHandler({ projectId: 'p1', location: 'us-central1', kmsConfigId: 'k1' });
+    const result = await deleteKmsConfigHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      kmsConfigId: 'k1',
+    });
 
     expect((result as any).isError).toBe(true);
   });
@@ -152,7 +169,11 @@ describe('kms-config-handler', () => {
     createClientMock.mockReturnValue({ getKmsConfig });
 
     const { getKmsConfigHandler } = await import('./kms-config-handler.js');
-    const result = await getKmsConfigHandler({ projectId: 'p1', location: 'us-central1', kmsConfigId: 'k1' });
+    const result = await getKmsConfigHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      kmsConfigId: 'k1',
+    });
 
     expect(getKmsConfig).toHaveBeenCalledWith({
       name: 'projects/p1/locations/us-central1/kmsConfigs/k1',
@@ -182,7 +203,11 @@ describe('kms-config-handler', () => {
     createClientMock.mockReturnValue({ getKmsConfig });
 
     const { getKmsConfigHandler } = await import('./kms-config-handler.js');
-    const result = await getKmsConfigHandler({ projectId: 'p1', location: 'us-central1', kmsConfigId: 'k1' });
+    const result = await getKmsConfigHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      kmsConfigId: 'k1',
+    });
 
     expect(result.structuredContent).toMatchObject({
       kmsConfigId: 'k1',
@@ -202,7 +227,11 @@ describe('kms-config-handler', () => {
     createClientMock.mockReturnValue({ getKmsConfig });
 
     const { getKmsConfigHandler } = await import('./kms-config-handler.js');
-    const result = await getKmsConfigHandler({ projectId: 'p1', location: 'us-central1', kmsConfigId: 'k1' });
+    const result = await getKmsConfigHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      kmsConfigId: 'k1',
+    });
 
     expect((result as any).isError).toBe(true);
   });
@@ -212,17 +241,23 @@ describe('kms-config-handler', () => {
     createClientMock.mockReturnValue({ getKmsConfig });
 
     const { getKmsConfigHandler } = await import('./kms-config-handler.js');
-    const result = await getKmsConfigHandler({ projectId: 'p1', location: 'us-central1', kmsConfigId: 'k1' });
+    const result = await getKmsConfigHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      kmsConfigId: 'k1',
+    });
 
     expect((result as any).isError).toBe(true);
   });
 
   it('listKmsConfigsHandler calls listKmsConfigs and returns schema-valid list', async () => {
-    const listKmsConfigs = vi.fn().mockResolvedValue([
-      [{ name: 'projects/p1/locations/us-central1/kmsConfigs/k1' }],
-      undefined,
-      { nextPageToken: 'next' },
-    ]);
+    const listKmsConfigs = vi
+      .fn()
+      .mockResolvedValue([
+        [{ name: 'projects/p1/locations/us-central1/kmsConfigs/k1' }],
+        undefined,
+        { nextPageToken: 'next' },
+      ]);
     createClientMock.mockReturnValue({ listKmsConfigs });
 
     const { listKmsConfigsHandler } = await import('./kms-config-handler.js');
@@ -266,7 +301,11 @@ describe('kms-config-handler', () => {
     createClientMock.mockReturnValue({ getKmsConfig });
 
     const { getKmsConfigHandler } = await import('./kms-config-handler.js');
-    const result = await getKmsConfigHandler({ projectId: 'p1', location: 'us-central1', kmsConfigId: 'k1' });
+    const result = await getKmsConfigHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      kmsConfigId: 'k1',
+    });
 
     expect((result as any).isError).toBe(true);
   });
@@ -304,61 +343,75 @@ describe('kms-config-handler', () => {
     } = await import('./kms-config-handler.js');
 
     expect(
-      ((await createKmsConfigHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        kmsConfigId: 'k1',
-        cryptoKeyName: 'ck',
-      })) as any).content?.[0]?.text
+      (
+        (await createKmsConfigHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          kmsConfigId: 'k1',
+          cryptoKeyName: 'ck',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await deleteKmsConfigHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        kmsConfigId: 'k1',
-      })) as any).content?.[0]?.text
+      (
+        (await deleteKmsConfigHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          kmsConfigId: 'k1',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await getKmsConfigHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        kmsConfigId: 'k1',
-      })) as any).content?.[0]?.text
+      (
+        (await getKmsConfigHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          kmsConfigId: 'k1',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await listKmsConfigsHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-      })) as any).content?.[0]?.text
+      (
+        (await listKmsConfigsHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await updateKmsConfigHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        kmsConfigId: 'k1',
-        description: 'd',
-      })) as any).content?.[0]?.text
+      (
+        (await updateKmsConfigHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          kmsConfigId: 'k1',
+          description: 'd',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await verifyKmsConfigHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        kmsConfigId: 'k1',
-      })) as any).content?.[0]?.text
+      (
+        (await verifyKmsConfigHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          kmsConfigId: 'k1',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await encryptVolumesHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        kmsConfigId: 'k1',
-        volumeIds: ['v1'],
-      })) as any).content?.[0]?.text
+      (
+        (await encryptVolumesHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          kmsConfigId: 'k1',
+          volumeIds: ['v1'],
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
   });
 
@@ -446,7 +499,11 @@ describe('kms-config-handler', () => {
     });
 
     expect(updateKmsConfig.mock.calls[0]?.[0]).toMatchObject({
-      kmsConfig: { name: 'projects/p1/locations/us-central1/kmsConfigs/k1', cryptoKeyName: 'ck2', labels: { a: 'b' } },
+      kmsConfig: {
+        name: 'projects/p1/locations/us-central1/kmsConfigs/k1',
+        cryptoKeyName: 'ck2',
+        labels: { a: 'b' },
+      },
       updateMask: { paths: expect.arrayContaining(['crypto_key_name', 'labels']) },
     });
     expect(result.structuredContent).toMatchObject({ operationId: 'op-upd3' });
@@ -472,7 +529,11 @@ describe('kms-config-handler', () => {
     createClientMock.mockReturnValue({ verifyKmsConfig });
 
     const { verifyKmsConfigHandler } = await import('./kms-config-handler.js');
-    const result = await verifyKmsConfigHandler({ projectId: 'p1', location: 'us-central1', kmsConfigId: 'k1' });
+    const result = await verifyKmsConfigHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      kmsConfigId: 'k1',
+    });
 
     expect(verifyKmsConfig).toHaveBeenCalledWith({
       name: 'projects/p1/locations/us-central1/kmsConfigs/k1',
@@ -485,7 +546,11 @@ describe('kms-config-handler', () => {
     createClientMock.mockReturnValue({ encryptVolumes });
 
     const { encryptVolumesHandler } = await import('./kms-config-handler.js');
-    const result = await encryptVolumesHandler({ projectId: 'p1', location: 'us-central1', kmsConfigId: 'k1' });
+    const result = await encryptVolumesHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      kmsConfigId: 'k1',
+    });
 
     expect(encryptVolumes).toHaveBeenCalledWith({
       name: 'projects/p1/locations/us-central1/kmsConfigs/k1',
@@ -501,7 +566,11 @@ describe('kms-config-handler', () => {
     createClientMock.mockReturnValue({ encryptVolumes });
 
     const { encryptVolumesHandler } = await import('./kms-config-handler.js');
-    const result = await encryptVolumesHandler({ projectId: 'p1', location: 'us-central1', kmsConfigId: 'k1' });
+    const result = await encryptVolumesHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      kmsConfigId: 'k1',
+    });
 
     expect(result.structuredContent).toEqual({
       name: 'projects/p1/locations/us-central1/kmsConfigs/k1',
@@ -511,18 +580,29 @@ describe('kms-config-handler', () => {
 
   it('covers error paths for verifyKmsConfigHandler and encryptVolumesHandler', async () => {
     const err = new Error('boom');
-    const { verifyKmsConfigHandler, encryptVolumesHandler } = await import('./kms-config-handler.js');
+    const { verifyKmsConfigHandler, encryptVolumesHandler } =
+      await import('./kms-config-handler.js');
 
     createClientMock.mockReturnValue({ verifyKmsConfig: vi.fn().mockRejectedValue(err) });
     expect(
-      ((await verifyKmsConfigHandler({ projectId: 'p1', location: 'us-central1', kmsConfigId: 'k1' })) as any).isError
+      (
+        (await verifyKmsConfigHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          kmsConfigId: 'k1',
+        })) as any
+      ).isError
     ).toBe(true);
 
     createClientMock.mockReturnValue({ encryptVolumes: vi.fn().mockRejectedValue(err) });
     expect(
-      ((await encryptVolumesHandler({ projectId: 'p1', location: 'us-central1', kmsConfigId: 'k1' })) as any).isError
+      (
+        (await encryptVolumesHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          kmsConfigId: 'k1',
+        })) as any
+      ).isError
     ).toBe(true);
   });
 });
-
-

@@ -223,11 +223,13 @@ describe('active-directory-handler', () => {
   });
 
   it('listActiveDirectoriesHandler calls listActiveDirectories and returns formatted list', async () => {
-    const listActiveDirectories = vi.fn().mockResolvedValue([
-      [{ name: 'projects/p1/locations/us-central1/activeDirectories/ad1' }],
-      undefined,
-      { nextPageToken: 'next' },
-    ]);
+    const listActiveDirectories = vi
+      .fn()
+      .mockResolvedValue([
+        [{ name: 'projects/p1/locations/us-central1/activeDirectories/ad1' }],
+        undefined,
+        { nextPageToken: 'next' },
+      ]);
     createClientMock.mockReturnValue({ listActiveDirectories });
 
     const { listActiveDirectoriesHandler } = await import('./active-directory-handler.js');
@@ -243,7 +245,9 @@ describe('active-directory-handler', () => {
   });
 
   it('listActiveDirectoriesHandler passes filter/pageSize/pageToken when provided', async () => {
-    const listActiveDirectories = vi.fn().mockResolvedValue([[], undefined, { nextPageToken: 'next' }]);
+    const listActiveDirectories = vi
+      .fn()
+      .mockResolvedValue([[], undefined, { nextPageToken: 'next' }]);
     createClientMock.mockReturnValue({ listActiveDirectories });
 
     const { listActiveDirectoriesHandler } = await import('./active-directory-handler.js');
@@ -261,7 +265,10 @@ describe('active-directory-handler', () => {
       pageSize: 10,
       pageToken: 'pt',
     });
-    expect(result.structuredContent).toMatchObject({ activeDirectories: [], nextPageToken: 'next' });
+    expect(result.structuredContent).toMatchObject({
+      activeDirectories: [],
+      nextPageToken: 'next',
+    });
   });
 
   it('updateActiveDirectoryHandler calls updateActiveDirectory with updateMask', async () => {
@@ -328,11 +335,46 @@ describe('active-directory-handler', () => {
       updateActiveDirectoryHandler,
     } = await import('./active-directory-handler.js');
 
-    expect(((await createActiveDirectoryHandler({ projectId: 'p1', location: 'l', activeDirectoryId: 'ad1' })) as any).isError).toBe(true);
-    expect(((await deleteActiveDirectoryHandler({ projectId: 'p1', location: 'l', activeDirectoryId: 'ad1' })) as any).isError).toBe(true);
-    expect(((await getActiveDirectoryHandler({ projectId: 'p1', location: 'l', activeDirectoryId: 'ad1' })) as any).isError).toBe(true);
-    expect(((await listActiveDirectoriesHandler({ projectId: 'p1', location: 'l' })) as any).isError).toBe(true);
-    expect(((await updateActiveDirectoryHandler({ projectId: 'p1', location: 'l', activeDirectoryId: 'ad1', dns: 'd' })) as any).isError).toBe(true);
+    expect(
+      (
+        (await createActiveDirectoryHandler({
+          projectId: 'p1',
+          location: 'l',
+          activeDirectoryId: 'ad1',
+        })) as any
+      ).isError
+    ).toBe(true);
+    expect(
+      (
+        (await deleteActiveDirectoryHandler({
+          projectId: 'p1',
+          location: 'l',
+          activeDirectoryId: 'ad1',
+        })) as any
+      ).isError
+    ).toBe(true);
+    expect(
+      (
+        (await getActiveDirectoryHandler({
+          projectId: 'p1',
+          location: 'l',
+          activeDirectoryId: 'ad1',
+        })) as any
+      ).isError
+    ).toBe(true);
+    expect(
+      ((await listActiveDirectoriesHandler({ projectId: 'p1', location: 'l' })) as any).isError
+    ).toBe(true);
+    expect(
+      (
+        (await updateActiveDirectoryHandler({
+          projectId: 'p1',
+          location: 'l',
+          activeDirectoryId: 'ad1',
+          dns: 'd',
+        })) as any
+      ).isError
+    ).toBe(true);
   });
 
   it('handlers fall back to "Unknown error" when error.message is missing', async () => {
@@ -346,27 +388,55 @@ describe('active-directory-handler', () => {
     } = await import('./active-directory-handler.js');
 
     createClientMock.mockReturnValue({ createActiveDirectory: vi.fn().mockRejectedValue(err) });
-    expect(((await createActiveDirectoryHandler({ projectId: 'p1', location: 'l', activeDirectoryId: 'ad1' })) as any).content[0].text).toContain(
-      'Unknown error'
-    );
+    expect(
+      (
+        (await createActiveDirectoryHandler({
+          projectId: 'p1',
+          location: 'l',
+          activeDirectoryId: 'ad1',
+        })) as any
+      ).content[0].text
+    ).toContain('Unknown error');
 
     createClientMock.mockReturnValue({ deleteActiveDirectory: vi.fn().mockRejectedValue(err) });
-    expect(((await deleteActiveDirectoryHandler({ projectId: 'p1', location: 'l', activeDirectoryId: 'ad1' })) as any).content[0].text).toContain(
-      'Unknown error'
-    );
+    expect(
+      (
+        (await deleteActiveDirectoryHandler({
+          projectId: 'p1',
+          location: 'l',
+          activeDirectoryId: 'ad1',
+        })) as any
+      ).content[0].text
+    ).toContain('Unknown error');
 
     createClientMock.mockReturnValue({ getActiveDirectory: vi.fn().mockRejectedValue(err) });
-    expect(((await getActiveDirectoryHandler({ projectId: 'p1', location: 'l', activeDirectoryId: 'ad1' })) as any).content[0].text).toContain(
-      'Unknown error'
-    );
+    expect(
+      (
+        (await getActiveDirectoryHandler({
+          projectId: 'p1',
+          location: 'l',
+          activeDirectoryId: 'ad1',
+        })) as any
+      ).content[0].text
+    ).toContain('Unknown error');
 
     createClientMock.mockReturnValue({ listActiveDirectories: vi.fn().mockRejectedValue(err) });
-    expect(((await listActiveDirectoriesHandler({ projectId: 'p1', location: 'l' })) as any).content[0].text).toContain('Unknown error');
+    expect(
+      ((await listActiveDirectoriesHandler({ projectId: 'p1', location: 'l' })) as any).content[0]
+        .text
+    ).toContain('Unknown error');
 
     createClientMock.mockReturnValue({ updateActiveDirectory: vi.fn().mockRejectedValue(err) });
-    expect(((await updateActiveDirectoryHandler({ projectId: 'p1', location: 'l', activeDirectoryId: 'ad1', dns: 'd' })) as any).content[0].text).toContain(
-      'Unknown error'
-    );
+    expect(
+      (
+        (await updateActiveDirectoryHandler({
+          projectId: 'p1',
+          location: 'l',
+          activeDirectoryId: 'ad1',
+          dns: 'd',
+        })) as any
+      ).content[0].text
+    ).toContain('Unknown error');
   });
 
   it('updateActiveDirectoryHandler includes additional fields in updateMask when provided', async () => {
@@ -572,5 +642,3 @@ describe('active-directory-handler', () => {
     expect(result.structuredContent).toMatchObject({ operationId: 'op-upd-all' });
   });
 });
-
-

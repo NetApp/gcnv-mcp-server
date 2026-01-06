@@ -187,7 +187,11 @@ describe('quota-rule-handler', () => {
 
   it('deleteQuotaRuleHandler returns isError for missing args (no client call)', async () => {
     const { deleteQuotaRuleHandler } = await import('./quota-rule-handler.js');
-    const result = await deleteQuotaRuleHandler({ projectId: 'p1', location: 'us-central1', volumeId: '' });
+    const result = await deleteQuotaRuleHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: '',
+    });
     expect(createClientMock).not.toHaveBeenCalled();
     expect(result.isError).toBe(true);
   });
@@ -285,7 +289,11 @@ describe('quota-rule-handler', () => {
       quotaRuleId: 'qr1',
     });
 
-    expect(result.structuredContent).toMatchObject({ quotaRuleId: 'qr1', target: 'user:1000', description: 'd' });
+    expect(result.structuredContent).toMatchObject({
+      quotaRuleId: 'qr1',
+      target: 'user:1000',
+      description: 'd',
+    });
   });
 
   it('getQuotaRuleHandler returns empty structuredContent when quota rule is undefined (covers !rule branch)', async () => {
@@ -389,11 +397,13 @@ describe('quota-rule-handler', () => {
   });
 
   it('listQuotaRulesHandler calls listQuotaRules and returns list + nextPageToken', async () => {
-    const listQuotaRules = vi.fn().mockResolvedValue([
-      [{ name: 'projects/p1/locations/us-central1/volumes/vol1/quotaRules/qr1' }],
-      undefined,
-      { nextPageToken: 'next' },
-    ]);
+    const listQuotaRules = vi
+      .fn()
+      .mockResolvedValue([
+        [{ name: 'projects/p1/locations/us-central1/volumes/vol1/quotaRules/qr1' }],
+        undefined,
+        { nextPageToken: 'next' },
+      ]);
     createClientMock.mockReturnValue({ listQuotaRules });
 
     const { listQuotaRulesHandler } = await import('./quota-rule-handler.js');
@@ -444,7 +454,11 @@ describe('quota-rule-handler', () => {
     createClientMock.mockReturnValue({ listQuotaRules });
 
     const { listQuotaRulesHandler } = await import('./quota-rule-handler.js');
-    const result = await listQuotaRulesHandler({ projectId: 'p1', location: 'us-central1', volumeId: 'vol1' });
+    const result = await listQuotaRulesHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+    });
 
     expect((result as any).isError).toBe(true);
   });
@@ -611,51 +625,61 @@ describe('quota-rule-handler', () => {
     } = await import('./quota-rule-handler.js');
 
     expect(
-      ((await createQuotaRuleHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-        quotaRuleId: 'qr1',
-        quotaType: 'INDIVIDUAL_USER_QUOTA',
-        target: 't',
-        diskLimitMib: 1,
-      })) as any).content?.[0]?.text
+      (
+        (await createQuotaRuleHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+          quotaRuleId: 'qr1',
+          quotaType: 'INDIVIDUAL_USER_QUOTA',
+          target: 't',
+          diskLimitMib: 1,
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await deleteQuotaRuleHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-        quotaRuleId: 'qr1',
-      })) as any).content?.[0]?.text
+      (
+        (await deleteQuotaRuleHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+          quotaRuleId: 'qr1',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await getQuotaRuleHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-        quotaRuleId: 'qr1',
-      })) as any).content?.[0]?.text
+      (
+        (await getQuotaRuleHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+          quotaRuleId: 'qr1',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await listQuotaRulesHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-      })) as any).content?.[0]?.text
+      (
+        (await listQuotaRulesHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await updateQuotaRuleHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        volumeId: 'vol1',
-        quotaRuleId: 'qr1',
-        description: 'd',
-      })) as any).content?.[0]?.text
+      (
+        (await updateQuotaRuleHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          volumeId: 'vol1',
+          quotaRuleId: 'qr1',
+          description: 'd',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
   });
 
@@ -675,5 +699,3 @@ describe('quota-rule-handler', () => {
     expect((result as any).isError).toBe(true);
   });
 });
-
-

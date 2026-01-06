@@ -84,5 +84,3 @@ describe('NetAppClientFactory', () => {
     expect(NetAppClientCtor).toHaveBeenCalledTimes(2);
   });
 });
-
-

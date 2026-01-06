@@ -27,7 +27,11 @@ describe('storage-pool-handler', () => {
     expect(createStoragePool.mock.calls[0]?.[0]).toMatchObject({
       parent: 'projects/p1/locations/us-central1',
       storagePoolId: 'sp1',
-      storagePool: expect.objectContaining({ capacityGib: 100, serviceLevel: 'PREMIUM', network: 'net1' }),
+      storagePool: expect.objectContaining({
+        capacityGib: 100,
+        serviceLevel: 'PREMIUM',
+        network: 'net1',
+      }),
     });
     expect(result.structuredContent).toEqual({
       name: 'projects/p1/locations/us-central1/storagePools/sp1',
@@ -176,7 +180,11 @@ describe('storage-pool-handler', () => {
 
   it('getStoragePoolHandler calls getStoragePool and returns structuredContent', async () => {
     const getStoragePool = vi.fn().mockResolvedValue([
-      { name: 'projects/p1/locations/us-central1/storagePools/sp1', capacityGib: '1', createTime: { seconds: 1 } },
+      {
+        name: 'projects/p1/locations/us-central1/storagePools/sp1',
+        capacityGib: '1',
+        createTime: { seconds: 1 },
+      },
     ]);
     createClientMock.mockReturnValue({ getStoragePool });
 
@@ -223,9 +231,11 @@ describe('storage-pool-handler', () => {
   });
 
   it('getStoragePoolHandler uses createTime fallback when missing', async () => {
-    const getStoragePool = vi.fn().mockResolvedValue([
-      { name: 'projects/p1/locations/us-central1/storagePools/sp1', capacityGib: '1' },
-    ]);
+    const getStoragePool = vi
+      .fn()
+      .mockResolvedValue([
+        { name: 'projects/p1/locations/us-central1/storagePools/sp1', capacityGib: '1' },
+      ]);
     createClientMock.mockReturnValue({ getStoragePool });
 
     const { getStoragePoolHandler } = await import('./storage-pool-handler.js');
@@ -253,11 +263,13 @@ describe('storage-pool-handler', () => {
   });
 
   it('listStoragePoolsHandler maps pools and surfaces nextPageToken', async () => {
-    const listStoragePools = vi.fn().mockResolvedValue([
-      [{ name: 'projects/p1/locations/us-central1/storagePools/sp1', capacityGib: '1' }],
-      undefined,
-      { nextPageToken: 'n1' },
-    ]);
+    const listStoragePools = vi
+      .fn()
+      .mockResolvedValue([
+        [{ name: 'projects/p1/locations/us-central1/storagePools/sp1', capacityGib: '1' }],
+        undefined,
+        { nextPageToken: 'n1' },
+      ]);
     createClientMock.mockReturnValue({ listStoragePools });
 
     const { listStoragePoolsHandler } = await import('./storage-pool-handler.js');
@@ -278,7 +290,13 @@ describe('storage-pool-handler', () => {
 
   it('listStoragePoolsHandler formats createTime when present on pools', async () => {
     const listStoragePools = vi.fn().mockResolvedValue([
-      [{ name: 'projects/p1/locations/us-central1/storagePools/sp1', capacityGib: '1', createTime: { seconds: 1 } }],
+      [
+        {
+          name: 'projects/p1/locations/us-central1/storagePools/sp1',
+          capacityGib: '1',
+          createTime: { seconds: 1 },
+        },
+      ],
       undefined,
       { nextPageToken: 'n1' },
     ]);
@@ -312,7 +330,9 @@ describe('storage-pool-handler', () => {
     const result = await listStoragePoolsHandler({ projectId: 'p1', location: 'us-central1' });
 
     expect(result.structuredContent).toMatchObject({
-      storagePools: [expect.objectContaining({ name: '', storagePoolId: '', serviceLevel: '', capacityGib: 0 })],
+      storagePools: [
+        expect.objectContaining({ name: '', storagePoolId: '', serviceLevel: '', capacityGib: 0 }),
+      ],
       nextPageToken: undefined,
     });
     expect((result.structuredContent as any).storagePools[0].createTime).toBeInstanceOf(Date);
@@ -343,7 +363,11 @@ describe('storage-pool-handler', () => {
 
     expect(updateStoragePool).toHaveBeenCalledTimes(1);
     expect(updateStoragePool.mock.calls[0]?.[0]).toMatchObject({
-      storagePool: { name: 'projects/p1/locations/us-central1/storagePools/sp1', capacityGib: 2, description: 'd' },
+      storagePool: {
+        name: 'projects/p1/locations/us-central1/storagePools/sp1',
+        capacityGib: 2,
+        description: 'd',
+      },
       updateMask: { paths: expect.arrayContaining(['capacity_gib', 'description']) },
     });
     expect(result.structuredContent).toMatchObject({
@@ -364,7 +388,10 @@ describe('storage-pool-handler', () => {
     });
 
     expect(updateStoragePool).toHaveBeenCalledWith({
-      storagePool: { name: 'projects/p1/locations/us-central1/storagePools/sp1', labels: { a: 'b' } },
+      storagePool: {
+        name: 'projects/p1/locations/us-central1/storagePools/sp1',
+        labels: { a: 'b' },
+      },
       updateMask: { paths: ['labels'] },
     });
     expect(result.structuredContent).toMatchObject({ operationId: 'op-upd2' });
@@ -421,26 +448,31 @@ describe('storage-pool-handler', () => {
 
   it('covers error paths for updateStoragePoolHandler and validateDirectoryServiceHandler', async () => {
     const err = new Error('boom');
-    const { updateStoragePoolHandler, validateDirectoryServiceHandler } = await import('./storage-pool-handler.js');
+    const { updateStoragePoolHandler, validateDirectoryServiceHandler } =
+      await import('./storage-pool-handler.js');
 
     createClientMock.mockReturnValue({ updateStoragePool: vi.fn().mockRejectedValue(err) });
     expect(
-      ((await updateStoragePoolHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        storagePoolId: 'sp1',
-        description: 'd',
-      })) as any).isError
+      (
+        (await updateStoragePoolHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          storagePoolId: 'sp1',
+          description: 'd',
+        })) as any
+      ).isError
     ).toBe(true);
 
     createClientMock.mockReturnValue({ validateDirectoryService: vi.fn().mockRejectedValue(err) });
     expect(
-      ((await validateDirectoryServiceHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        storagePoolId: 'sp1',
-        directoryServiceType: 'ACTIVE_DIRECTORY',
-      })) as any).isError
+      (
+        (await validateDirectoryServiceHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          storagePoolId: 'sp1',
+          directoryServiceType: 'ACTIVE_DIRECTORY',
+        })) as any
+      ).isError
     ).toBe(true);
   });
 
@@ -465,57 +497,67 @@ describe('storage-pool-handler', () => {
     } = await import('./storage-pool-handler.js');
 
     expect(
-      ((await createStoragePoolHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        storagePoolId: 'sp1',
-        capacityGib: 1,
-        serviceLevel: 'PREMIUM',
-        network: 'net',
-      })) as any).content?.[0]?.text
+      (
+        (await createStoragePoolHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          storagePoolId: 'sp1',
+          capacityGib: 1,
+          serviceLevel: 'PREMIUM',
+          network: 'net',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await deleteStoragePoolHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        storagePoolId: 'sp1',
-      })) as any).content?.[0]?.text
+      (
+        (await deleteStoragePoolHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          storagePoolId: 'sp1',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await getStoragePoolHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        storagePoolId: 'sp1',
-      })) as any).content?.[0]?.text
+      (
+        (await getStoragePoolHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          storagePoolId: 'sp1',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await listStoragePoolsHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-      })) as any).content?.[0]?.text
+      (
+        (await listStoragePoolsHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await updateStoragePoolHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        storagePoolId: 'sp1',
-        description: 'd',
-      })) as any).content?.[0]?.text
+      (
+        (await updateStoragePoolHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          storagePoolId: 'sp1',
+          description: 'd',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
 
     expect(
-      ((await validateDirectoryServiceHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        storagePoolId: 'sp1',
-        directoryServiceType: 'ACTIVE_DIRECTORY',
-      })) as any).content?.[0]?.text
+      (
+        (await validateDirectoryServiceHandler({
+          projectId: 'p1',
+          location: 'us-central1',
+          storagePoolId: 'sp1',
+          directoryServiceType: 'ACTIVE_DIRECTORY',
+        })) as any
+      ).content?.[0]?.text
     ).toContain('Unknown error');
   });
 });
-
-

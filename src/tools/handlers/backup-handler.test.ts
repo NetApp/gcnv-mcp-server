@@ -116,7 +116,9 @@ describe('backup-handler', () => {
       backupVaultId: 'bv1',
       state: 'UNKNOWN',
     });
-    expect((result.structuredContent as any).sourceVolume).toContain('projects/p1/locations/us-central1/');
+    expect((result.structuredContent as any).sourceVolume).toContain(
+      'projects/p1/locations/us-central1/'
+    );
   });
 
   it('getBackupHandler formats sourceVolume and createTime when present', async () => {
@@ -210,11 +212,13 @@ describe('backup-handler', () => {
   });
 
   it('listBackupsHandler calls listBackups and returns formatted backups + nextPageToken', async () => {
-    const listBackups = vi.fn().mockResolvedValue([
-      [{ name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1' }],
-      undefined,
-      'next',
-    ]);
+    const listBackups = vi
+      .fn()
+      .mockResolvedValue([
+        [{ name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1' }],
+        undefined,
+        'next',
+      ]);
     createClientMock.mockReturnValue({ listBackups });
 
     const { listBackupsHandler } = await import('./backup-handler.js');
@@ -436,5 +440,3 @@ describe('backup-handler', () => {
     expect(result.structuredContent).toMatchObject({ operationId: 'op-upd2' });
   });
 });
-
-

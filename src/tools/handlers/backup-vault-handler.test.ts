@@ -85,7 +85,11 @@ describe('backup-vault-handler', () => {
     createClientMock.mockReturnValue({ getBackupVault });
 
     const { getBackupVaultHandler } = await import('./backup-vault-handler.js');
-    const result = await getBackupVaultHandler({ projectId: 'p1', location: 'us-central1', backupVaultId: 'bv1' });
+    const result = await getBackupVaultHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+    });
 
     expect(result.structuredContent).toMatchObject({
       backupVaultType: 'STANDARD',
@@ -146,7 +150,11 @@ describe('backup-vault-handler', () => {
     createClientMock.mockReturnValue({ getBackupVault });
 
     const { getBackupVaultHandler } = await import('./backup-vault-handler.js');
-    const result = await getBackupVaultHandler({ projectId: 'p1', location: 'us-central1', backupVaultId: 'bv1' });
+    const result = await getBackupVaultHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+    });
 
     expect(result.structuredContent).toMatchObject({
       backupRetentionPolicy: {
@@ -204,7 +212,11 @@ describe('backup-vault-handler', () => {
     createClientMock.mockReturnValue({ getBackupVault });
 
     const { getBackupVaultHandler } = await import('./backup-vault-handler.js');
-    const result = await getBackupVaultHandler({ projectId: 'p1', location: 'us-central1', backupVaultId: 'bv1' });
+    const result = await getBackupVaultHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+    });
 
     expect(result.structuredContent).toMatchObject({
       backupVaultId: 'bv1',
@@ -224,7 +236,10 @@ describe('backup-vault-handler', () => {
   it('listBackupVaultsHandler calls listBackupVaults and returns formatted list', async () => {
     const listBackupVaults = vi.fn().mockResolvedValue([
       [
-        { name: 'projects/p1/locations/us-central1/backupVaults/bv1', createTime: { seconds: 1 } },
+        {
+          name: 'projects/p1/locations/us-central1/backupVaults/bv1',
+          createTime: { seconds: 1 },
+        },
         { name: 'projects/p1/locations/us-central1/backupVaults/bv2' },
       ],
     ]);
@@ -240,7 +255,10 @@ describe('backup-vault-handler', () => {
       pageToken: undefined,
     });
     expect(result.structuredContent).toMatchObject({
-      backupVaults: [expect.objectContaining({ backupVaultId: 'bv1' }), expect.objectContaining({ backupVaultId: 'bv2' })],
+      backupVaults: [
+        expect.objectContaining({ backupVaultId: 'bv1' }),
+        expect.objectContaining({ backupVaultId: 'bv2' }),
+      ],
     });
   });
 
@@ -317,12 +335,19 @@ describe('backup-vault-handler', () => {
   it('covers error-code branches for create/delete/get/list/update', async () => {
     const mkErr = (code: number) => Object.assign(new Error('boom'), { code });
 
-    const { createBackupVaultHandler, deleteBackupVaultHandler, getBackupVaultHandler, listBackupVaultsHandler, updateBackupVaultHandler } =
-      await import('./backup-vault-handler.js');
+    const {
+      createBackupVaultHandler,
+      deleteBackupVaultHandler,
+      getBackupVaultHandler,
+      listBackupVaultsHandler,
+      updateBackupVaultHandler,
+    } = await import('./backup-vault-handler.js');
 
     // create error branches: 6/7/5/3
     for (const code of [6, 7, 5, 3]) {
-      createClientMock.mockReturnValue({ createBackupVault: vi.fn().mockRejectedValue(mkErr(code)) });
+      createClientMock.mockReturnValue({
+        createBackupVault: vi.fn().mockRejectedValue(mkErr(code)),
+      });
       const res = (await createBackupVaultHandler({
         projectId: 'p1',
         location: 'us-central1',
@@ -333,7 +358,9 @@ describe('backup-vault-handler', () => {
 
     // delete error branches: 5/7/9
     for (const code of [5, 7, 9]) {
-      createClientMock.mockReturnValue({ deleteBackupVault: vi.fn().mockRejectedValue(mkErr(code)) });
+      createClientMock.mockReturnValue({
+        deleteBackupVault: vi.fn().mockRejectedValue(mkErr(code)),
+      });
       const res = (await deleteBackupVaultHandler({
         projectId: 'p1',
         location: 'us-central1',
@@ -355,7 +382,9 @@ describe('backup-vault-handler', () => {
 
     // list error branches: 5/7/3
     for (const code of [5, 7, 3]) {
-      createClientMock.mockReturnValue({ listBackupVaults: vi.fn().mockRejectedValue(mkErr(code)) });
+      createClientMock.mockReturnValue({
+        listBackupVaults: vi.fn().mockRejectedValue(mkErr(code)),
+      });
       const res = (await listBackupVaultsHandler({
         projectId: 'p1',
         location: 'us-central1',
@@ -366,7 +395,9 @@ describe('backup-vault-handler', () => {
 
     // update error branches: 5/7/3
     for (const code of [5, 7, 3]) {
-      createClientMock.mockReturnValue({ updateBackupVault: vi.fn().mockRejectedValue(mkErr(code)) });
+      createClientMock.mockReturnValue({
+        updateBackupVault: vi.fn().mockRejectedValue(mkErr(code)),
+      });
       const res = (await updateBackupVaultHandler({
         projectId: 'p1',
         location: 'us-central1',
@@ -377,5 +408,3 @@ describe('backup-vault-handler', () => {
     }
   });
 });
-
-
