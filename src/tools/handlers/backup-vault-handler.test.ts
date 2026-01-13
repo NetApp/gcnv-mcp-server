@@ -24,11 +24,47 @@ describe('backup-vault-handler', () => {
     expect(createBackupVault).toHaveBeenCalledWith({
       parent: 'projects/p1/locations/us-central1',
       backupVaultId: 'bv1',
-      backupVault: { description: 'd', labels: undefined },
+      backupVault: { description: 'd', labels: undefined, backupRetentionPolicy: undefined },
     });
     expect(result.structuredContent).toEqual({
       name: 'projects/p1/locations/us-central1/backupVaults/bv1',
       operationId: 'op-create',
+    });
+  });
+
+  it('createBackupVaultHandler includes backupRetentionPolicy (immutability) when provided', async () => {
+    const createBackupVault = vi.fn().mockResolvedValue([{ name: 'op-create2' }]);
+    createClientMock.mockReturnValue({ createBackupVault });
+
+    const { createBackupVaultHandler } = await import('./backup-vault-handler.js');
+    await createBackupVaultHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+      description: 'd',
+      backupRetentionPolicy: {
+        backupMinimumEnforcedRetentionDays: 7,
+        dailyBackupImmutable: true,
+        weeklyBackupImmutable: true,
+        monthlyBackupImmutable: false,
+        manualBackupImmutable: true,
+      },
+    });
+
+    expect(createBackupVault).toHaveBeenCalledWith({
+      parent: 'projects/p1/locations/us-central1',
+      backupVaultId: 'bv1',
+      backupVault: {
+        description: 'd',
+        labels: undefined,
+        backupRetentionPolicy: {
+          backupMinimumEnforcedRetentionDays: 7,
+          dailyBackupImmutable: true,
+          weeklyBackupImmutable: true,
+          monthlyBackupImmutable: false,
+          manualBackupImmutable: true,
+        },
+      },
     });
   });
 
@@ -303,6 +339,41 @@ describe('backup-vault-handler', () => {
     expect(result.structuredContent).toEqual({
       name: 'projects/p1/locations/us-central1/backupVaults/bv1',
       operationId: 'op-upd',
+    });
+  });
+
+  it('updateBackupVaultHandler supports updating backupRetentionPolicy (immutability) and includes updateMask', async () => {
+    const updateBackupVault = vi.fn().mockResolvedValue([{ name: 'op-upd-imm' }]);
+    createClientMock.mockReturnValue({ updateBackupVault });
+
+    const { updateBackupVaultHandler } = await import('./backup-vault-handler.js');
+    await updateBackupVaultHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+      backupRetentionPolicy: {
+        backupMinimumEnforcedRetentionDays: 30,
+        dailyBackupImmutable: true,
+        weeklyBackupImmutable: false,
+        monthlyBackupImmutable: true,
+        manualBackupImmutable: true,
+      },
+    });
+
+    expect(updateBackupVault).toHaveBeenCalledWith({
+      backupVault: {
+        name: 'projects/p1/locations/us-central1/backupVaults/bv1',
+        description: undefined,
+        labels: undefined,
+        backupRetentionPolicy: {
+          backupMinimumEnforcedRetentionDays: 30,
+          dailyBackupImmutable: true,
+          weeklyBackupImmutable: false,
+          monthlyBackupImmutable: true,
+          manualBackupImmutable: true,
+        },
+      },
+      updateMask: { paths: ['backup_retention_policy'] },
     });
   });
 

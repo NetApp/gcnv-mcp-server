@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+
+echo "[pre-commit] Running lint..."
+npm run lint
+
+echo "[pre-commit] Running unit tests..."
+npm test
+
+echo "[pre-commit] OK"
+

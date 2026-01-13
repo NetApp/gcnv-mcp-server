@@ -11,6 +11,31 @@ export const createBackupVaultTool: ToolConfig = {
     location: z.string().describe('The location where the backup vault should be created'),
     backupVaultId: z.string().describe('The ID to assign to the backup vault'),
     description: z.string().optional().describe('Optional description of the backup vault'),
+    backupRetentionPolicy: z
+      .object({
+        backupMinimumEnforcedRetentionDays: z
+          .number()
+          .optional()
+          .describe('The minimum enforced retention days for backups'),
+        dailyBackupImmutable: z
+          .boolean()
+          .optional()
+          .describe('Whether daily backups are immutable'),
+        weeklyBackupImmutable: z
+          .boolean()
+          .optional()
+          .describe('Whether weekly backups are immutable'),
+        monthlyBackupImmutable: z
+          .boolean()
+          .optional()
+          .describe('Whether monthly backups are immutable'),
+        manualBackupImmutable: z
+          .boolean()
+          .optional()
+          .describe('Whether manual backups are immutable'),
+      })
+      .optional()
+      .describe('Backup retention policy, including immutability flags'),
     labels: z
       .record(z.string())
       .optional()
@@ -146,6 +171,31 @@ export const updateBackupVaultTool: ToolConfig = {
     location: z.string().describe('The location of the backup vault'),
     backupVaultId: z.string().describe('The ID of the backup vault to update'),
     description: z.string().optional().describe('New description for the backup vault'),
+    backupRetentionPolicy: z
+      .object({
+        backupMinimumEnforcedRetentionDays: z
+          .number()
+          .optional()
+          .describe('The minimum enforced retention days for backups'),
+        dailyBackupImmutable: z
+          .boolean()
+          .optional()
+          .describe('Whether daily backups are immutable'),
+        weeklyBackupImmutable: z
+          .boolean()
+          .optional()
+          .describe('Whether weekly backups are immutable'),
+        monthlyBackupImmutable: z
+          .boolean()
+          .optional()
+          .describe('Whether monthly backups are immutable'),
+        manualBackupImmutable: z
+          .boolean()
+          .optional()
+          .describe('Whether manual backups are immutable'),
+      })
+      .optional()
+      .describe('Backup retention policy, including immutability flags'),
     labels: z.record(z.string()).optional().describe('New labels to apply to the backup vault'),
   },
   outputSchema: {

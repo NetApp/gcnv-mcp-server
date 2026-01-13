@@ -39,6 +39,59 @@ describe('backup-handler', () => {
     });
   });
 
+  it('createBackupHandler supports creating a backup from a source snapshot', async () => {
+    const createBackup = vi.fn().mockResolvedValue([{ name: 'op-create-snap' }]);
+    createClientMock.mockReturnValue({ createBackup });
+
+    const { createBackupHandler } = await import('./backup-handler.js');
+    const result = await createBackupHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+      backupId: 'b1',
+      sourceSnapshotName: 'projects/p1/locations/us-central1/volumes/vol1/snapshots/s1',
+      backupRegion: 'us-central1',
+    });
+
+    expect(createBackup).toHaveBeenCalledTimes(1);
+    expect(createBackup.mock.calls[0]?.[0]).toMatchObject({
+      parent: 'projects/p1/locations/us-central1/backupVaults/bv1',
+      backupId: 'b1',
+      backup: {
+        name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
+        sourceSnapshot: 'projects/p1/locations/us-central1/volumes/vol1/snapshots/s1',
+        backupRegion: 'us-central1',
+      },
+    });
+    expect(result.structuredContent).toMatchObject({ operationId: 'op-create-snap' });
+  });
+
+  it('createBackupHandler requires exactly one of sourceVolumeName or sourceSnapshotName', async () => {
+    const { createBackupHandler } = await import('./backup-handler.js');
+
+    // neither
+    const resNeither = (await createBackupHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+      backupId: 'b1',
+    })) as any;
+    expect(resNeither.isError).toBe(true);
+    expect(createClientMock).not.toHaveBeenCalled();
+
+    // both
+    const resBoth = (await createBackupHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+      backupId: 'b1',
+      sourceVolumeName: 'projects/p1/locations/us-central1/volumes/vol1',
+      sourceSnapshotName: 'projects/p1/locations/us-central1/volumes/vol1/snapshots/s1',
+    })) as any;
+    expect(resBoth.isError).toBe(true);
+    expect(createClientMock).not.toHaveBeenCalled();
+  });
+
   it('createBackupHandler covers error-code branches', async () => {
     const { createBackupHandler } = await import('./backup-handler.js');
     const mkErr = (code: number) => Object.assign(new Error('boom'), { code });

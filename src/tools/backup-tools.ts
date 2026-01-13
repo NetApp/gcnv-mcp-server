@@ -12,14 +12,17 @@ export const createBackupTool: ToolConfig = {
     backupVaultId: z.string().describe('The ID of the backup vault to store the backup'),
     backupId: z.string().describe('The ID to assign to the backup'),
     backupRegion: z.string().optional().describe('The region where the backup will be stored'),
-    enforcedRetentionEndTime: z
-      .number()
-      .optional()
-      .describe('The number of days to retain the backup'),
     sourceVolumeName: z
       .string()
+      .optional()
       .describe(
-        'The full name of the volume to back up (projects/{project}/locations/{location}/storagePools/{storage_pool}/volumes/{volume})'
+        'The full name of the volume to back up (projects/{project}/locations/{location}/storagePools/{storage_pool}/volumes/{volume}). Provide either sourceVolumeName or sourceSnapshotName.'
+      ),
+    sourceSnapshotName: z
+      .string()
+      .optional()
+      .describe(
+        'The full name of the snapshot to back up (projects/{project}/locations/{location}/volumes/{volume}/snapshots/{snapshot}). Provide either sourceVolumeName or sourceSnapshotName.'
       ),
     description: z.string().optional().describe('Optional description of the backup'),
     labels: z.record(z.string()).optional().describe('Optional labels to apply to the backup'),

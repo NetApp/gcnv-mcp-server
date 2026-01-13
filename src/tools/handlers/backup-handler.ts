@@ -64,11 +64,26 @@ export const createBackupHandler: ToolHandler = async (args: { [key: string]: an
       backupVaultId,
       backupId,
       sourceVolumeName,
+      sourceSnapshotName,
       backupRegion,
-      enforcedRetentionEndTime,
       description,
       labels,
     } = args;
+
+    const hasSourceVolume = typeof sourceVolumeName === 'string' && sourceVolumeName.length > 0;
+    const hasSourceSnapshot =
+      typeof sourceSnapshotName === 'string' && sourceSnapshotName.length > 0;
+    if ((hasSourceVolume && hasSourceSnapshot) || (!hasSourceVolume && !hasSourceSnapshot)) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error creating backup: provide exactly one of sourceVolumeName or sourceSnapshotName.',
+          },
+        ],
+      };
+    }
 
     // Create a new NetApp client using the factory
     const netAppClient = NetAppClientFactory.createClient();
@@ -84,9 +99,9 @@ export const createBackupHandler: ToolHandler = async (args: { [key: string]: an
       backupId,
       backup: {
         name: backupName,
-        sourceVolume: sourceVolumeName,
+        ...(hasSourceVolume ? { sourceVolume: sourceVolumeName } : {}),
+        ...(hasSourceSnapshot ? { sourceSnapshot: sourceSnapshotName } : {}),
         backupRegion,
-        enforcedRetentionEndTime,
         description,
         labels,
       },

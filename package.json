@@ -1,6 +1,6 @@
 {
   "name": "@gcnv/gcnv-mcp-server",
-  "version": "1.0.5",
+  "version": "1.0.7",
   "description": "Google Cloud NetApp Volumes MCP Server - A Model Context Protocol server for managing GCNV Backup, StoragePool, Volume and Replication resources",
   "main": "build/index.js",
   "bin": {
@@ -21,6 +21,8 @@
     "access": "public"
   },
   "scripts": {
+    "githooks:install": "git config core.hooksPath .githooks",
+    "precommit": "npm run lint && npm test",
     "prepack": "npm run build",
     "build": "npm run lint && npm run format && tsc",
     "typecheck": "tsc --noEmit",

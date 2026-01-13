@@ -59,7 +59,7 @@ function formatBackupVaultData(backupVault: any): any {
 // Create Backup Vault Handler
 export const createBackupVaultHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {
-    const { projectId, location, backupVaultId, description, labels } = args;
+    const { projectId, location, backupVaultId, description, labels, backupRetentionPolicy } = args;
 
     // Create a new NetApp client using the factory
     const netAppClient = NetAppClientFactory.createClient();
@@ -74,6 +74,7 @@ export const createBackupVaultHandler: ToolHandler = async (args: { [key: string
       backupVault: {
         description,
         labels,
+        ...(backupRetentionPolicy !== undefined ? { backupRetentionPolicy } : {}),
       },
     };
 
@@ -337,7 +338,7 @@ export const listBackupVaultsHandler: ToolHandler = async (args: { [key: string]
 // Update Backup Vault Handler
 export const updateBackupVaultHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {
-    const { projectId, location, backupVaultId, description, labels } = args;
+    const { projectId, location, backupVaultId, description, labels, backupRetentionPolicy } = args;
 
     // Create a new NetApp client using the factory
     const netAppClient = NetAppClientFactory.createClient();
@@ -349,6 +350,7 @@ export const updateBackupVaultHandler: ToolHandler = async (args: { [key: string
     const updateMask = [];
     if (description !== undefined) updateMask.push('description');
     if (labels !== undefined) updateMask.push('labels');
+    if (backupRetentionPolicy !== undefined) updateMask.push('backup_retention_policy');
 
     // Update the backup vault
     const [operation] = await netAppClient.updateBackupVault({
@@ -356,6 +358,7 @@ export const updateBackupVaultHandler: ToolHandler = async (args: { [key: string
         name,
         description,
         labels,
+        ...(backupRetentionPolicy !== undefined ? { backupRetentionPolicy } : {}),
       },
       updateMask: {
         paths: updateMask,

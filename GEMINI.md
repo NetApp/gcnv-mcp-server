@@ -111,6 +111,8 @@ Notes:
 
 Notes:
 
+- Backup vault immutability: use `backupRetentionPolicy` (for example `dailyBackupImmutable`, `weeklyBackupImmutable`, `monthlyBackupImmutable`, `manualBackupImmutable`) on create/update to make backups immutable per policy.
+- Backup create source: you can create a backup from either a `sourceVolumeName` or a `sourceSnapshotName` (provide exactly one).
 - Always clarify retention rules, correct region, and correct target volume/storage pool before creating/restoring.
 
 ### Backup Policies

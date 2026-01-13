@@ -499,7 +499,9 @@ describe('storage-pool-handler', () => {
     const { listStoragePoolsHandler } = await import('./storage-pool-handler.js');
     const result = await listStoragePoolsHandler({ projectId: 'p1', location: 'us-central1' });
 
-    expect((result.structuredContent as any).storagePools[0]).toMatchObject({ totalThroughputMibps: 0 });
+    expect((result.structuredContent as any).storagePools[0]).toMatchObject({
+      totalThroughputMibps: 0,
+    });
   });
 
   it('updateStoragePoolHandler preserves non-string qosType (covers typeof qosType !== \"string\" branch)', async () => {

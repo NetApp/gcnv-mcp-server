@@ -256,7 +256,7 @@ References:
 #### Backup Vault Tools
 
 1. **gcnv_backup_vault_create** - Create a new backup vault
-   - Inputs: projectId, location, backupVaultId, description (optional), labels (optional)
+   - Inputs: projectId, location, backupVaultId, description (optional), backupRetentionPolicy (optional; includes immutability flags), labels (optional)
 
 2. **gcnv_backup_vault_delete** - Delete an existing backup vault
    - Inputs: projectId, location, backupVaultId, force (optional)
@@ -268,12 +268,12 @@ References:
    - Inputs: projectId, location, filter (optional), pageSize (optional), pageToken (optional)
 
 5. **gcnv_backup_vault_update** - Update a backup vault's properties
-   - Inputs: projectId, location, backupVaultId, description (optional), labels (optional)
+   - Inputs: projectId, location, backupVaultId, description (optional), backupRetentionPolicy (optional; includes immutability flags), labels (optional)
 
 #### Backup Tools
 
 1. **gcnv_backup_create** - Create a new backup of a volume
-   - Inputs: projectId, location, backupVaultId, backupId, sourceVolumeName, backupRegion (optional), enforcedRetentionEndTime (optional), description (optional), labels (optional)
+   - Inputs: projectId, location, backupVaultId, backupId, sourceVolumeName (optional; provide exactly one of sourceVolumeName or sourceSnapshotName), sourceSnapshotName (optional), backupRegion (optional), description (optional), labels (optional)
 
 2. **gcnv_backup_delete** - Delete an existing backup
    - Inputs: projectId, location, backupVaultId, backupId
@@ -394,6 +394,19 @@ For other chat AI applications, follow their documentation for linking stdio-bas
 1. Define the tool schema in a new or existing file in the `src/tools` directory
 2. Implement the handler in the `src/tools/handlers` directory
 3. Register the tool in `src/registry/register-tools.ts`
+
+### Pre-commit hook (lint + unit tests)
+
+This repo includes a Git pre-commit hook in `.githooks/pre-commit` that runs:
+
+- `npm run lint`
+- `npm test`
+
+To enable it locally:
+
+```bash
+npm run githooks:install
+```
 
 ### Project Structure
 
