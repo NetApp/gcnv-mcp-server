@@ -31,7 +31,6 @@ function formatVolumeData(volume: any): any {
   if (volume.protocols) result.protocols = volume.protocols;
   if (volume.serviceLevel) result.serviceLevel = volume.serviceLevel;
   if (volume.network) result.network = volume.network;
-  if (volume.psaRange) result.psaRange = volume.psaRange;
   if (volume.securityStyle) result.securityStyle = volume.securityStyle;
 
   // Format timestamps if they exist
@@ -92,6 +91,9 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
       backupConfig,
       exportPolicy,
       shareName,
+      throughputMibps,
+      largeCapacity,
+      multipleEndpoints,
     } = args;
 
     // Create a new NetApp client using the factory
@@ -99,6 +101,52 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
 
     // Format the parent path for the volume
     const parent = `projects/${projectId}/locations/${location}`;
+
+    // Large Capacity Volumes guardrails:
+    // - Premium/Extreme only (enforced by checking the storage pool service level)
+    // - Minimum size 15 TiB => 15360 GiB
+    if (multipleEndpoints && !largeCapacity) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error creating volume: multipleEndpoints is only valid when largeCapacity is true.',
+          },
+        ],
+      };
+    }
+
+    if (largeCapacity) {
+      if (capacityGib < 15360) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text' as const,
+              text: 'Error creating volume: largeCapacity requires capacityGib >= 15360 (15 TiB).',
+            },
+          ],
+        };
+      }
+
+      const storagePoolName = String(storagePoolId || '').includes('/')
+        ? storagePoolId
+        : `projects/${projectId}/locations/${location}/storagePools/${storagePoolId}`;
+      const [pool] = await netAppClient.getStoragePool({ name: storagePoolName });
+      const poolServiceLevel = (pool?.serviceLevel || '').toString().toUpperCase();
+      if (poolServiceLevel !== 'PREMIUM' && poolServiceLevel !== 'EXTREME') {
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text' as const,
+              text: `Error creating volume: largeCapacity volumes are only supported in PREMIUM or EXTREME pools (got ${poolServiceLevel || 'UNKNOWN'}).`,
+            },
+          ],
+        };
+      }
+    }
 
     // Create the volume request
     const request = {
@@ -113,6 +161,9 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
         backupConfig,
         shareName: shareName || volumeId,
         exportPolicy,
+        ...(throughputMibps !== undefined ? { throughputMibps } : {}),
+        ...(largeCapacity !== undefined ? { largeCapacity } : {}),
+        ...(multipleEndpoints !== undefined ? { multipleEndpoints } : {}),
       },
     };
 
@@ -311,6 +362,7 @@ export const updateVolumeHandler: ToolHandler = async (args: { [key: string]: an
       labels,
       backupConfig,
       exportPolicy,
+      throughputMibps,
     } = args;
 
     // Create a new NetApp client using the factory
@@ -348,6 +400,11 @@ export const updateVolumeHandler: ToolHandler = async (args: { [key: string]: an
       if (backupConfig.backupVault !== undefined) updateMask.push('backup_config.backup_vault');
       if (backupConfig.scheduledBackupEnabled !== undefined)
         updateMask.push('backup_config.scheduled_backup_enabled');
+    }
+
+    if (throughputMibps !== undefined) {
+      volume.throughputMibps = throughputMibps;
+      updateMask.push('throughput_mibps');
     }
     // Create the request
     const request = {

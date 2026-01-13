@@ -50,6 +50,7 @@ export const createActiveDirectoryHandler: ToolHandler = async (args: { [key: st
       username,
       password,
       backupOperators,
+      administrators,
       securityOperators,
       kdcHostname,
       kdcIp,
@@ -71,6 +72,7 @@ export const createActiveDirectoryHandler: ToolHandler = async (args: { [key: st
     if (username) activeDirectory.username = username;
     if (password) activeDirectory.password = password;
     if (backupOperators) activeDirectory.backupOperators = backupOperators;
+    if (administrators) activeDirectory.administrators = administrators;
     if (securityOperators) activeDirectory.securityOperators = securityOperators;
     if (kdcHostname) activeDirectory.kdcHostname = kdcHostname;
     if (kdcIp) activeDirectory.kdcIp = kdcIp;
@@ -260,6 +262,7 @@ export const updateActiveDirectoryHandler: ToolHandler = async (args: { [key: st
       username,
       password,
       backupOperators,
+      administrators,
       securityOperators,
       kdcHostname,
       kdcIp,
@@ -309,6 +312,10 @@ export const updateActiveDirectoryHandler: ToolHandler = async (args: { [key: st
     if (backupOperators !== undefined) {
       activeDirectory.backupOperators = backupOperators;
       updateMask.push('backup_operators');
+    }
+    if (administrators !== undefined) {
+      activeDirectory.administrators = administrators;
+      updateMask.push('administrators');
     }
     if (securityOperators !== undefined) {
       activeDirectory.securityOperators = securityOperators;

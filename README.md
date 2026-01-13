@@ -169,64 +169,85 @@ The server exposes the following tools through the MCP interface:
 
 #### Storage Pool Tools
 
-1. **storage_pool_create** - Create a new storage pool
-   - Inputs: projectId, location, storagePoolId, capacityGib, serviceLevel, description (optional), labels (optional), networkConfig (optional)
+##### Service levels (Flex vs Standard/Premium/Extreme)
 
-2. **storage_pool_delete** - Delete an existing storage pool
+When you create a storage pool you must choose a `serviceLevel`. In simple terms:
+
+- **FLEX**: The newest option. Designed for more flexibility (smaller minimum sizes and, in some regions, the ability to scale performance more independently). Also available in many more regions than the classic tiers.
+- **STANDARD / PREMIUM / EXTREME**: The “classic” tiers. Performance scales in a fixed way with provisioned capacity; Premium/Extreme are higher-performance tiers than Standard.
+
+Notes:
+
+- **Availability varies by region**. Always check the latest docs for your target region.
+- **This MCP server accepts `serviceLevel` case-insensitively** for pool creation (for example `flex` or `FLEX`).
+
+References:
+
+- NetApp announcement: `https://www.netapp.com/product-updates/gcnv-flex-service-level-forty-regions/`
+- Google Cloud service levels overview: `https://cloud.google.com/netapp/volumes/docs/discover/service-levels`
+- Manual QoS (Google Cloud docs): `https://docs.cloud.google.com/netapp/volumes/docs/performance/optimize-performance#set_up_manual_qos_limits`
+
+1. **gcnv_storage_pool_create** - Create a new storage pool
+   - Inputs: projectId, location, storagePoolId, capacityGib, serviceLevel (`FLEX|STANDARD|PREMIUM|EXTREME`), description (optional), labels (optional), network (optional), activeDirectory (optional), kmsConfig (optional), encryptionType (optional), ldapEnabled (optional), totalThroughputMibps (optional; FLEX custom performance only), qosType (`AUTO|MANUAL`, optional; MANUAL is not supported for FLEX), allowAutoTiering (optional)
+
+2. **gcnv_storage_pool_delete** - Delete an existing storage pool
    - Inputs: projectId, location, storagePoolId, force (optional)
 
-3. **storage_pool_get** - Get details about a specific storage pool
+3. **gcnv_storage_pool_get** - Get details about a specific storage pool
    - Inputs: projectId, location, storagePoolId
 
-4. **storage_pool_list** - List all storage pools in a project/location
+4. **gcnv_storage_pool_list** - List all storage pools in a project/location
    - Inputs: projectId, location, filter (optional), pageSize (optional), pageToken (optional)
 
-5. **storage_pool_update** - Update a storage pool's properties
+5. **gcnv_storage_pool_update** - Update a storage pool's properties
    - Inputs: projectId, location, storagePoolId, capacityGib (optional), description (optional), labels (optional)
+
+6. **gcnv_storage_pool_validate_directory_service** - Validate directory service policy attached to a storage pool
+   - Inputs: projectId, location, storagePoolId, directoryServiceType (`ACTIVE_DIRECTORY|LDAP`)
 
 #### Operation Tools
 
-1. **operation_get** - Get details of a long-running operation
+1. **gcnv_operation_get** - Get details of a long-running operation
    - Inputs: operationName (the full name of the operation)
 
-2. **operation_cancel** - Cancel an in-progress operation
+2. **gcnv_operation_cancel** - Cancel an in-progress operation
    - Inputs: operationName (the full name of the operation)
 
-3. **operation_list** - List operations in a project/location
+3. **gcnv_operation_list** - List operations in a project/location
    - Inputs: projectId, location, filter (optional), pageSize (optional), pageToken (optional)
 
 #### Volume Tools
 
-1. **volume_create** - Create a new volume in a storage pool
-   - Inputs: projectId, location, storagePoolId, volumeId, capacityGib, shareProtocols, description (optional), labels (optional), exportPolicy (optional)
+1. **gcnv_volume_create** - Create a new volume in a storage pool
+   - Inputs: projectId, location, storagePoolId, volumeId, capacityGib, shareProtocols, description (optional), labels (optional), exportPolicy (optional), throughputMibps (optional; manual QoS volume throughput limit), largeCapacity (optional; Premium/Extreme only; requires >= 15 TiB), multipleEndpoints (optional; only with largeCapacity)
 
-2. **volume_delete** - Delete an existing volume
+2. **gcnv_volume_delete** - Delete an existing volume
    - Inputs: projectId, location, storagePoolId, volumeId, force (optional)
 
-3. **volume_get** - Get details about a specific volume
+3. **gcnv_volume_get** - Get details about a specific volume
    - Inputs: projectId, location, storagePoolId, volumeId
 
-4. **volume_list** - List all volumes in a storage pool
+4. **gcnv_volume_list** - List all volumes in a storage pool
    - Inputs: projectId, location, storagePoolId, filter (optional), pageSize (optional), pageToken (optional)
 
-5. **volume_update** - Update a volume's properties
+5. **gcnv_volume_update** - Update a volume's properties
    - Inputs: projectId, location, storagePoolId, volumeId, capacityGib (optional), description (optional), labels (optional), exportPolicy (optional)
 
 #### Snapshot Tools
 
-1. **snapshot_create** - Create a new snapshot of a volume
+1. **gcnv_snapshot_create** - Create a new snapshot of a volume
    - Inputs: projectId, location, storagePoolId, volumeId, snapshotId, description (optional)
 
-2. **snapshot_delete** - Delete an existing snapshot
+2. **gcnv_snapshot_delete** - Delete an existing snapshot
    - Inputs: projectId, location, storagePoolId, volumeId, snapshotId
 
-3. **snapshot_get** - Get details about a specific snapshot
+3. **gcnv_snapshot_get** - Get details about a specific snapshot
    - Inputs: projectId, location, storagePoolId, volumeId, snapshotId
 
-4. **snapshot_list** - List all snapshots for a volume
+4. **gcnv_snapshot_list** - List all snapshots for a volume
    - Inputs: projectId, location, storagePoolId, volumeId, filter (optional), pageSize (optional), pageToken (optional)
 
-5. **snapshot_revert_volume** - Revert a volume to a specific snapshot
+5. **gcnv_snapshot_revert** - Revert a volume to a specific snapshot
    - Inputs: projectId, location, storagePoolId, volumeId, snapshotId
 
 #### Backup Vault Tools

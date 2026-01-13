@@ -20,8 +20,8 @@ export const createStoragePoolHandler: ToolHandler = async (args: { [key: string
       kmsConfig,
       encryptionType,
       ldapEnabled,
-      psaRange,
-      globalAccessAllowed,
+      totalThroughputMibps,
+      qosType,
       allowAutoTiering,
     } = args;
 
@@ -31,10 +31,42 @@ export const createStoragePoolHandler: ToolHandler = async (args: { [key: string
     // Format the parent path for the storage pool
     const parent = `projects/${projectId}/locations/${location}`;
 
+    // Accept case-insensitive service levels (e.g. "flex" -> "FLEX")
+    const normalizedServiceLevel =
+      typeof serviceLevel === 'string' ? serviceLevel.toUpperCase() : serviceLevel;
+
+    const normalizedQosType = typeof qosType === 'string' ? qosType.toUpperCase() : qosType;
+
+    // Flex custom performance: only applicable to FLEX pools
+    if (totalThroughputMibps !== undefined && normalizedServiceLevel !== 'FLEX') {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error creating storage pool: totalThroughputMibps is only supported when serviceLevel is FLEX.',
+          },
+        ],
+      };
+    }
+
+    // Manual QoS is supported for Standard/Premium/Extreme; not supported for Flex
+    if (normalizedQosType === 'MANUAL' && normalizedServiceLevel === 'FLEX') {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error creating storage pool: qosType MANUAL is not supported for FLEX service level.',
+          },
+        ],
+      };
+    }
+
     // Build the storage pool payload with provided fields only
     const storagePoolPayload: any = {
       capacityGib,
-      serviceLevel,
+      serviceLevel: normalizedServiceLevel,
       description,
       labels,
       network,
@@ -44,9 +76,11 @@ export const createStoragePoolHandler: ToolHandler = async (args: { [key: string
     if (kmsConfig) storagePoolPayload.kmsConfig = kmsConfig;
     if (encryptionType) storagePoolPayload.encryptionType = encryptionType;
     if (ldapEnabled !== undefined) storagePoolPayload.ldapEnabled = ldapEnabled;
-    if (psaRange) storagePoolPayload.psaRange = psaRange;
-    if (globalAccessAllowed !== undefined)
-      storagePoolPayload.globalAccessAllowed = globalAccessAllowed;
+    if (totalThroughputMibps !== undefined) {
+      storagePoolPayload.customPerformanceEnabled = true;
+      storagePoolPayload.totalThroughputMibps = totalThroughputMibps;
+    }
+    if (normalizedQosType) storagePoolPayload.qosType = normalizedQosType;
     if (allowAutoTiering !== undefined) storagePoolPayload.allowAutoTiering = allowAutoTiering;
 
     // Create the storage pool request
@@ -182,8 +216,15 @@ export const getStoragePoolHandler: ToolHandler = async (args: { [key: string]: 
         kmsConfig: storagePool.kmsConfig,
         encryptionType: storagePool.encryptionType,
         ldapEnabled: storagePool.ldapEnabled ?? false,
-        psaRange: storagePool.psaRange,
-        globalAccessAllowed: storagePool.globalAccessAllowed ?? false,
+        customPerformanceEnabled:
+          typeof storagePool.customPerformanceEnabled === 'boolean'
+            ? storagePool.customPerformanceEnabled
+            : undefined,
+        totalThroughputMibps:
+          storagePool.totalThroughputMibps !== undefined
+            ? Number(storagePool.totalThroughputMibps) || 0
+            : undefined,
+        qosType: storagePool.qosType,
         allowAutoTiering: storagePool.allowAutoTiering ?? false,
       },
     };
@@ -252,8 +293,15 @@ export const listStoragePoolsHandler: ToolHandler = async (args: { [key: string]
         kmsConfig: pool.kmsConfig,
         encryptionType: pool.encryptionType,
         ldapEnabled: pool.ldapEnabled ?? false,
-        psaRange: pool.psaRange,
-        globalAccessAllowed: pool.globalAccessAllowed ?? false,
+        customPerformanceEnabled:
+          typeof pool.customPerformanceEnabled === 'boolean'
+            ? pool.customPerformanceEnabled
+            : undefined,
+        totalThroughputMibps:
+          pool.totalThroughputMibps !== undefined
+            ? Number(pool.totalThroughputMibps) || 0
+            : undefined,
+        qosType: pool.qosType,
         allowAutoTiering: pool.allowAutoTiering ?? false,
       };
     });
@@ -287,7 +335,7 @@ export const listStoragePoolsHandler: ToolHandler = async (args: { [key: string]
 // Update Storage Pool Handler
 export const updateStoragePoolHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {
-    const { projectId, location, storagePoolId, capacityGib, description, labels } = args;
+    const { projectId, location, storagePoolId, capacityGib, description, labels, qosType } = args;
 
     // Create a new NetApp client using the factory
     const netAppClient = NetAppClientFactory.createClient();
@@ -312,6 +360,11 @@ export const updateStoragePoolHandler: ToolHandler = async (args: { [key: string
     if (labels !== undefined) {
       storagePool.labels = labels;
       updateMask.push('labels');
+    }
+
+    if (qosType !== undefined) {
+      storagePool.qosType = typeof qosType === 'string' ? qosType.toUpperCase() : qosType;
+      updateMask.push('qos_type');
     }
 
     // Call the API to update the storage pool

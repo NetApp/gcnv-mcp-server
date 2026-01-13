@@ -30,6 +30,7 @@ describe('volume-handler', () => {
       protocols: ['NFS3'],
       description: 'd',
       labels: { env: 'test' },
+      throughputMibps: 256,
     });
 
     expect(createClientMock).toHaveBeenCalledTimes(1);
@@ -45,6 +46,7 @@ describe('volume-handler', () => {
         description: 'd',
         labels: { env: 'test' },
         shareName: 'vol1',
+        throughputMibps: 256,
       },
     });
 
@@ -52,6 +54,79 @@ describe('volume-handler', () => {
       name: 'projects/p1/locations/us-central1/volumes/vol1',
       operationId: 'operations/op-123',
     });
+  });
+
+  it('createVolumeHandler supports Large Capacity Volumes (Premium/Extreme only)', async () => {
+    const createVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-lcv' }]);
+    const getStoragePool = vi.fn().mockResolvedValue([{ serviceLevel: 'PREMIUM' }]);
+    createClientMock.mockReturnValue({ createVolume, getStoragePool });
+
+    const { createVolumeHandler } = await import('./volume-handler.js');
+    await createVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'projects/p1/locations/us-central1/storagePools/sp1',
+      volumeId: 'vol-big',
+      capacityGib: 15360,
+      protocols: ['NFS3'],
+      largeCapacity: true,
+      multipleEndpoints: true,
+    });
+
+    expect(getStoragePool).toHaveBeenCalledWith({
+      name: 'projects/p1/locations/us-central1/storagePools/sp1',
+    });
+    expect(createVolume.mock.calls[0]?.[0]).toMatchObject({
+      volumeId: 'vol-big',
+      volume: expect.objectContaining({
+        largeCapacity: true,
+        multipleEndpoints: true,
+      }),
+    });
+  });
+
+  it('createVolumeHandler rejects largeCapacity when capacity is < 15 TiB', async () => {
+    const createVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-lcv' }]);
+    const getStoragePool = vi.fn().mockResolvedValue([{ serviceLevel: 'PREMIUM' }]);
+    createClientMock.mockReturnValue({ createVolume, getStoragePool });
+
+    const { createVolumeHandler } = await import('./volume-handler.js');
+    const result = await createVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'projects/p1/locations/us-central1/storagePools/sp1',
+      volumeId: 'vol-small',
+      capacityGib: 100,
+      protocols: ['NFS3'],
+      largeCapacity: true,
+    });
+
+    expect(getStoragePool).not.toHaveBeenCalled();
+    expect(createVolume).not.toHaveBeenCalled();
+    expect((result as any).isError).toBe(true);
+  });
+
+  it('createVolumeHandler rejects largeCapacity for non-PREMIUM/EXTREME pools', async () => {
+    const createVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-lcv' }]);
+    const getStoragePool = vi.fn().mockResolvedValue([{ serviceLevel: 'STANDARD' }]);
+    createClientMock.mockReturnValue({ createVolume, getStoragePool });
+
+    const { createVolumeHandler } = await import('./volume-handler.js');
+    const result = await createVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1', // exercise "ID" form -> handler builds full name
+      volumeId: 'vol-big',
+      capacityGib: 15360,
+      protocols: ['NFS3'],
+      largeCapacity: true,
+    });
+
+    expect(getStoragePool).toHaveBeenCalledWith({
+      name: 'projects/p1/locations/us-central1/storagePools/sp1',
+    });
+    expect(createVolume).not.toHaveBeenCalled();
+    expect((result as any).isError).toBe(true);
   });
 
   it('createVolumeHandler defaults protocols to NFS3 and uses provided shareName', async () => {
@@ -276,7 +351,6 @@ describe('volume-handler', () => {
         protocols: ['NFS3'],
         serviceLevel: 'PREMIUM',
         network: 'net',
-        psaRange: '10.0.0.0/24',
         securityStyle: 'UNIX',
         createTime: { seconds: 1 },
         description: 'd',
@@ -460,6 +534,27 @@ describe('volume-handler', () => {
     expect(result.structuredContent).toEqual({
       name: 'projects/p1/locations/us-central1/volumes/vol1',
       operationId: 'operations/op-upd',
+    });
+  });
+
+  it('updateVolumeHandler supports updating throughputMibps (manual QoS volume throughput limit)', async () => {
+    const updateVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-upd-tput' }]);
+    createClientMock.mockReturnValue({ updateVolume });
+
+    const { updateVolumeHandler } = await import('./volume-handler.js');
+    await updateVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+      throughputMibps: 256,
+    });
+
+    expect(updateVolume.mock.calls[0]?.[0]).toMatchObject({
+      volume: {
+        name: 'projects/p1/locations/us-central1/volumes/vol1',
+        throughputMibps: 256,
+      },
+      updateMask: { paths: ['throughput_mibps'] },
     });
   });
 

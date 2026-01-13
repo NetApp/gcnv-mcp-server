@@ -39,6 +39,113 @@ describe('storage-pool-handler', () => {
     });
   });
 
+  it('createStoragePoolHandler normalizes serviceLevel to uppercase (e.g. flex -> FLEX)', async () => {
+    const createStoragePool = vi.fn().mockResolvedValue([{ name: 'op-create' }]);
+    createClientMock.mockReturnValue({ createStoragePool });
+
+    const { createStoragePoolHandler } = await import('./storage-pool-handler.js');
+    await createStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      capacityGib: 100,
+      serviceLevel: 'flex',
+      network: 'net1',
+    });
+
+    expect(createStoragePool.mock.calls[0]?.[0]).toMatchObject({
+      storagePool: expect.objectContaining({
+        serviceLevel: 'FLEX',
+      }),
+    });
+  });
+
+  it('createStoragePoolHandler supports Flex custom performance via totalThroughputMibps', async () => {
+    const createStoragePool = vi.fn().mockResolvedValue([{ name: 'op-create' }]);
+    createClientMock.mockReturnValue({ createStoragePool });
+
+    const { createStoragePoolHandler } = await import('./storage-pool-handler.js');
+    await createStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      capacityGib: 100,
+      serviceLevel: 'flex',
+      network: 'net1',
+      totalThroughputMibps: 512,
+    });
+
+    expect(createStoragePool).toHaveBeenCalledTimes(1);
+    expect(createStoragePool.mock.calls[0]?.[0]).toMatchObject({
+      storagePool: expect.objectContaining({
+        serviceLevel: 'FLEX',
+        customPerformanceEnabled: true,
+        totalThroughputMibps: 512,
+      }),
+    });
+  });
+
+  it('createStoragePoolHandler rejects totalThroughputMibps for non-FLEX service levels', async () => {
+    const createStoragePool = vi.fn().mockResolvedValue([{ name: 'op-create' }]);
+    createClientMock.mockReturnValue({ createStoragePool });
+
+    const { createStoragePoolHandler } = await import('./storage-pool-handler.js');
+    const result = await createStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      capacityGib: 100,
+      serviceLevel: 'PREMIUM',
+      network: 'net1',
+      totalThroughputMibps: 512,
+    });
+
+    expect(createStoragePool).not.toHaveBeenCalled();
+    expect((result as any).isError).toBe(true);
+  });
+
+  it('createStoragePoolHandler sets qosType and supports MANUAL for non-FLEX service levels', async () => {
+    const createStoragePool = vi.fn().mockResolvedValue([{ name: 'op-create' }]);
+    createClientMock.mockReturnValue({ createStoragePool });
+
+    const { createStoragePoolHandler } = await import('./storage-pool-handler.js');
+    await createStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      capacityGib: 100,
+      serviceLevel: 'PREMIUM',
+      network: 'net1',
+      qosType: 'manual',
+    });
+
+    expect(createStoragePool.mock.calls[0]?.[0]).toMatchObject({
+      storagePool: expect.objectContaining({
+        serviceLevel: 'PREMIUM',
+        qosType: 'MANUAL',
+      }),
+    });
+  });
+
+  it('createStoragePoolHandler rejects qosType MANUAL for FLEX pools', async () => {
+    const createStoragePool = vi.fn().mockResolvedValue([{ name: 'op-create' }]);
+    createClientMock.mockReturnValue({ createStoragePool });
+
+    const { createStoragePoolHandler } = await import('./storage-pool-handler.js');
+    const result = await createStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      capacityGib: 100,
+      serviceLevel: 'FLEX',
+      network: 'net1',
+      qosType: 'MANUAL',
+    });
+
+    expect(createStoragePool).not.toHaveBeenCalled();
+    expect((result as any).isError).toBe(true);
+  });
+
   it('createStoragePoolHandler handles empty operation.name (covers operation.name || "" branch)', async () => {
     const createStoragePool = vi.fn().mockResolvedValue([{ name: '' }]);
     createClientMock.mockReturnValue({ createStoragePool });
@@ -75,8 +182,6 @@ describe('storage-pool-handler', () => {
       kmsConfig: 'kms',
       encryptionType: 'CMEK',
       ldapEnabled: false,
-      psaRange: '10.0.0.0/24',
-      globalAccessAllowed: false,
       allowAutoTiering: false,
     });
 
@@ -89,8 +194,6 @@ describe('storage-pool-handler', () => {
       kmsConfig: 'kms',
       encryptionType: 'CMEK',
       ldapEnabled: false,
-      psaRange: '10.0.0.0/24',
-      globalAccessAllowed: false,
       allowAutoTiering: false,
     });
     expect(result.structuredContent).toMatchObject({ operationId: 'op-create-all' });
@@ -317,7 +420,6 @@ describe('storage-pool-handler', () => {
           description: '',
           labels: undefined,
           ldapEnabled: undefined,
-          globalAccessAllowed: undefined,
           allowAutoTiering: undefined,
         },
       ],
@@ -395,6 +497,28 @@ describe('storage-pool-handler', () => {
       updateMask: { paths: ['labels'] },
     });
     expect(result.structuredContent).toMatchObject({ operationId: 'op-upd2' });
+  });
+
+  it('updateStoragePoolHandler supports updating qosType', async () => {
+    const updateStoragePool = vi.fn().mockResolvedValue([{ name: 'op-upd-qos' }]);
+    createClientMock.mockReturnValue({ updateStoragePool });
+
+    const { updateStoragePoolHandler } = await import('./storage-pool-handler.js');
+    const result = await updateStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      qosType: 'manual',
+    });
+
+    expect(updateStoragePool).toHaveBeenCalledWith({
+      storagePool: {
+        name: 'projects/p1/locations/us-central1/storagePools/sp1',
+        qosType: 'MANUAL',
+      },
+      updateMask: { paths: ['qos_type'] },
+    });
+    expect(result.structuredContent).toMatchObject({ operationId: 'op-upd-qos' });
   });
 
   it('validateDirectoryServiceHandler calls validateDirectoryService', async () => {

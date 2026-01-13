@@ -82,6 +82,26 @@ export const createVolumeTool: ToolConfig = {
       })
       .optional()
       .describe('NFS export policy configuration'),
+    throughputMibps: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe(
+        'Manual QoS throughput limit for the volume in MiBps (only applicable when the storage pool uses qosType MANUAL)'
+      ),
+    largeCapacity: z
+      .boolean()
+      .optional()
+      .describe(
+        'Enable Large Capacity Volume mode (Premium/Extreme only). Requires capacityGib >= 15360 (15 TiB).'
+      ),
+    multipleEndpoints: z
+      .boolean()
+      .optional()
+      .describe(
+        'Use multiple storage endpoints for Large Capacity Volumes (only valid when largeCapacity is true).'
+      ),
   },
   outputSchema: {
     name: z.string().describe('The name of the created volume'),
@@ -215,6 +235,14 @@ export const updateVolumeTool: ToolConfig = {
       })
       .optional()
       .describe('Updated NFS export policy configuration'),
+    throughputMibps: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe(
+        'Manual QoS throughput limit for the volume in MiBps (only applicable when the storage pool uses qosType MANUAL)'
+      ),
   },
   outputSchema: {
     name: z.string().describe('The name of the updated volume'),

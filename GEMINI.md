@@ -68,6 +68,19 @@ Use this link to explain billing and estimate pricing (pair with the Google Clou
 - `gcnv_storage_pool_update`
 - `gcnv_storage_pool_validate_directory_service`
 
+Notes:
+
+- `serviceLevel` options for pool creation: `FLEX`, `STANDARD`, `PREMIUM`, `EXTREME`.
+- Users often type `flex` in lowercase; the server accepts `serviceLevel` case-insensitively for pool creation (for example `flex` or `FLEX`).
+- Flex custom performance: users can optionally provide `totalThroughputMibps` (MiBps) when creating a **FLEX** pool. This is only supported in select regions; if the API rejects it, suggest using default performance or a supported region/zone.
+- Manual QoS: `qosType` can be `AUTO` or `MANUAL` for storage pools. Manual QoS is supported for Standard/Premium/Extreme and **isn't available for Flex**. See the Google Cloud docs: `https://docs.cloud.google.com/netapp/volumes/docs/performance/optimize-performance#set_up_manual_qos_limits`.
+- In simple terms:
+  - **FLEX** is the newer service level focused on flexibility (smaller minimum sizes and, in some regions, more independent performance scaling). It is also available in many more regions.
+  - **STANDARD / PREMIUM / EXTREME** are the classic tiers; Premium and Extreme are higher-performance tiers than Standard.
+- Availability and exact limits vary by region—use these references for the latest:
+  - `https://www.netapp.com/product-updates/gcnv-flex-service-level-forty-regions/`
+  - `https://cloud.google.com/netapp/volumes/docs/discover/service-levels`
+
 ### Volumes
 
 - `gcnv_volume_create`
@@ -80,6 +93,7 @@ Notes:
 
 - `protocols` is required for volume creation.
 - Export policies contain nested rule fields—include only what the user provides.
+- Large capacity volumes: set `largeCapacity: true` (Premium/Extreme only; minimum 15 TiB) and optionally `multipleEndpoints: true` for multiple storage endpoints. See the volume limits and overview docs.
 
 ### Snapshots
 

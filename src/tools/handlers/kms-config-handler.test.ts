@@ -50,7 +50,7 @@ describe('kms-config-handler', () => {
     });
   });
 
-  it('createKmsConfigHandler includes optional fields (description/labels/instructions) when provided', async () => {
+  it('createKmsConfigHandler includes optional fields (description/labels) when provided', async () => {
     const createKmsConfig = vi.fn().mockResolvedValue([{ name: 'op-create-all' }]);
     createClientMock.mockReturnValue({ createKmsConfig });
 
@@ -62,7 +62,6 @@ describe('kms-config-handler', () => {
       cryptoKeyName: 'ck',
       description: 'd',
       labels: { a: 'b' },
-      instructions: 'do x',
     });
 
     expect(createKmsConfig).toHaveBeenCalledWith({
@@ -72,7 +71,6 @@ describe('kms-config-handler', () => {
         cryptoKeyName: 'ck',
         description: 'd',
         labels: { a: 'b' },
-        instructions: 'do x',
       },
     });
     expect(result.structuredContent).toMatchObject({ operationId: 'op-create-all' });
@@ -90,7 +88,6 @@ describe('kms-config-handler', () => {
       cryptoKeyName: '', // falsy
       description: '', // falsy
       labels: null, // falsy
-      instructions: '', // falsy
     });
 
     expect(createKmsConfig.mock.calls[0]?.[0]).toMatchObject({
@@ -464,25 +461,6 @@ describe('kms-config-handler', () => {
       name: 'projects/p1/locations/us-central1/kmsConfigs/k1',
       operationId: '',
     });
-  });
-
-  it('updateKmsConfigHandler supports updating instructions', async () => {
-    const updateKmsConfig = vi.fn().mockResolvedValue([{ name: 'op-upd2' }]);
-    createClientMock.mockReturnValue({ updateKmsConfig });
-
-    const { updateKmsConfigHandler } = await import('./kms-config-handler.js');
-    const result = await updateKmsConfigHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      kmsConfigId: 'k1',
-      instructions: 'do x',
-    });
-
-    expect(updateKmsConfig).toHaveBeenCalledWith({
-      kmsConfig: { name: 'projects/p1/locations/us-central1/kmsConfigs/k1', instructions: 'do x' },
-      updateMask: { paths: ['instructions'] },
-    });
-    expect(result.structuredContent).toMatchObject({ operationId: 'op-upd2' });
   });
 
   it('updateKmsConfigHandler supports updating cryptoKeyName and labels', async () => {

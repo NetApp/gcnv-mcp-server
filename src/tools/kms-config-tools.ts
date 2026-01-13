@@ -13,7 +13,6 @@ export const createKmsConfigTool: ToolConfig = {
     cryptoKeyName: z.string().describe('The full name of the crypto key'),
     description: z.string().optional().describe('Optional description'),
     labels: z.record(z.string()).optional().describe('Optional labels'),
-    instructions: z.string().optional().describe('Instructions for accessing the KMS'),
   },
   outputSchema: {
     name: z.string().describe('The name of the created KMS config'),
@@ -96,13 +95,7 @@ export const listKmsConfigsTool: ToolConfig = {
           state: z
             .string()
             .optional()
-            .describe(
-              'The current state (e.g., READY, KEY_CHECK_PENDING—run instructions if pending)'
-            ),
-          instructions: z
-            .string()
-            .optional()
-            .describe('Steps to grant the service account access when state is KEY_CHECK_PENDING'),
+            .describe('The current state (e.g., READY, KEY_CHECK_PENDING)'),
           stateDetails: z
             .string()
             .optional()
@@ -133,7 +126,6 @@ export const updateKmsConfigTool: ToolConfig = {
     cryptoKeyName: z.string().optional().describe('The name of the crypto key'),
     description: z.string().optional().describe('New description'),
     labels: z.record(z.string()).optional().describe('New labels'),
-    instructions: z.string().optional().describe('Instructions for accessing the KMS'),
   },
   outputSchema: {
     name: z.string().describe('The name of the updated KMS config'),
@@ -146,7 +138,7 @@ export const verifyKmsConfigTool: ToolConfig = {
   name: 'gcnv_kms_config_verify',
   title: 'Verify KMS Config',
   description:
-    'Verifies KMS config reachability after granting CMEK permissions; run this after applying the returned instructions so the service marks the config READY for pool creation',
+    'Verifies KMS config reachability after granting CMEK permissions; typically run after following the instructions returned by gcnv_kms_config_get when state is KEY_CHECK_PENDING',
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
     location: z.string().describe('The location of the KMS config'),

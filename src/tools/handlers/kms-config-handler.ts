@@ -40,8 +40,7 @@ function formatKmsConfigData(config: any): any {
 // Create KMS Config Handler
 export const createKmsConfigHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {
-    const { projectId, location, kmsConfigId, cryptoKeyName, description, labels, instructions } =
-      args;
+    const { projectId, location, kmsConfigId, cryptoKeyName, description, labels } = args;
 
     const netAppClient = NetAppClientFactory.createClient();
     const parent = `projects/${projectId}/locations/${location}`;
@@ -50,7 +49,6 @@ export const createKmsConfigHandler: ToolHandler = async (args: { [key: string]:
     if (cryptoKeyName) kmsConfig.cryptoKeyName = cryptoKeyName;
     if (description) kmsConfig.description = description;
     if (labels) kmsConfig.labels = labels;
-    if (instructions) kmsConfig.instructions = instructions;
 
     const request = {
       parent,
@@ -220,8 +218,7 @@ export const listKmsConfigsHandler: ToolHandler = async (args: { [key: string]: 
 // Update KMS Config Handler
 export const updateKmsConfigHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {
-    const { projectId, location, kmsConfigId, cryptoKeyName, description, labels, instructions } =
-      args;
+    const { projectId, location, kmsConfigId, cryptoKeyName, description, labels } = args;
 
     const netAppClient = NetAppClientFactory.createClient();
     const name = `projects/${projectId}/locations/${location}/kmsConfigs/${kmsConfigId}`;
@@ -240,10 +237,6 @@ export const updateKmsConfigHandler: ToolHandler = async (args: { [key: string]:
     if (labels !== undefined) {
       kmsConfig.labels = labels;
       updateMask.push('labels');
-    }
-    if (instructions !== undefined) {
-      kmsConfig.instructions = instructions;
-      updateMask.push('instructions');
     }
 
     const request = {

@@ -12,7 +12,10 @@ export const createStoragePoolTool: ToolConfig = {
     storagePoolId: z.string().describe('The ID to assign to the storage pool'),
     capacityGib: z.number().describe('The capacity of the storage pool in GiB'),
     serviceLevel: z
-      .enum(['STANDARD', 'PREMIUM', 'EXTREME'])
+      .union([
+        z.enum(['STANDARD', 'PREMIUM', 'EXTREME', 'FLEX']),
+        z.enum(['standard', 'premium', 'extreme', 'flex']),
+      ])
       .describe('The service level of the storage pool'),
     description: z.string().optional().describe('Optional description of the storage pool'),
     labels: z
@@ -43,14 +46,19 @@ export const createStoragePoolTool: ToolConfig = {
       .boolean()
       .optional()
       .describe('Whether LDAP should be enabled for NFS volume access'),
-    psaRange: z
-      .string()
+    totalThroughputMibps: z
+      .number()
+      .int()
+      .min(64)
+      .max(5120)
       .optional()
-      .describe('CIDR range for Private Service Access allocated to the pool'),
-    globalAccessAllowed: z
-      .boolean()
+      .describe('Total throughput in MiBps for Flex custom performance (FLEX only; 64-5120 MiBps)'),
+    qosType: z
+      .union([z.enum(['AUTO', 'MANUAL']), z.enum(['auto', 'manual'])])
       .optional()
-      .describe('Allow clients from other regions to access volumes in this pool'),
+      .describe(
+        'QoS type for the storage pool (AUTO or MANUAL). Manual QoS is supported for Standard/Premium/Extreme; not supported for Flex.'
+      ),
     allowAutoTiering: z
       .boolean()
       .optional()
@@ -110,14 +118,15 @@ export const getStoragePoolTool: ToolConfig = {
     kmsConfig: z.string().optional().describe('The CMEK KMS config applied to the pool'),
     encryptionType: z.string().optional().describe('The encryption type configured for the pool'),
     ldapEnabled: z.boolean().optional().describe('Whether LDAP is enabled for NFS volume access'),
-    psaRange: z
-      .string()
-      .optional()
-      .describe('CIDR range for Private Service Access allocated to the pool'),
-    globalAccessAllowed: z
+    customPerformanceEnabled: z
       .boolean()
       .optional()
-      .describe('Indicates if cross-region volume access is allowed'),
+      .describe('Whether Flex custom performance is enabled for the pool'),
+    totalThroughputMibps: z
+      .number()
+      .optional()
+      .describe('Total throughput in MiBps for the pool (Flex custom performance)'),
+    qosType: z.string().optional().describe('The QoS type configured for the storage pool'),
     allowAutoTiering: z
       .boolean()
       .optional()
@@ -165,14 +174,15 @@ export const listStoragePoolsTool: ToolConfig = {
             .boolean()
             .optional()
             .describe('Whether LDAP is enabled for NFS volume access'),
-          psaRange: z
-            .string()
-            .optional()
-            .describe('CIDR range for Private Service Access allocated to the pool'),
-          globalAccessAllowed: z
+          customPerformanceEnabled: z
             .boolean()
             .optional()
-            .describe('Indicates if cross-region volume access is allowed'),
+            .describe('Whether Flex custom performance is enabled for the pool'),
+          totalThroughputMibps: z
+            .number()
+            .optional()
+            .describe('Total throughput in MiBps for the pool (Flex custom performance)'),
+          qosType: z.string().optional().describe('The QoS type configured for the storage pool'),
           allowAutoTiering: z
             .boolean()
             .optional()
@@ -196,6 +206,12 @@ export const updateStoragePoolTool: ToolConfig = {
     capacityGib: z.number().optional().describe('The new capacity of the storage pool in GiB'),
     description: z.string().optional().describe('New description of the storage pool'),
     labels: z.record(z.string()).optional().describe('New labels to apply to the storage pool'),
+    qosType: z
+      .union([z.enum(['AUTO', 'MANUAL']), z.enum(['auto', 'manual'])])
+      .optional()
+      .describe(
+        'QoS type for the storage pool (AUTO or MANUAL). Manual QoS is supported for Standard/Premium/Extreme; not supported for Flex.'
+      ),
   },
   outputSchema: {
     name: z.string().describe('The name of the updated storage pool'),

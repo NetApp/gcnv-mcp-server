@@ -19,6 +19,10 @@ export const createActiveDirectoryTool: ToolConfig = {
     username: z.string().optional().describe('Username for domain join'),
     password: z.string().optional().describe('Password for domain join'),
     backupOperators: z.array(z.string()).optional().describe('List of backup operators'),
+    administrators: z
+      .array(z.string())
+      .optional()
+      .describe('Users to be added to the Built-in Administrators group'),
     securityOperators: z.array(z.string()).optional().describe('List of security operators'),
     kdcHostname: z.string().optional().describe('KDC hostname'),
     kdcIp: z.string().optional().describe('KDC IP address'),
@@ -118,6 +122,10 @@ export const updateActiveDirectoryTool: ToolConfig = {
     username: z.string().optional().describe('Username for domain join'),
     password: z.string().optional().describe('Password for domain join'),
     backupOperators: z.array(z.string()).optional().describe('List of backup operators'),
+    administrators: z
+      .array(z.string())
+      .optional()
+      .describe('Users to be added to the Built-in Administrators group'),
     securityOperators: z.array(z.string()).optional().describe('List of security operators'),
     kdcHostname: z.string().optional().describe('KDC hostname'),
     kdcIp: z.string().optional().describe('KDC IP address'),
