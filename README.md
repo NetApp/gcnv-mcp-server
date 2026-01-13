@@ -1,6 +1,6 @@
 # Google Cloud NetApp Volumes MCP Server
 
-This is a Model Context Protocol (MCP) server for managing Google Cloud NetApp Volumes resources. It provides a set of tools for creating, retrieving, listing, updating, and deleting storage pools in Google Cloud NetApp Volumes.
+This is a Model Context Protocol (MCP) server for managing Google Cloud NetApp Volumes (GCNV) resources. It provides tools for managing storage pools, volumes, snapshots, backups, backup vaults, backup policies, replications, Active Directory, KMS configs, quota rules, and long-running operations.
 
 ## Overview
 
@@ -45,7 +45,7 @@ The Google Cloud NetApp Volumes MCP Server is built using the Model Context Prot
 
 - **Replication Management**:
   - Create, list, get, update, stop, resume, reverse direction, sync, and establish peering for replications
-  - Replication is only supported between specific region pairs for Standard/Premium/Extreme, or within the same region group for Flex. Always validate the requested source/destination regions against the official matrix before creating a replication. See the Google Cloud NetApp Volumes replication guide: https://docs.cloud.google.com/netapp/volumes/docs/protect-data/about-volume-replication
+  - Replication is only supported between specific region pairs for Standard/Premium/Extreme, or within the same region group for Flex. Always validate the requested source/destination regions against the official matrix before creating a replication. See [the Google Cloud NetApp Volumes replication guide](https://docs.cloud.google.com/netapp/volumes/docs/protect-data/about-volume-replication).
   - When creating a replication, the destination volume is auto-created by specifying only the destination storage pool. Users can also choose a replication schedule (`EVERY_10_MINUTES`, `HOURLY`, or `DAILY`; defaults to `HOURLY`).
 
 - **Long-running Operations Management**:
@@ -55,7 +55,7 @@ The Google Cloud NetApp Volumes MCP Server is built using the Model Context Prot
 
 ## Prerequisites
 
-- Node.js 16 or higher
+- Node.js 18 or higher
 - Google Cloud project with NetApp Volumes API enabled
 - Google Cloud authentication credentials
 
@@ -200,7 +200,7 @@ References:
    - Inputs: projectId, location, filter (optional), pageSize (optional), pageToken (optional)
 
 5. **gcnv_storage_pool_update** - Update a storage pool's properties
-   - Inputs: projectId, location, storagePoolId, capacityGib (optional), description (optional), labels (optional)
+   - Inputs: projectId, location, storagePoolId, capacityGib (optional), description (optional), labels (optional), qosType (`AUTO|MANUAL`, optional; MANUAL is not supported for FLEX)
 
 6. **gcnv_storage_pool_validate_directory_service** - Validate directory service policy attached to a storage pool
    - Inputs: projectId, location, storagePoolId, directoryServiceType (`ACTIVE_DIRECTORY|LDAP`)
@@ -219,36 +219,39 @@ References:
 #### Volume Tools
 
 1. **gcnv_volume_create** - Create a new volume in a storage pool
-   - Inputs: projectId, location, storagePoolId, volumeId, capacityGib, shareProtocols, description (optional), labels (optional), exportPolicy (optional), throughputMibps (optional; manual QoS volume throughput limit), largeCapacity (optional; Premium/Extreme only; requires >= 15 TiB), multipleEndpoints (optional; only with largeCapacity)
+   - Inputs: projectId, location, storagePoolId, volumeId, capacityGib, protocols, description (optional), shareName (optional), labels (optional), backupConfig (optional), exportPolicy (optional), throughputMibps (optional; manual QoS volume throughput limit), largeCapacity (optional; Premium/Extreme only; requires >= 15 TiB), multipleEndpoints (optional; only with largeCapacity)
 
 2. **gcnv_volume_delete** - Delete an existing volume
-   - Inputs: projectId, location, storagePoolId, volumeId, force (optional)
+   - Inputs: projectId, location, volumeId, force (optional)
 
 3. **gcnv_volume_get** - Get details about a specific volume
-   - Inputs: projectId, location, storagePoolId, volumeId
+   - Inputs: projectId, location, volumeId
 
 4. **gcnv_volume_list** - List all volumes in a storage pool
-   - Inputs: projectId, location, storagePoolId, filter (optional), pageSize (optional), pageToken (optional)
+   - Inputs: projectId, location, filter (optional), pageSize (optional), pageToken (optional)
 
 5. **gcnv_volume_update** - Update a volume's properties
-   - Inputs: projectId, location, storagePoolId, volumeId, capacityGib (optional), description (optional), labels (optional), exportPolicy (optional)
+   - Inputs: projectId, location, volumeId, capacityGib (optional), description (optional), labels (optional), backupConfig (optional), exportPolicy (optional), throughputMibps (optional)
 
 #### Snapshot Tools
 
 1. **gcnv_snapshot_create** - Create a new snapshot of a volume
-   - Inputs: projectId, location, storagePoolId, volumeId, snapshotId, description (optional)
+   - Inputs: projectId, location, volumeId, snapshotId, description (optional), labels (optional)
 
 2. **gcnv_snapshot_delete** - Delete an existing snapshot
-   - Inputs: projectId, location, storagePoolId, volumeId, snapshotId
+   - Inputs: projectId, location, volumeId, snapshotId
 
 3. **gcnv_snapshot_get** - Get details about a specific snapshot
-   - Inputs: projectId, location, storagePoolId, volumeId, snapshotId
+   - Inputs: projectId, location, volumeId, snapshotId
 
 4. **gcnv_snapshot_list** - List all snapshots for a volume
-   - Inputs: projectId, location, storagePoolId, volumeId, filter (optional), pageSize (optional), pageToken (optional)
+   - Inputs: projectId, location, volumeId, filter (optional), pageSize (optional), pageToken (optional)
 
 5. **gcnv_snapshot_revert** - Revert a volume to a specific snapshot
-   - Inputs: projectId, location, storagePoolId, volumeId, snapshotId
+   - Inputs: projectId, location, volumeId, snapshotId
+
+6. **gcnv_snapshot_update** - Update a snapshot
+   - Inputs: projectId, location, volumeId, snapshotId, description (optional), labels (optional)
 
 #### Backup Vault Tools
 
@@ -270,7 +273,7 @@ References:
 #### Backup Tools
 
 1. **gcnv_backup_create** - Create a new backup of a volume
-   - Inputs: projectId, location, backupVaultId, backupId, volumeName, description (optional), labels (optional)
+   - Inputs: projectId, location, backupVaultId, backupId, sourceVolumeName, backupRegion (optional), enforcedRetentionEndTime (optional), description (optional), labels (optional)
 
 2. **gcnv_backup_delete** - Delete an existing backup
    - Inputs: projectId, location, backupVaultId, backupId
@@ -283,6 +286,45 @@ References:
 
 5. **gcnv_backup_restore** - Restore a backup to a new or existing volume
    - Inputs: projectId, location, backupVaultId, backupId, targetStoragePoolId, targetVolumeId, restoreOption
+
+6. **gcnv_backup_update** - Update a backup
+   - Inputs: projectId, location, backupVaultId, backupId, description (optional), labels (optional)
+
+#### Backup Policy Tools
+
+1. **gcnv_backup_policy_create** - Create a backup policy
+   - Inputs: projectId, location, backupPolicyId, dailyBackupLimit (optional), weeklyBackupLimit (optional), monthlyBackupLimit (optional), enabled (optional), description (optional), labels (optional)
+
+2. **gcnv_backup_policy_delete** - Delete a backup policy
+   - Inputs: projectId, location, backupPolicyId, force (optional)
+
+3. **gcnv_backup_policy_get** - Get a backup policy
+   - Inputs: projectId, location, backupPolicyId
+
+4. **gcnv_backup_policy_list** - List backup policies
+   - Inputs: projectId, location, filter (optional), pageSize (optional), pageToken (optional)
+
+5. **gcnv_backup_policy_update** - Update a backup policy
+   - Inputs: projectId, location, backupPolicyId, dailyBackupLimit (optional), weeklyBackupLimit (optional), monthlyBackupLimit (optional), enabled (optional), description (optional), labels (optional)
+
+#### Replication Tools
+
+- `gcnv_replication_create`, `gcnv_replication_delete`, `gcnv_replication_get`, `gcnv_replication_list`, `gcnv_replication_update`
+- `gcnv_replication_resume`, `gcnv_replication_stop`, `gcnv_replication_reverse_direction`
+- `gcnv_replication_establish_peering`, `gcnv_replication_sync`
+
+#### Active Directory Tools
+
+- `gcnv_active_directory_create`, `gcnv_active_directory_delete`, `gcnv_active_directory_get`, `gcnv_active_directory_list`, `gcnv_active_directory_update`
+
+#### KMS Config Tools
+
+- `gcnv_kms_config_create`, `gcnv_kms_config_delete`, `gcnv_kms_config_get`, `gcnv_kms_config_list`, `gcnv_kms_config_update`
+- `gcnv_kms_config_verify`, `gcnv_kms_config_encrypt_volumes`
+
+#### Quota Rule Tools
+
+- `gcnv_quota_rule_create`, `gcnv_quota_rule_delete`, `gcnv_quota_rule_get`, `gcnv_quota_rule_list`, `gcnv_quota_rule_update`
 
 ## Architecture
 
@@ -388,7 +430,7 @@ src/
 
 ## License
 
-ISC
+Apache-2.0
 
 ## Contributing
 

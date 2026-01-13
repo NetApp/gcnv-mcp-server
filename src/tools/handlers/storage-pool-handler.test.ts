@@ -127,6 +127,27 @@ describe('storage-pool-handler', () => {
     });
   });
 
+  it('createStoragePoolHandler preserves non-string serviceLevel (covers typeof serviceLevel !== \"string\" branch)', async () => {
+    const createStoragePool = vi.fn().mockResolvedValue([{ name: 'op-create' }]);
+    createClientMock.mockReturnValue({ createStoragePool });
+
+    const { createStoragePoolHandler } = await import('./storage-pool-handler.js');
+    await createStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      capacityGib: 100,
+      serviceLevel: 4, // non-string
+      network: 'net1',
+    });
+
+    expect(createStoragePool.mock.calls[0]?.[0]).toMatchObject({
+      storagePool: expect.objectContaining({
+        serviceLevel: 4,
+      }),
+    });
+  });
+
   it('createStoragePoolHandler rejects qosType MANUAL for FLEX pools', async () => {
     const createStoragePool = vi.fn().mockResolvedValue([{ name: 'op-create' }]);
     createClientMock.mockReturnValue({ createStoragePool });
@@ -309,6 +330,52 @@ describe('storage-pool-handler', () => {
     expect(result.structuredContent?.createTime).toBeInstanceOf(Date);
   });
 
+  it('getStoragePoolHandler surfaces Flex custom performance fields when present', async () => {
+    const getStoragePool = vi.fn().mockResolvedValue([
+      {
+        name: 'projects/p1/locations/us-central1/storagePools/sp1',
+        capacityGib: '1',
+        createTime: { seconds: 1 },
+        customPerformanceEnabled: true,
+        totalThroughputMibps: '256',
+      },
+    ]);
+    createClientMock.mockReturnValue({ getStoragePool });
+
+    const { getStoragePoolHandler } = await import('./storage-pool-handler.js');
+    const result = await getStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      customPerformanceEnabled: true,
+      totalThroughputMibps: 256,
+    });
+  });
+
+  it('getStoragePoolHandler maps totalThroughputMibps=0 via Number(...) || 0 branch', async () => {
+    const getStoragePool = vi.fn().mockResolvedValue([
+      {
+        name: 'projects/p1/locations/us-central1/storagePools/sp1',
+        capacityGib: '1',
+        createTime: { seconds: 1 },
+        totalThroughputMibps: '0',
+      },
+    ]);
+    createClientMock.mockReturnValue({ getStoragePool });
+
+    const { getStoragePoolHandler } = await import('./storage-pool-handler.js');
+    const result = await getStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+    });
+
+    expect(result.structuredContent).toMatchObject({ totalThroughputMibps: 0 });
+  });
+
   it('getStoragePoolHandler falls back for missing name/capacity fields (covers || 0 branches)', async () => {
     const getStoragePool = vi.fn().mockResolvedValue([
       {
@@ -388,6 +455,68 @@ describe('storage-pool-handler', () => {
     expect(result.structuredContent).toMatchObject({
       storagePools: [expect.objectContaining({ storagePoolId: 'sp1', capacityGib: 1 })],
       nextPageToken: 'n1',
+    });
+  });
+
+  it('listStoragePoolsHandler surfaces Flex custom performance fields when present', async () => {
+    const listStoragePools = vi.fn().mockResolvedValue([
+      [
+        {
+          name: 'projects/p1/locations/us-central1/storagePools/sp1',
+          capacityGib: '1',
+          customPerformanceEnabled: true,
+          totalThroughputMibps: '512',
+        },
+      ],
+      undefined,
+      { nextPageToken: 'n1' },
+    ]);
+    createClientMock.mockReturnValue({ listStoragePools });
+
+    const { listStoragePoolsHandler } = await import('./storage-pool-handler.js');
+    const result = await listStoragePoolsHandler({ projectId: 'p1', location: 'us-central1' });
+
+    expect((result.structuredContent as any).storagePools[0]).toMatchObject({
+      customPerformanceEnabled: true,
+      totalThroughputMibps: 512,
+    });
+  });
+
+  it('listStoragePoolsHandler maps non-numeric totalThroughputMibps to 0 (covers Number(x) || 0 branch)', async () => {
+    const listStoragePools = vi.fn().mockResolvedValue([
+      [
+        {
+          name: 'projects/p1/locations/us-central1/storagePools/sp1',
+          capacityGib: '1',
+          totalThroughputMibps: 'not-a-number',
+        },
+      ],
+      undefined,
+      { nextPageToken: 'n1' },
+    ]);
+    createClientMock.mockReturnValue({ listStoragePools });
+
+    const { listStoragePoolsHandler } = await import('./storage-pool-handler.js');
+    const result = await listStoragePoolsHandler({ projectId: 'p1', location: 'us-central1' });
+
+    expect((result.structuredContent as any).storagePools[0]).toMatchObject({ totalThroughputMibps: 0 });
+  });
+
+  it('updateStoragePoolHandler preserves non-string qosType (covers typeof qosType !== \"string\" branch)', async () => {
+    const updateStoragePool = vi.fn().mockResolvedValue([{ name: 'op-upd-qos2' }]);
+    createClientMock.mockReturnValue({ updateStoragePool });
+
+    const { updateStoragePoolHandler } = await import('./storage-pool-handler.js');
+    await updateStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      qosType: 2, // non-string
+    });
+
+    expect(updateStoragePool.mock.calls[0]?.[0]).toMatchObject({
+      storagePool: expect.objectContaining({ qosType: 2 }),
+      updateMask: { paths: ['qos_type'] },
     });
   });
 
