@@ -158,6 +158,42 @@ export const createVolumeTool: ToolConfig = {
       })
       .optional()
       .describe('Tiering policy (auto-tiering) for the volume'),
+    hybridReplicationParameters: z
+      .object({
+        replication: z.string().optional().describe('Hybrid replication resource name/reference'),
+        peerVolumeName: z.string().optional().describe('Peer volume name'),
+        peerClusterName: z.string().optional().describe('Peer cluster name'),
+        peerSvmName: z.string().optional().describe('Peer SVM name'),
+        peerIpAddresses: z
+          .array(z.string())
+          .optional()
+          .describe('Peer IP addresses for hybrid replication'),
+        clusterLocation: z.string().optional().describe('Cluster location'),
+        description: z.string().optional().describe('Description'),
+        labels: z.record(z.string()).optional().describe('Labels'),
+        replicationSchedule: z
+          .enum(['HYBRID_REPLICATION_SCHEDULE_UNSPECIFIED', 'EVERY_10_MINUTES', 'HOURLY', 'DAILY'])
+          .optional()
+          .describe('Replication schedule'),
+        hybridReplicationType: z
+          .enum([
+            'VOLUME_HYBRID_REPLICATION_TYPE_UNSPECIFIED',
+            'MIGRATION',
+            'CONTINUOUS_REPLICATION',
+            'ONPREM_REPLICATION',
+            'REVERSE_ONPREM_REPLICATION',
+          ])
+          .optional()
+          .describe('Hybrid replication type'),
+        largeVolumeConstituentCount: z
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe('Large volume constituent count'),
+      })
+      .optional()
+      .describe('Hybrid replication parameters for the volume'),
     exportPolicy: z
       .object({
         rules: z
@@ -331,6 +367,42 @@ export const updateVolumeTool: ToolConfig = {
       })
       .optional()
       .describe('Tiering policy (auto-tiering) for the volume'),
+    hybridReplicationParameters: z
+      .object({
+        replication: z.string().optional().describe('Hybrid replication resource name/reference'),
+        peerVolumeName: z.string().optional().describe('Peer volume name'),
+        peerClusterName: z.string().optional().describe('Peer cluster name'),
+        peerSvmName: z.string().optional().describe('Peer SVM name'),
+        peerIpAddresses: z
+          .array(z.string())
+          .optional()
+          .describe('Peer IP addresses for hybrid replication'),
+        clusterLocation: z.string().optional().describe('Cluster location'),
+        description: z.string().optional().describe('Description'),
+        labels: z.record(z.string()).optional().describe('Labels'),
+        replicationSchedule: z
+          .enum(['HYBRID_REPLICATION_SCHEDULE_UNSPECIFIED', 'EVERY_10_MINUTES', 'HOURLY', 'DAILY'])
+          .optional()
+          .describe('Replication schedule'),
+        hybridReplicationType: z
+          .enum([
+            'VOLUME_HYBRID_REPLICATION_TYPE_UNSPECIFIED',
+            'MIGRATION',
+            'CONTINUOUS_REPLICATION',
+            'ONPREM_REPLICATION',
+            'REVERSE_ONPREM_REPLICATION',
+          ])
+          .optional()
+          .describe('Hybrid replication type'),
+        largeVolumeConstituentCount: z
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe('Large volume constituent count'),
+      })
+      .optional()
+      .describe('Hybrid replication parameters for the volume'),
     exportPolicy: z
       .object({
         rules: z

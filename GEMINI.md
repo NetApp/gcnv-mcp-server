@@ -96,6 +96,7 @@ Notes:
 - Auto-tiering is a two-step enablement:
   - Pool: set `allowAutoTiering: true` when creating the storage pool.
   - Volume: set `tieringPolicy` on the volume (for example `tierAction: ENABLED`, optional `coolingThresholdDays`, optional `hotTierBypassModeEnabled`).
+- Hybrid replication: set `hybridReplicationParameters` on the volume (for example `replicationSchedule: HOURLY` and `hybridReplicationType: CONTINUOUS_REPLICATION`) along with peer details (cluster/SVM/IPs).
 - Large capacity volumes: set `largeCapacity: true` (Premium/Extreme only; minimum 15 TiB) and optionally `multipleEndpoints: true` for multiple storage endpoints. See the volume limits and overview docs.
 
 ### Snapshots

@@ -46,6 +46,8 @@ function formatVolumeData(volume: any): any {
   if (volume.encryptionType) result.encryptionType = volume.encryptionType;
   if (volume.backupConfig) result.backupConfig = volume.backupConfig;
   if (volume.tieringPolicy) result.tieringPolicy = volume.tieringPolicy;
+  if (volume.hybridReplicationParameters)
+    result.hybridReplicationParameters = volume.hybridReplicationParameters;
   if (volume.throughputMibps !== undefined) result.throughputMibps = volume.throughputMibps;
   if (volume.replicaZone) result.replicaZone = volume.replicaZone;
   if (volume.zone) result.zone = volume.zone;
@@ -91,6 +93,7 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
       backupConfig,
       snapshotPolicy,
       tieringPolicy,
+      hybridReplicationParameters,
       exportPolicy,
       shareName,
       throughputMibps,
@@ -163,6 +166,7 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
         backupConfig,
         snapshotPolicy,
         tieringPolicy,
+        hybridReplicationParameters,
         shareName: shareName || volumeId,
         exportPolicy,
         ...(throughputMibps !== undefined ? { throughputMibps } : {}),
@@ -366,6 +370,7 @@ export const updateVolumeHandler: ToolHandler = async (args: { [key: string]: an
       labels,
       backupConfig,
       tieringPolicy,
+      hybridReplicationParameters,
       exportPolicy,
       throughputMibps,
     } = args;
@@ -410,6 +415,11 @@ export const updateVolumeHandler: ToolHandler = async (args: { [key: string]: an
     if (tieringPolicy !== undefined) {
       volume.tieringPolicy = tieringPolicy;
       updateMask.push('tiering_policy');
+    }
+
+    if (hybridReplicationParameters !== undefined) {
+      volume.hybridReplicationParameters = hybridReplicationParameters;
+      updateMask.push('hybrid_replication_parameters');
     }
 
     if (throughputMibps !== undefined) {

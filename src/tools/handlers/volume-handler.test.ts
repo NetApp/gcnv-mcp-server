@@ -42,6 +42,12 @@ describe('volume-handler', () => {
         coolingThresholdDays: 31,
         hotTierBypassModeEnabled: true,
       },
+      hybridReplicationParameters: {
+        replicationSchedule: 'HOURLY',
+        hybridReplicationType: 'CONTINUOUS_REPLICATION',
+        peerIpAddresses: ['10.0.0.1'],
+        peerClusterName: 'cluster-a',
+      },
       throughputMibps: 256,
     });
 
@@ -68,6 +74,12 @@ describe('volume-handler', () => {
           tierAction: 'ENABLED',
           coolingThresholdDays: 31,
           hotTierBypassModeEnabled: true,
+        },
+        hybridReplicationParameters: {
+          replicationSchedule: 'HOURLY',
+          hybridReplicationType: 'CONTINUOUS_REPLICATION',
+          peerIpAddresses: ['10.0.0.1'],
+          peerClusterName: 'cluster-a',
         },
         shareName: 'vol1',
         throughputMibps: 256,
@@ -450,6 +462,12 @@ describe('volume-handler', () => {
         encryptionType: 'CMEK',
         backupConfig: { scheduledBackupEnabled: false },
         tieringPolicy: { policy: 'AUTO' },
+        hybridReplicationParameters: {
+          replicationSchedule: 'HOURLY',
+          hybridReplicationType: 'CONTINUOUS_REPLICATION',
+          peerIpAddresses: ['10.0.0.1'],
+          peerClusterName: 'cluster-a',
+        },
         throughputMibps: 0, // defined, even if falsy
         replicaZone: 'rz',
         zone: 'z',
@@ -495,6 +513,12 @@ describe('volume-handler', () => {
       restrictedActions: [],
       exportPolicy: { rules: [] },
       smbSettings: ['ENCRYPT_DATA'],
+      hybridReplicationParameters: {
+        replicationSchedule: 'HOURLY',
+        hybridReplicationType: 'CONTINUOUS_REPLICATION',
+        peerIpAddresses: ['10.0.0.1'],
+        peerClusterName: 'cluster-a',
+      },
     });
     expect(v.createTime).toBeInstanceOf(Date);
     expect(v.mountOptions).toHaveLength(2);
@@ -674,6 +698,37 @@ describe('volume-handler', () => {
         },
       },
       updateMask: { paths: ['tiering_policy'] },
+    });
+  });
+
+  it('updateVolumeHandler supports updating hybridReplicationParameters', async () => {
+    const updateVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-upd-hybrid' }]);
+    createClientMock.mockReturnValue({ updateVolume });
+
+    const { updateVolumeHandler } = await import('./volume-handler.js');
+    await updateVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+      hybridReplicationParameters: {
+        replicationSchedule: 'HOURLY',
+        hybridReplicationType: 'CONTINUOUS_REPLICATION',
+        peerIpAddresses: ['10.0.0.1'],
+        peerClusterName: 'cluster-a',
+      },
+    });
+
+    expect(updateVolume.mock.calls[0]?.[0]).toMatchObject({
+      volume: {
+        name: 'projects/p1/locations/us-central1/volumes/vol1',
+        hybridReplicationParameters: {
+          replicationSchedule: 'HOURLY',
+          hybridReplicationType: 'CONTINUOUS_REPLICATION',
+          peerIpAddresses: ['10.0.0.1'],
+          peerClusterName: 'cluster-a',
+        },
+      },
+      updateMask: { paths: ['hybrid_replication_parameters'] },
     });
   });
 
