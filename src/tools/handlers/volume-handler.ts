@@ -89,6 +89,8 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
       description,
       labels,
       backupConfig,
+      snapshotPolicy,
+      tieringPolicy,
       exportPolicy,
       shareName,
       throughputMibps,
@@ -159,6 +161,8 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
         description,
         labels,
         backupConfig,
+        snapshotPolicy,
+        tieringPolicy,
         shareName: shareName || volumeId,
         exportPolicy,
         ...(throughputMibps !== undefined ? { throughputMibps } : {}),
@@ -361,6 +365,7 @@ export const updateVolumeHandler: ToolHandler = async (args: { [key: string]: an
       description,
       labels,
       backupConfig,
+      tieringPolicy,
       exportPolicy,
       throughputMibps,
     } = args;
@@ -400,6 +405,11 @@ export const updateVolumeHandler: ToolHandler = async (args: { [key: string]: an
       if (backupConfig.backupVault !== undefined) updateMask.push('backup_config.backup_vault');
       if (backupConfig.scheduledBackupEnabled !== undefined)
         updateMask.push('backup_config.scheduled_backup_enabled');
+    }
+
+    if (tieringPolicy !== undefined) {
+      volume.tieringPolicy = tieringPolicy;
+      updateMask.push('tiering_policy');
     }
 
     if (throughputMibps !== undefined) {

@@ -219,7 +219,7 @@ References:
 #### Volume Tools
 
 1. **gcnv_volume_create** - Create a new volume in a storage pool
-   - Inputs: projectId, location, storagePoolId, volumeId, capacityGib, protocols, description (optional), shareName (optional), labels (optional), backupConfig (optional), exportPolicy (optional), throughputMibps (optional; manual QoS volume throughput limit), largeCapacity (optional; Premium/Extreme only; requires >= 15 TiB), multipleEndpoints (optional; only with largeCapacity)
+   - Inputs: projectId, location, storagePoolId, volumeId, capacityGib, protocols, description (optional), shareName (optional), labels (optional), backupConfig (optional), snapshotPolicy (optional; scheduled snapshots: hourly/daily/weekly/monthly), tieringPolicy (optional; auto-tiering), exportPolicy (optional), throughputMibps (optional; manual QoS volume throughput limit), largeCapacity (optional; Premium/Extreme only; requires >= 15 TiB), multipleEndpoints (optional; only with largeCapacity)
 
 2. **gcnv_volume_delete** - Delete an existing volume
    - Inputs: projectId, location, volumeId, force (optional)
@@ -231,7 +231,7 @@ References:
    - Inputs: projectId, location, filter (optional), pageSize (optional), pageToken (optional)
 
 5. **gcnv_volume_update** - Update a volume's properties
-   - Inputs: projectId, location, volumeId, capacityGib (optional), description (optional), labels (optional), backupConfig (optional), exportPolicy (optional), throughputMibps (optional)
+   - Inputs: projectId, location, volumeId, capacityGib (optional), description (optional), labels (optional), backupConfig (optional), tieringPolicy (optional; auto-tiering), exportPolicy (optional), throughputMibps (optional)
 
 #### Snapshot Tools
 

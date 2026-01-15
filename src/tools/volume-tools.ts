@@ -32,6 +32,132 @@ export const createVolumeTool: ToolConfig = {
       })
       .optional()
       .describe('Backup configuration'),
+    snapshotPolicy: z
+      .object({
+        enabled: z.boolean().optional().describe('Enable scheduled snapshots for this volume'),
+        hourlySchedule: z
+          .object({
+            snapshotsToKeep: z
+              .number()
+              .int()
+              .positive()
+              .optional()
+              .describe('Number of hourly snapshots to retain'),
+            minute: z
+              .number()
+              .int()
+              .min(0)
+              .max(59)
+              .optional()
+              .describe('Minute of the hour to take the snapshot (0-59)'),
+          })
+          .optional()
+          .describe('Hourly snapshot schedule'),
+        dailySchedule: z
+          .object({
+            snapshotsToKeep: z
+              .number()
+              .int()
+              .positive()
+              .optional()
+              .describe('Number of daily snapshots to retain'),
+            minute: z
+              .number()
+              .int()
+              .min(0)
+              .max(59)
+              .optional()
+              .describe('Minute of the hour to take the snapshot (0-59)'),
+            hour: z
+              .number()
+              .int()
+              .min(0)
+              .max(23)
+              .optional()
+              .describe('Hour of the day to take the snapshot (0-23)'),
+          })
+          .optional()
+          .describe('Daily snapshot schedule'),
+        weeklySchedule: z
+          .object({
+            snapshotsToKeep: z
+              .number()
+              .int()
+              .positive()
+              .optional()
+              .describe('Number of weekly snapshots to retain'),
+            minute: z
+              .number()
+              .int()
+              .min(0)
+              .max(59)
+              .optional()
+              .describe('Minute of the hour to take the snapshot (0-59)'),
+            hour: z
+              .number()
+              .int()
+              .min(0)
+              .max(23)
+              .optional()
+              .describe('Hour of the day to take the snapshot (0-23)'),
+            day: z
+              .string()
+              .optional()
+              .describe('Day of the week to take the snapshot (API expects a string)'),
+          })
+          .optional()
+          .describe('Weekly snapshot schedule'),
+        monthlySchedule: z
+          .object({
+            snapshotsToKeep: z
+              .number()
+              .int()
+              .positive()
+              .optional()
+              .describe('Number of monthly snapshots to retain'),
+            minute: z
+              .number()
+              .int()
+              .min(0)
+              .max(59)
+              .optional()
+              .describe('Minute of the hour to take the snapshot (0-59)'),
+            hour: z
+              .number()
+              .int()
+              .min(0)
+              .max(23)
+              .optional()
+              .describe('Hour of the day to take the snapshot (0-23)'),
+            daysOfMonth: z
+              .string()
+              .optional()
+              .describe('Days of month to take the snapshot (API expects a string)'),
+          })
+          .optional()
+          .describe('Monthly snapshot schedule'),
+      })
+      .optional()
+      .describe('Snapshot scheduling policy for the volume'),
+    tieringPolicy: z
+      .object({
+        tierAction: z
+          .enum(['TIER_ACTION_UNSPECIFIED', 'ENABLED', 'PAUSED'])
+          .optional()
+          .describe('Auto-tiering action (ENABLED/PAUSED)'),
+        coolingThresholdDays: z
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe('Cooling threshold in days before data is tiered'),
+        hotTierBypassModeEnabled: z
+          .boolean()
+          .optional()
+          .describe('Whether hot tier bypass mode is enabled'),
+      })
+      .optional()
+      .describe('Tiering policy (auto-tiering) for the volume'),
     exportPolicy: z
       .object({
         rules: z
@@ -186,6 +312,25 @@ export const updateVolumeTool: ToolConfig = {
       })
       .optional()
       .describe('Backup configuration'),
+    tieringPolicy: z
+      .object({
+        tierAction: z
+          .enum(['TIER_ACTION_UNSPECIFIED', 'ENABLED', 'PAUSED'])
+          .optional()
+          .describe('Auto-tiering action (ENABLED/PAUSED)'),
+        coolingThresholdDays: z
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe('Cooling threshold in days before data is tiered'),
+        hotTierBypassModeEnabled: z
+          .boolean()
+          .optional()
+          .describe('Whether hot tier bypass mode is enabled'),
+      })
+      .optional()
+      .describe('Tiering policy (auto-tiering) for the volume'),
     exportPolicy: z
       .object({
         rules: z

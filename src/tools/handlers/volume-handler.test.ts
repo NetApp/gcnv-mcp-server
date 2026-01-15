@@ -30,6 +30,18 @@ describe('volume-handler', () => {
       protocols: ['NFS3'],
       description: 'd',
       labels: { env: 'test' },
+      snapshotPolicy: {
+        enabled: true,
+        hourlySchedule: { snapshotsToKeep: 24, minute: 5 },
+        dailySchedule: { snapshotsToKeep: 7, hour: 2, minute: 0 },
+        weeklySchedule: { snapshotsToKeep: 4, day: 'SUNDAY', hour: 3, minute: 0 },
+        monthlySchedule: { snapshotsToKeep: 12, daysOfMonth: '1', hour: 4, minute: 0 },
+      },
+      tieringPolicy: {
+        tierAction: 'ENABLED',
+        coolingThresholdDays: 31,
+        hotTierBypassModeEnabled: true,
+      },
       throughputMibps: 256,
     });
 
@@ -45,6 +57,18 @@ describe('volume-handler', () => {
         protocols: ['NFS3'],
         description: 'd',
         labels: { env: 'test' },
+        snapshotPolicy: {
+          enabled: true,
+          hourlySchedule: { snapshotsToKeep: 24, minute: 5 },
+          dailySchedule: { snapshotsToKeep: 7, hour: 2, minute: 0 },
+          weeklySchedule: { snapshotsToKeep: 4, day: 'SUNDAY', hour: 3, minute: 0 },
+          monthlySchedule: { snapshotsToKeep: 12, daysOfMonth: '1', hour: 4, minute: 0 },
+        },
+        tieringPolicy: {
+          tierAction: 'ENABLED',
+          coolingThresholdDays: 31,
+          hotTierBypassModeEnabled: true,
+        },
         shareName: 'vol1',
         throughputMibps: 256,
       },
@@ -621,6 +645,35 @@ describe('volume-handler', () => {
         throughputMibps: 256,
       },
       updateMask: { paths: ['throughput_mibps'] },
+    });
+  });
+
+  it('updateVolumeHandler supports updating tieringPolicy (auto-tiering)', async () => {
+    const updateVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-upd-tier' }]);
+    createClientMock.mockReturnValue({ updateVolume });
+
+    const { updateVolumeHandler } = await import('./volume-handler.js');
+    await updateVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+      tieringPolicy: {
+        tierAction: 'ENABLED',
+        coolingThresholdDays: 31,
+        hotTierBypassModeEnabled: true,
+      },
+    });
+
+    expect(updateVolume.mock.calls[0]?.[0]).toMatchObject({
+      volume: {
+        name: 'projects/p1/locations/us-central1/volumes/vol1',
+        tieringPolicy: {
+          tierAction: 'ENABLED',
+          coolingThresholdDays: 31,
+          hotTierBypassModeEnabled: true,
+        },
+      },
+      updateMask: { paths: ['tiering_policy'] },
     });
   });
 

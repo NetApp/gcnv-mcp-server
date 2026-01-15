@@ -93,6 +93,9 @@ Notes:
 
 - `protocols` is required for volume creation.
 - Export policies contain nested rule fields—include only what the user provides.
+- Auto-tiering is a two-step enablement:
+  - Pool: set `allowAutoTiering: true` when creating the storage pool.
+  - Volume: set `tieringPolicy` on the volume (for example `tierAction: ENABLED`, optional `coolingThresholdDays`, optional `hotTierBypassModeEnabled`).
 - Large capacity volumes: set `largeCapacity: true` (Premium/Extreme only; minimum 15 TiB) and optionally `multipleEndpoints: true` for multiple storage endpoints. See the volume limits and overview docs.
 
 ### Snapshots
