@@ -70,6 +70,7 @@ import {
   getBackupTool,
   listBackupsTool,
   restoreBackupTool,
+  restoreBackupFilesTool,
   updateBackupTool,
 } from '../tools/backup-tools.js';
 import {
@@ -78,6 +79,7 @@ import {
   getBackupHandler,
   listBackupsHandler,
   restoreBackupHandler,
+  restoreBackupFilesHandler,
   updateBackupHandler,
 } from '../tools/handlers/backup-handler.js';
 import {
@@ -168,6 +170,20 @@ import {
   listQuotaRulesHandler,
   updateQuotaRuleHandler,
 } from '../tools/handlers/quota-rule-handler.js';
+import {
+  createHostGroupTool,
+  deleteHostGroupTool,
+  getHostGroupTool,
+  listHostGroupsTool,
+  updateHostGroupTool,
+} from '../tools/host-group-tools.js';
+import {
+  createHostGroupHandler,
+  deleteHostGroupHandler,
+  getHostGroupHandler,
+  listHostGroupsHandler,
+  updateHostGroupHandler,
+} from '../tools/handlers/host-group-handler.js';
 
 /**
  * Register all tools and their handlers to the tool registry
@@ -241,6 +257,11 @@ export function registerAllTools(mcpServer: McpServer) {
   mcpServer.registerTool(getBackupTool.name, getBackupTool, getBackupHandler);
   mcpServer.registerTool(listBackupsTool.name, listBackupsTool, listBackupsHandler);
   mcpServer.registerTool(restoreBackupTool.name, restoreBackupTool, restoreBackupHandler);
+  mcpServer.registerTool(
+    restoreBackupFilesTool.name,
+    restoreBackupFilesTool,
+    restoreBackupFilesHandler
+  );
   mcpServer.registerTool(updateBackupTool.name, updateBackupTool, updateBackupHandler);
 
   // Register operation tools
@@ -349,4 +370,11 @@ export function registerAllTools(mcpServer: McpServer) {
   mcpServer.registerTool(getQuotaRuleTool.name, getQuotaRuleTool, getQuotaRuleHandler);
   mcpServer.registerTool(listQuotaRulesTool.name, listQuotaRulesTool, listQuotaRulesHandler);
   mcpServer.registerTool(updateQuotaRuleTool.name, updateQuotaRuleTool, updateQuotaRuleHandler);
+
+  // Register host group tools
+  mcpServer.registerTool(createHostGroupTool.name, createHostGroupTool, createHostGroupHandler);
+  mcpServer.registerTool(deleteHostGroupTool.name, deleteHostGroupTool, deleteHostGroupHandler);
+  mcpServer.registerTool(getHostGroupTool.name, getHostGroupTool, getHostGroupHandler);
+  mcpServer.registerTool(listHostGroupsTool.name, listHostGroupsTool, listHostGroupsHandler);
+  mcpServer.registerTool(updateHostGroupTool.name, updateHostGroupTool, updateHostGroupHandler);
 }

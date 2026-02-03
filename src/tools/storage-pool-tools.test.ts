@@ -41,4 +41,30 @@ describe('storage-pool-tools', () => {
       })
     ).not.toThrow();
   });
+
+  it('createStoragePoolTool accepts storagePoolType values (validation is enforced in handler)', () => {
+    const schema = z.object(createStoragePoolTool.inputSchema);
+
+    expect(() =>
+      schema.parse({
+        projectId: 'p1',
+        location: 'us-central1',
+        storagePoolId: 'sp1',
+        capacityGib: 100,
+        serviceLevel: 'FLEX',
+        storagePoolType: 'UNIFIED_LARGE_CAPACITY',
+      })
+    ).not.toThrow();
+
+    expect(() =>
+      schema.parse({
+        projectId: 'p1',
+        location: 'us-central1',
+        storagePoolId: 'sp1',
+        capacityGib: 100,
+        serviceLevel: 'standard',
+        storagePoolType: 'FILE',
+      })
+    ).not.toThrow();
+  });
 });

@@ -63,6 +63,16 @@ export const createStoragePoolTool: ToolConfig = {
       .boolean()
       .optional()
       .describe('Enable auto-tiering to manage capacity for the pool'),
+    storagePoolType: z
+      .union([
+        z.enum(['STORAGE_POOL_TYPE_UNSPECIFIED', 'FILE', 'UNIFIED', 'UNIFIED_LARGE_CAPACITY']),
+        z.enum(['storage_pool_type_unspecified', 'file', 'unified', 'unified_large_capacity']),
+        z.number(),
+      ])
+      .optional()
+      .describe(
+        'Storage pool type (StoragePoolType). UNIFIED and UNIFIED_LARGE_CAPACITY are only available for FLEX service level.'
+      ),
   },
   outputSchema: {
     name: z.string().describe('The name of the created storage pool'),
@@ -131,6 +141,10 @@ export const getStoragePoolTool: ToolConfig = {
       .boolean()
       .optional()
       .describe('Whether auto-tiering is enabled for the pool'),
+    storagePoolType: z
+      .union([z.string(), z.number()])
+      .optional()
+      .describe('Storage pool type (StoragePoolType)'),
   },
 };
 
@@ -187,6 +201,10 @@ export const listStoragePoolsTool: ToolConfig = {
             .boolean()
             .optional()
             .describe('Whether auto-tiering is enabled for the pool'),
+          storagePoolType: z
+            .union([z.string(), z.number()])
+            .optional()
+            .describe('Storage pool type (StoragePoolType)'),
         })
       )
       .describe('List of storage pools'),
@@ -211,6 +229,16 @@ export const updateStoragePoolTool: ToolConfig = {
       .optional()
       .describe(
         'QoS type for the storage pool (AUTO or MANUAL). Manual QoS is supported for Standard/Premium/Extreme; not supported for Flex.'
+      ),
+    storagePoolType: z
+      .union([
+        z.enum(['STORAGE_POOL_TYPE_UNSPECIFIED', 'FILE', 'UNIFIED', 'UNIFIED_LARGE_CAPACITY']),
+        z.enum(['storage_pool_type_unspecified', 'file', 'unified', 'unified_large_capacity']),
+        z.number(),
+      ])
+      .optional()
+      .describe(
+        'Storage pool type (StoragePoolType). UNIFIED and UNIFIED_LARGE_CAPACITY are only available for FLEX service level.'
       ),
   },
   outputSchema: {

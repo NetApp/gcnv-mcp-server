@@ -85,6 +85,50 @@ describe('storage-pool-handler', () => {
     });
   });
 
+  it('createStoragePoolHandler includes storagePoolType in request (FLEX + UNIFIED)', async () => {
+    const createStoragePool = vi.fn().mockResolvedValue([{ name: 'op-create' }]);
+    createClientMock.mockReturnValue({ createStoragePool });
+
+    const { createStoragePoolHandler } = await import('./storage-pool-handler.js');
+    await createStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      capacityGib: 100,
+      serviceLevel: 'flex',
+      network: 'net1',
+      storagePoolType: 'UNIFIED',
+    });
+
+    expect(createStoragePool).toHaveBeenCalledTimes(1);
+    expect(createStoragePool.mock.calls[0]?.[0]).toMatchObject({
+      storagePool: expect.objectContaining({
+        serviceLevel: 'FLEX',
+        type: 2,
+      }),
+    });
+  });
+
+  it('createStoragePoolHandler rejects UNIFIED_* storagePoolType for non-FLEX service levels', async () => {
+    const createStoragePool = vi.fn().mockResolvedValue([{ name: 'op-create' }]);
+    createClientMock.mockReturnValue({ createStoragePool });
+
+    const { createStoragePoolHandler } = await import('./storage-pool-handler.js');
+    const result = await createStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      capacityGib: 100,
+      serviceLevel: 'STANDARD',
+      network: 'net1',
+      storagePoolType: 'UNIFIED_LARGE_CAPACITY',
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('storagePoolType UNIFIED and UNIFIED_LARGE_CAPACITY');
+    expect(createStoragePool).not.toHaveBeenCalled();
+  });
+
   it('createStoragePoolHandler rejects totalThroughputMibps for non-FLEX service levels', async () => {
     const createStoragePool = vi.fn().mockResolvedValue([{ name: 'op-create' }]);
     createClientMock.mockReturnValue({ createStoragePool });
@@ -604,6 +648,35 @@ describe('storage-pool-handler', () => {
       updateMask: { paths: expect.arrayContaining(['capacity_gib', 'description']) },
     });
     expect(result.structuredContent).toMatchObject({
+      operationId: 'op-upd',
+    });
+  });
+
+  it('updateStoragePoolHandler supports storagePoolType update and adds type to updateMask (FLEX-only for UNIFIED*)', async () => {
+    const getStoragePool = vi.fn().mockResolvedValue([{ serviceLevel: 'FLEX' }]);
+    const updateStoragePool = vi.fn().mockResolvedValue([{ name: 'op-upd' }]);
+    createClientMock.mockReturnValue({ getStoragePool, updateStoragePool });
+
+    const { updateStoragePoolHandler } = await import('./storage-pool-handler.js');
+    const result = await updateStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      storagePoolType: 'UNIFIED',
+    });
+
+    expect(getStoragePool).toHaveBeenCalledWith({
+      name: 'projects/p1/locations/us-central1/storagePools/sp1',
+    });
+    expect(updateStoragePool).toHaveBeenCalledTimes(1);
+    const req = updateStoragePool.mock.calls[0]?.[0];
+    expect(req.storagePool).toMatchObject({
+      name: 'projects/p1/locations/us-central1/storagePools/sp1',
+      type: 2,
+    });
+    expect(req.updateMask.paths).toEqual(expect.arrayContaining(['type']));
+    expect(result.structuredContent).toEqual({
+      name: 'projects/p1/locations/us-central1/storagePools/sp1',
       operationId: 'op-upd',
     });
   });

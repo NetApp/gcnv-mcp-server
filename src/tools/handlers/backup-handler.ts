@@ -457,6 +457,91 @@ export const restoreBackupHandler: ToolHandler = async (args: { [key: string]: a
   }
 };
 
+// Restore Backup Files Handler
+export const restoreBackupFilesHandler: ToolHandler = async (args: { [key: string]: any }) => {
+  try {
+    const {
+      projectId,
+      location,
+      volumeId,
+      backupVaultId,
+      backupId,
+      fileList,
+      restoreDestinationPath,
+    } = args;
+
+    const errors: string[] = [];
+    if (typeof projectId !== 'string' || projectId.trim() === '')
+      errors.push('Missing or invalid projectId');
+    if (typeof location !== 'string' || location.trim() === '')
+      errors.push('Missing or invalid location');
+    if (typeof volumeId !== 'string' || volumeId.trim() === '')
+      errors.push('Missing or invalid volumeId');
+    if (typeof backupVaultId !== 'string' || backupVaultId.trim() === '')
+      errors.push('Missing or invalid backupVaultId');
+    if (typeof backupId !== 'string' || backupId.trim() === '')
+      errors.push('Missing or invalid backupId');
+    if (!Array.isArray(fileList) || fileList.length === 0)
+      errors.push('fileList must be a non-empty array');
+    if (Array.isArray(fileList) && fileList.some((p) => typeof p !== 'string' || p.trim() === '')) {
+      errors.push('fileList must contain only non-empty strings');
+    }
+
+    // Per API docs: required when fileList is provided (and fileList is required)
+    if (typeof restoreDestinationPath !== 'string' || restoreDestinationPath.trim() === '') {
+      errors.push('restoreDestinationPath is required and must be a non-empty string');
+    }
+
+    if (errors.length > 0) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: `Invalid input: ${errors.join('; ')}`,
+          },
+        ],
+      };
+    }
+
+    const netAppClient = NetAppClientFactory.createClient();
+
+    const name = `projects/${projectId}/locations/${location}/volumes/${volumeId}`;
+    const backup = `projects/${projectId}/locations/${location}/backupVaults/${backupVaultId}/backups/${backupId}`;
+
+    const [operation] = await (netAppClient as any).restoreBackupFiles({
+      name,
+      backup,
+      fileList,
+      restoreDestinationPath,
+    });
+
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Backup files restore initiated. Operation ID: ${operation.name || ''}`,
+        },
+      ],
+      structuredContent: {
+        name,
+        operationId: operation.name || '',
+      },
+    };
+  } catch (error: any) {
+    log.error({ err: error }, 'Error restoring backup files');
+    return {
+      isError: true,
+      content: [
+        {
+          type: 'text' as const,
+          text: `Failed to restore backup files: ${error.message || 'Unknown error'}`,
+        },
+      ],
+    };
+  }
+};
+
 // Update Backup Handler
 export const updateBackupHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {

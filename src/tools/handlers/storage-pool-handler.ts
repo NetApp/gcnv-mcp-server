@@ -4,6 +4,33 @@ import { logger } from '../../logger.js';
 
 const log = logger.child({ module: 'storage-pool-handler' });
 
+function parseStoragePoolType(input: any): { value?: number; error?: string } {
+  const enumMap: Record<string, number> = {
+    STORAGE_POOL_TYPE_UNSPECIFIED: 0,
+    FILE: 1,
+    UNIFIED: 2,
+    UNIFIED_LARGE_CAPACITY: 3,
+  };
+
+  if (input === undefined || input === null) return {};
+
+  if (typeof input === 'number') {
+    if (Object.values(enumMap).includes(input)) return { value: input };
+    return { error: 'storagePoolType must be a valid enum number (0-3)' };
+  }
+
+  if (typeof input === 'string') {
+    const trimmed = input.trim().toUpperCase();
+    if (enumMap[trimmed] !== undefined) return { value: enumMap[trimmed] };
+    return {
+      error:
+        'storagePoolType must be one of STORAGE_POOL_TYPE_UNSPECIFIED, FILE, UNIFIED, UNIFIED_LARGE_CAPACITY, or the corresponding enum number',
+    };
+  }
+
+  return { error: 'storagePoolType must be a string enum name or enum number' };
+}
+
 // Create Storage Pool Handler
 export const createStoragePoolHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {
@@ -23,6 +50,7 @@ export const createStoragePoolHandler: ToolHandler = async (args: { [key: string
       totalThroughputMibps,
       qosType,
       allowAutoTiering,
+      storagePoolType,
     } = args;
 
     // Create a new NetApp client using the factory
@@ -36,6 +64,37 @@ export const createStoragePoolHandler: ToolHandler = async (args: { [key: string
       typeof serviceLevel === 'string' ? serviceLevel.toUpperCase() : serviceLevel;
 
     const normalizedQosType = typeof qosType === 'string' ? qosType.toUpperCase() : qosType;
+
+    const { value: parsedStoragePoolType, error: storagePoolTypeError } =
+      parseStoragePoolType(storagePoolType);
+    if (storagePoolTypeError) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: `Error creating storage pool: ${storagePoolTypeError}`,
+          },
+        ],
+      };
+    }
+
+    // New pool types (UNIFIED / UNIFIED_LARGE_CAPACITY) are only available for FLEX
+    if (
+      parsedStoragePoolType !== undefined &&
+      (parsedStoragePoolType === 2 || parsedStoragePoolType === 3) &&
+      normalizedServiceLevel !== 'FLEX'
+    ) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error creating storage pool: storagePoolType UNIFIED and UNIFIED_LARGE_CAPACITY are only supported when serviceLevel is FLEX.',
+          },
+        ],
+      };
+    }
 
     // Flex custom performance: only applicable to FLEX pools
     if (totalThroughputMibps !== undefined && normalizedServiceLevel !== 'FLEX') {
@@ -82,6 +141,7 @@ export const createStoragePoolHandler: ToolHandler = async (args: { [key: string
     }
     if (normalizedQosType) storagePoolPayload.qosType = normalizedQosType;
     if (allowAutoTiering !== undefined) storagePoolPayload.allowAutoTiering = allowAutoTiering;
+    if (parsedStoragePoolType !== undefined) storagePoolPayload.type = parsedStoragePoolType;
 
     // Create the storage pool request
     const request = {
@@ -226,6 +286,7 @@ export const getStoragePoolHandler: ToolHandler = async (args: { [key: string]: 
             : undefined,
         qosType: storagePool.qosType,
         allowAutoTiering: storagePool.allowAutoTiering ?? false,
+        storagePoolType: storagePool.type,
       },
     };
   } catch (error: any) {
@@ -303,6 +364,7 @@ export const listStoragePoolsHandler: ToolHandler = async (args: { [key: string]
             : undefined,
         qosType: pool.qosType,
         allowAutoTiering: pool.allowAutoTiering ?? false,
+        storagePoolType: pool.type,
       };
     });
 
@@ -335,7 +397,16 @@ export const listStoragePoolsHandler: ToolHandler = async (args: { [key: string]
 // Update Storage Pool Handler
 export const updateStoragePoolHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {
-    const { projectId, location, storagePoolId, capacityGib, description, labels, qosType } = args;
+    const {
+      projectId,
+      location,
+      storagePoolId,
+      capacityGib,
+      description,
+      labels,
+      qosType,
+      storagePoolType,
+    } = args;
 
     // Create a new NetApp client using the factory
     const netAppClient = NetAppClientFactory.createClient();
@@ -367,6 +438,44 @@ export const updateStoragePoolHandler: ToolHandler = async (args: { [key: string
       updateMask.push('qos_type');
     }
 
+    if (storagePoolType !== undefined) {
+      const { value: parsedType, error: typeError } = parseStoragePoolType(storagePoolType);
+      if (typeError) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text' as const,
+              text: `Error updating storage pool: ${typeError}`,
+            },
+          ],
+        };
+      }
+
+      // Only enforce FLEX for new types; FILE is allowed everywhere (and is the historical default)
+      if (parsedType === 2 || parsedType === 3) {
+        const [existing] = await netAppClient.getStoragePool({ name });
+        const existingServiceLevel =
+          typeof existing?.serviceLevel === 'string'
+            ? existing.serviceLevel.toUpperCase()
+            : existing?.serviceLevel;
+        if (existingServiceLevel !== 'FLEX') {
+          return {
+            isError: true,
+            content: [
+              {
+                type: 'text' as const,
+                text: 'Error updating storage pool: storagePoolType UNIFIED and UNIFIED_LARGE_CAPACITY are only supported when serviceLevel is FLEX.',
+              },
+            ],
+          };
+        }
+      }
+
+      storagePool.type = parsedType;
+      updateMask.push('type');
+    }
+
     // Call the API to update the storage pool
     const [operation] = await netAppClient.updateStoragePool({
       storagePool: {
@@ -388,7 +497,7 @@ export const updateStoragePoolHandler: ToolHandler = async (args: { [key: string
         },
       ],
       structuredContent: {
-        name: storagePool.name || '',
+        name,
         operationId: operation.name || '',
       },
     };

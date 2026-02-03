@@ -170,6 +170,40 @@ export const restoreBackupTool: ToolConfig = {
   },
 };
 
+// Restore Backup Files Tool
+export const restoreBackupFilesTool: ToolConfig = {
+  name: 'gcnv_backup_restore_files',
+  title: 'Restore Backup Files',
+  description: 'Restores specific files from a backup into a destination volume',
+  inputSchema: {
+    projectId: z.string().describe('The ID of the Google Cloud project'),
+    location: z.string().describe('The location of the backup and destination volume'),
+    volumeId: z
+      .string()
+      .describe(
+        'The destination volume ID (volume resource name is projects/{project}/locations/{location}/volumes/{volumeId})'
+      ),
+    backupVaultId: z.string().describe('The ID of the backup vault containing the backup'),
+    backupId: z.string().describe('The ID of the backup to restore files from'),
+    fileList: z
+      .array(z.string())
+      .min(1)
+      .describe(
+        'List of files to restore, specified by their absolute path in the source volume (e.g. /dir/file.txt)'
+      ),
+    restoreDestinationPath: z
+      .string()
+      .optional()
+      .describe(
+        'Absolute directory path in the destination volume where files should be restored (required when fileList is provided)'
+      ),
+  },
+  outputSchema: {
+    name: z.string().describe('The destination volume resource name'),
+    operationId: z.string().describe('The ID of the long-running operation for restoring files'),
+  },
+};
+
 // Update Backup Tool
 export const updateBackupTool: ToolConfig = {
   name: 'gcnv_backup_update',

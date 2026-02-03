@@ -492,4 +492,89 @@ describe('backup-handler', () => {
     });
     expect(result.structuredContent).toMatchObject({ operationId: 'op-upd2' });
   });
+
+  it('restoreBackupFilesHandler calls restoreBackupFiles and returns operationId', async () => {
+    const restoreBackupFiles = vi.fn().mockResolvedValue([{ name: 'op-rbf' }]);
+    createClientMock.mockReturnValue({ restoreBackupFiles });
+
+    const { restoreBackupFilesHandler } = await import('./backup-handler.js');
+    const result = await restoreBackupFilesHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+      backupVaultId: 'bv1',
+      backupId: 'b1',
+      fileList: ['/dir/a.txt', '/dir/b.txt'],
+      restoreDestinationPath: '/restore',
+    });
+
+    expect(restoreBackupFiles).toHaveBeenCalledWith({
+      name: 'projects/p1/locations/us-central1/volumes/vol1',
+      backup: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
+      fileList: ['/dir/a.txt', '/dir/b.txt'],
+      restoreDestinationPath: '/restore',
+    });
+    expect(result.structuredContent).toEqual({
+      name: 'projects/p1/locations/us-central1/volumes/vol1',
+      operationId: 'op-rbf',
+    });
+  });
+
+  it('restoreBackupFilesHandler returns isError for invalid input (no client call)', async () => {
+    createClientMock.mockReturnValue({ restoreBackupFiles: vi.fn() });
+
+    const { restoreBackupFilesHandler } = await import('./backup-handler.js');
+    const result = (await restoreBackupFilesHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: '',
+      backupVaultId: 'bv1',
+      backupId: 'b1',
+      fileList: [],
+      restoreDestinationPath: '',
+    })) as any;
+
+    expect(result.isError).toBe(true);
+    expect(createClientMock).not.toHaveBeenCalled();
+  });
+
+  it('restoreBackupFilesHandler falls back to empty operationId when operation.name is missing', async () => {
+    const restoreBackupFiles = vi.fn().mockResolvedValue([{}]);
+    createClientMock.mockReturnValue({ restoreBackupFiles });
+
+    const { restoreBackupFilesHandler } = await import('./backup-handler.js');
+    const result = await restoreBackupFilesHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+      backupVaultId: 'bv1',
+      backupId: 'b1',
+      fileList: ['/dir/a.txt'],
+      restoreDestinationPath: '/restore',
+    });
+
+    expect(result.structuredContent).toEqual({
+      name: 'projects/p1/locations/us-central1/volumes/vol1',
+      operationId: '',
+    });
+  });
+
+  it('restoreBackupFilesHandler covers error path', async () => {
+    const err = new Error('boom');
+    createClientMock.mockReturnValue({ restoreBackupFiles: vi.fn().mockRejectedValue(err) });
+
+    const { restoreBackupFilesHandler } = await import('./backup-handler.js');
+    const result = (await restoreBackupFilesHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+      backupVaultId: 'bv1',
+      backupId: 'b1',
+      fileList: ['/dir/a.txt'],
+      restoreDestinationPath: '/restore',
+    })) as any;
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('Failed to restore backup files');
+  });
 });
