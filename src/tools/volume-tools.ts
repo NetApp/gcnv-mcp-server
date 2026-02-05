@@ -34,10 +34,6 @@ export const createVolumeTool: ToolConfig = {
           .string()
           .optional()
           .describe('Optional block device identifier (defaults to "<volumeId>-lun0")'),
-        sizeGib: z
-          .number()
-          .optional()
-          .describe('Optional block device size in GiB (defaults to capacityGib)'),
         osType: z
           .union([
             z.enum(['OS_TYPE_UNSPECIFIED', 'LINUX', 'WINDOWS', 'ESXI']),

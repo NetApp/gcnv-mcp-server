@@ -134,7 +134,7 @@ describe('volume-handler', () => {
       capacityGib: 10,
       protocols: ['ISCSI'],
       hostGroup: 'hg1',
-      blockDevice: { identifier: 'lun0', osType: 'LINUX', sizeGib: 10 },
+      blockDevice: { identifier: 'lun0', osType: 'LINUX' },
     });
 
     expect(createVolume).toHaveBeenCalledTimes(1);
@@ -146,7 +146,6 @@ describe('volume-handler', () => {
           expect.objectContaining({
             hostGroups: ['projects/p1/locations/us-central1/hostGroups/hg1'],
             identifier: 'lun0',
-            sizeGib: 10,
             osType: 1,
           }),
         ],

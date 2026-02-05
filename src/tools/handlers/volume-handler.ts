@@ -293,11 +293,6 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
           ? blockDevice.identifier
           : `${volumeId}-lun0`;
 
-      const sizeGib =
-        blockDevice?.sizeGib !== undefined && blockDevice.sizeGib !== null
-          ? blockDevice.sizeGib
-          : capacityGib;
-
       const { value: osTypeValue, error: osTypeError } = parseEnumInput(
         blockDevice?.osType,
         'blockDevice.osType',
@@ -324,7 +319,6 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
         {
           hostGroups: hostGroupNames,
           identifier,
-          ...(sizeGib !== undefined ? { sizeGib } : {}),
           osType: osTypeValue ?? 0,
         },
       ];
