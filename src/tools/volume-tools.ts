@@ -13,8 +13,42 @@ export const createVolumeTool: ToolConfig = {
     volumeId: z.string().describe('The ID to assign to the volume'),
     capacityGib: z.number().describe('The capacity of the volume in GiB'),
     protocols: z
-      .array(z.enum(['NFSV3', 'NFSV4', 'SMB', 'DUAL']))
-      .describe('The file share protocols to enable'),
+      .array(z.enum(['NFSV3', 'NFSV4', 'SMB', 'ISCSI']))
+      .describe('The protocols to enable. Supported values: NFSV3, NFSV4, SMB, ISCSI.'),
+    hostGroups: z
+      .array(z.string())
+      .min(1)
+      .optional()
+      .describe(
+        'Host group IDs or fully-qualified resource names to attach to iSCSI block device(s) (e.g. "hg1" or "projects/.../locations/.../hostGroups/hg1"). Required when protocols includes ISCSI.'
+      ),
+    hostGroup: z
+      .string()
+      .optional()
+      .describe(
+        'Single host group ID or fully-qualified resource name (shorthand for hostGroups=[...]).'
+      ),
+    blockDevice: z
+      .object({
+        identifier: z
+          .string()
+          .optional()
+          .describe('Optional block device identifier (defaults to "<volumeId>-lun0")'),
+        sizeGib: z
+          .number()
+          .optional()
+          .describe('Optional block device size in GiB (defaults to capacityGib)'),
+        osType: z
+          .union([
+            z.enum(['OS_TYPE_UNSPECIFIED', 'LINUX', 'WINDOWS', 'ESXI']),
+            z.enum(['os_type_unspecified', 'linux', 'windows', 'esxi']),
+            z.number(),
+          ])
+          .optional()
+          .describe('Optional OS type for the iSCSI block device'),
+      })
+      .optional()
+      .describe('iSCSI block device configuration (used when protocols includes ISCSI)'),
     description: z.string().optional().describe('Optional description of the volume'),
     shareName: z.string().optional().describe('Optional name of the file share'),
     labels: z.record(z.string()).optional().describe('Optional labels to apply to the volume'),

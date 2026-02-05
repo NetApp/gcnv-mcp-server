@@ -27,7 +27,7 @@ describe('volume-handler', () => {
       storagePoolId: 'projects/p1/locations/us-central1/storagePools/sp1',
       volumeId: 'vol1',
       capacityGib: 100,
-      protocols: ['NFS3'],
+      protocols: ['NFSV3'],
       description: 'd',
       labels: { env: 'test' },
       snapshotPolicy: {
@@ -60,7 +60,7 @@ describe('volume-handler', () => {
       volume: {
         storagePool: 'projects/p1/locations/us-central1/storagePools/sp1',
         capacityGib: 100,
-        protocols: ['NFS3'],
+        protocols: [1],
         description: 'd',
         labels: { env: 'test' },
         snapshotPolicy: {
@@ -104,7 +104,7 @@ describe('volume-handler', () => {
       storagePoolId: 'projects/p1/locations/us-central1/storagePools/sp1',
       volumeId: 'vol-big',
       capacityGib: 15360,
-      protocols: ['NFS3'],
+      protocols: ['NFSV3'],
       largeCapacity: true,
       multipleEndpoints: true,
     });
@@ -121,6 +121,58 @@ describe('volume-handler', () => {
     });
   });
 
+  it('createVolumeHandler supports ISCSI with hostGroup and creates blockDevices payload', async () => {
+    const createVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-iscsi' }]);
+    createClientMock.mockReturnValue({ createVolume });
+
+    const { createVolumeHandler } = await import('./volume-handler.js');
+    const result = await createVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'projects/p1/locations/us-central1/storagePools/sp1',
+      volumeId: 'vol-iscsi',
+      capacityGib: 10,
+      protocols: ['ISCSI'],
+      hostGroup: 'hg1',
+      blockDevice: { identifier: 'lun0', osType: 'LINUX', sizeGib: 10 },
+    });
+
+    expect(createVolume).toHaveBeenCalledTimes(1);
+    expect(createVolume.mock.calls[0]?.[0]).toMatchObject({
+      volumeId: 'vol-iscsi',
+      volume: {
+        protocols: [4],
+        blockDevices: [
+          expect.objectContaining({
+            hostGroups: ['projects/p1/locations/us-central1/hostGroups/hg1'],
+            identifier: 'lun0',
+            sizeGib: 10,
+            osType: 1,
+          }),
+        ],
+      },
+    });
+    expect((result as any).structuredContent?.operationId).toBe('operations/op-iscsi');
+  });
+
+  it('createVolumeHandler rejects ISCSI when hostGroup(s) are missing', async () => {
+    const createVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-iscsi' }]);
+    createClientMock.mockReturnValue({ createVolume });
+
+    const { createVolumeHandler } = await import('./volume-handler.js');
+    const result = await createVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'projects/p1/locations/us-central1/storagePools/sp1',
+      volumeId: 'vol-iscsi',
+      capacityGib: 10,
+      protocols: ['ISCSI'],
+    });
+
+    expect(createVolume).not.toHaveBeenCalled();
+    expect((result as any).isError).toBe(true);
+  });
+
   it('createVolumeHandler rejects multipleEndpoints when largeCapacity is false', async () => {
     const createVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-lcv' }]);
     const getStoragePool = vi.fn().mockResolvedValue([{ serviceLevel: 'PREMIUM' }]);
@@ -133,7 +185,7 @@ describe('volume-handler', () => {
       storagePoolId: 'projects/p1/locations/us-central1/storagePools/sp1',
       volumeId: 'vol1',
       capacityGib: 100,
-      protocols: ['NFS3'],
+      protocols: ['NFSV3'],
       multipleEndpoints: true,
       largeCapacity: false,
     });
@@ -155,7 +207,7 @@ describe('volume-handler', () => {
       storagePoolId: 'projects/p1/locations/us-central1/storagePools/sp1',
       volumeId: 'vol-small',
       capacityGib: 100,
-      protocols: ['NFS3'],
+      protocols: ['NFSV3'],
       largeCapacity: true,
     });
 
@@ -176,7 +228,7 @@ describe('volume-handler', () => {
       storagePoolId: 'sp1', // exercise "ID" form -> handler builds full name
       volumeId: 'vol-big',
       capacityGib: 15360,
-      protocols: ['NFS3'],
+      protocols: ['NFSV3'],
       largeCapacity: true,
     });
 
@@ -199,7 +251,7 @@ describe('volume-handler', () => {
       storagePoolId: 'projects/p1/locations/us-central1/storagePools/sp1',
       volumeId: 'vol-big',
       capacityGib: 15360,
-      protocols: ['NFS3'],
+      protocols: ['NFSV3'],
       largeCapacity: true,
     });
 
@@ -220,7 +272,7 @@ describe('volume-handler', () => {
       // storagePoolId intentionally omitted to cover `storagePoolId || ''`
       volumeId: 'vol-big',
       capacityGib: 15360,
-      protocols: ['NFS3'],
+      protocols: ['NFSV3'],
       largeCapacity: true,
     });
 
@@ -231,7 +283,7 @@ describe('volume-handler', () => {
     expect((result as any).isError).toBe(true);
   });
 
-  it('createVolumeHandler defaults protocols to NFS3 and uses provided shareName', async () => {
+  it('createVolumeHandler defaults protocols to NFSV3 and uses provided shareName', async () => {
     const createVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-124' }]);
     createClientMock.mockReturnValue({ createVolume });
 
@@ -249,7 +301,7 @@ describe('volume-handler', () => {
 
     expect(createVolume.mock.calls[0]?.[0]).toMatchObject({
       volume: {
-        protocols: ['NFS3'],
+        protocols: [1],
         shareName: 'custom-share',
       },
     });
@@ -402,7 +454,7 @@ describe('volume-handler', () => {
     const getVolume = vi.fn().mockResolvedValue([
       {
         name: 'projects/p1/locations/us-central1/volumes/vol1',
-        mountOptions: [{ protocol: 'NFS3', ipAddress: '1.2.3.4', export: '/x', exportFull: '/x' }],
+        mountOptions: [{ protocol: 'NFSV3', ipAddress: '1.2.3.4', export: '/x', exportFull: '/x' }],
       },
     ]);
     createClientMock.mockReturnValue({ getVolume });
@@ -415,7 +467,7 @@ describe('volume-handler', () => {
     });
 
     expect((result.structuredContent as any).volume.mountOptions).toEqual([
-      { protocol: 'NFS3', ipAddress: '1.2.3.4', export: '/x', exportFull: '/x' },
+      { protocol: 'NFSV3', ipAddress: '1.2.3.4', export: '/x', exportFull: '/x' },
     ]);
   });
 
@@ -450,7 +502,7 @@ describe('volume-handler', () => {
         state: 'READY',
         stateDetails: 'ok',
         shareName: 'share',
-        protocols: ['NFS3'],
+        protocols: ['NFSV3'],
         serviceLevel: 'PREMIUM',
         network: 'net',
         securityStyle: 'UNIX',
@@ -479,7 +531,7 @@ describe('volume-handler', () => {
         restrictedActions: [],
         mountOptions: [
           // one with values (truthy branch of `||`)
-          { protocol: 'NFS3', ipAddress: '1.2.3.4', export: '/x', exportFull: '/x' },
+          { protocol: 'NFSV3', ipAddress: '1.2.3.4', export: '/x', exportFull: '/x' },
           // one without values (falsey branch of `||`)
           {},
         ],

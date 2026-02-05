@@ -4,6 +4,71 @@ import { logger } from '../../logger.js';
 
 const log = logger.child({ module: 'volume-handler' });
 
+type ParsedEnum<T extends number> = { value?: T; error?: string };
+
+function parseEnumInput<T extends number>(
+  input: any,
+  fieldName: string,
+  enumMap: Record<string, T>
+): ParsedEnum<T> {
+  if (input === undefined || input === null) return {};
+
+  if (typeof input === 'number') {
+    if (Object.values(enumMap).includes(input as T)) return { value: input as T };
+    return {
+      error: `${fieldName} must be a valid enum number (${Object.values(enumMap).join(', ')})`,
+    };
+  }
+
+  if (typeof input === 'string') {
+    const key = input.trim().toUpperCase();
+    if (enumMap[key] !== undefined) return { value: enumMap[key] };
+    return {
+      error: `${fieldName} must be one of ${Object.keys(enumMap).join(', ')} (or the corresponding enum number)`,
+    };
+  }
+
+  return { error: `${fieldName} must be a string enum name or enum number` };
+}
+
+function normalizeProtocols(raw: any): {
+  protocols?: Array<'NFSV3' | 'NFSV4' | 'SMB' | 'ISCSI'>;
+  error?: string;
+} {
+  if (raw === undefined || raw === null) return {};
+  if (!Array.isArray(raw)) return { error: 'protocols must be an array of strings' };
+
+  const out: Array<'NFSV3' | 'NFSV4' | 'SMB' | 'ISCSI'> = [];
+  const add = (p: 'NFSV3' | 'NFSV4' | 'SMB' | 'ISCSI') => {
+    if (!out.includes(p)) out.push(p);
+  };
+
+  for (const item of raw) {
+    if (typeof item !== 'string') return { error: 'protocols must be an array of strings' };
+    const v = item.trim().toUpperCase();
+    if (v === 'NFSV3') {
+      add('NFSV3');
+      continue;
+    }
+    if (v === 'NFSV4') {
+      add('NFSV4');
+      continue;
+    }
+    if (v === 'SMB') {
+      add('SMB');
+      continue;
+    }
+    if (v === 'ISCSI') {
+      add('ISCSI');
+      continue;
+    }
+
+    return { error: `Unsupported protocol "${item}". Use NFSV3, NFSV4, SMB, or ISCSI.` };
+  }
+
+  return { protocols: out };
+}
+
 // Helper to format volume data for responses
 function formatVolumeData(volume: any): any {
   const result: any = {};
@@ -87,7 +152,7 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
       storagePoolId,
       volumeId,
       capacityGib,
-      protocols,
+      protocols: rawProtocols,
       description,
       labels,
       backupConfig,
@@ -99,6 +164,9 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
       throughputMibps,
       largeCapacity,
       multipleEndpoints,
+      hostGroups,
+      hostGroup,
+      blockDevice,
     } = args;
 
     // Create a new NetApp client using the factory
@@ -153,6 +221,124 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
       }
     }
 
+    const { protocols, error: protocolsError } = normalizeProtocols(rawProtocols);
+    if (protocolsError) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: `Error creating volume: ${protocolsError}`,
+          },
+        ],
+      };
+    }
+
+    const normalizedProtocolNames: Array<'NFSV3' | 'NFSV4' | 'SMB' | 'ISCSI'> =
+      protocols && protocols.length > 0 ? protocols : ['NFSV3'];
+
+    const isIscsi = normalizedProtocolNames.includes('ISCSI');
+    if (isIscsi) {
+      const hasFileProto = normalizedProtocolNames.some((p) => p !== 'ISCSI');
+      if (hasFileProto) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text' as const,
+              text: 'Error creating volume: ISCSI cannot be combined with NFS/SMB protocols.',
+            },
+          ],
+        };
+      }
+    }
+
+    const hostGroupInputs: string[] = [
+      ...(Array.isArray(hostGroups) ? hostGroups : []),
+      ...(typeof hostGroup === 'string' && hostGroup.trim() !== '' ? [hostGroup] : []),
+    ].filter((x) => typeof x === 'string' && x.trim() !== '');
+
+    if (!isIscsi && hostGroupInputs.length > 0) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error creating volume: hostGroup(s) can only be provided when protocols includes ISCSI.',
+          },
+        ],
+      };
+    }
+
+    if (isIscsi && hostGroupInputs.length === 0) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error creating volume: hostGroup(s) is required when creating an ISCSI volume.',
+          },
+        ],
+      };
+    }
+
+    const hostGroupNames = hostGroupInputs.map((hg) =>
+      String(hg).includes('/') ? hg : `projects/${projectId}/locations/${location}/hostGroups/${hg}`
+    );
+
+    let blockDevicesPayload: any[] | undefined;
+    if (isIscsi) {
+      const identifier =
+        typeof blockDevice?.identifier === 'string' && blockDevice.identifier.trim() !== ''
+          ? blockDevice.identifier
+          : `${volumeId}-lun0`;
+
+      const sizeGib =
+        blockDevice?.sizeGib !== undefined && blockDevice.sizeGib !== null
+          ? blockDevice.sizeGib
+          : capacityGib;
+
+      const { value: osTypeValue, error: osTypeError } = parseEnumInput(
+        blockDevice?.osType,
+        'blockDevice.osType',
+        {
+          OS_TYPE_UNSPECIFIED: 0,
+          LINUX: 1,
+          WINDOWS: 2,
+          ESXI: 3,
+        }
+      );
+      if (osTypeError) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text' as const,
+              text: `Error creating volume: ${osTypeError}`,
+            },
+          ],
+        };
+      }
+
+      blockDevicesPayload = [
+        {
+          hostGroups: hostGroupNames,
+          identifier,
+          ...(sizeGib !== undefined ? { sizeGib } : {}),
+          osType: osTypeValue ?? 0,
+        },
+      ];
+    }
+
+    // NetApp API expects numeric proto enum values for `protocols`.
+    const protocolEnumMap: Record<'NFSV3' | 'NFSV4' | 'SMB' | 'ISCSI', number> = {
+      NFSV3: 1,
+      NFSV4: 2,
+      SMB: 3,
+      ISCSI: 4,
+    };
+    const protocolEnums = normalizedProtocolNames.map((p) => protocolEnumMap[p]);
+
     // Create the volume request
     const request = {
       parent,
@@ -160,7 +346,7 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
       volume: {
         storagePool: storagePoolId,
         capacityGib,
-        protocols: protocols || ['NFS3'],
+        protocols: protocolEnums,
         description,
         labels,
         backupConfig,
@@ -169,6 +355,7 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
         hybridReplicationParameters,
         shareName: shareName || volumeId,
         exportPolicy,
+        ...(blockDevicesPayload ? { blockDevices: blockDevicesPayload } : {}),
         ...(throughputMibps !== undefined ? { throughputMibps } : {}),
         ...(largeCapacity !== undefined ? { largeCapacity } : {}),
         ...(multipleEndpoints !== undefined ? { multipleEndpoints } : {}),
@@ -177,7 +364,7 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
 
     log.info({ request }, 'Create Volume request');
     // Call the API to create a volume
-    const [operation] = await netAppClient.createVolume(request);
+    const [operation] = await (netAppClient as any).createVolume(request as any);
     log.info({ operation }, 'Create Volume operation');
 
     return {

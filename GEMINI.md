@@ -33,7 +33,10 @@ Use this link to explain billing and estimate pricing (pair with the Google Clou
 
 - Never guess resource identifiers. Always collect `projectId`, `location`, and resource-specific IDs explicitly.
 - Validate numeric fields (e.g., `capacityGib`) and repeat key parameters back to the user before running a tool.
-- Validate that `location` is a **region** (e.g., `us-central1`), not a zone (e.g., `us-central1-b`).
+- Validate `location` format:
+  - For most tools, `location` is a **region** (e.g., `us-central1`).
+  - For **FLEX storage pool creation**, `location` may be a **zone** (e.g., `us-central1-a`) to satisfy “zone in location”.
+  - If FLEX pool creation uses a regional `location`, the user must provide `zone` and `replicaZone`.
 
 ### Request construction
 
@@ -74,6 +77,12 @@ Notes:
 - Users often type `flex` in lowercase; the server accepts `serviceLevel` case-insensitively for pool creation (for example `flex` or `FLEX`).
 - Flex custom performance: users can optionally provide `totalThroughputMibps` (MiBps) when creating a **FLEX** pool. This is only supported in select regions; if the API rejects it, suggest using default performance or a supported region/zone.
 - Manual QoS: `qosType` can be `AUTO` or `MANUAL` for storage pools. Manual QoS is supported for Standard/Premium/Extreme and **isn't available for Flex**. See the Google Cloud docs: `https://docs.cloud.google.com/netapp/volumes/docs/performance/optimize-performance#set_up_manual_qos_limits`.
+- FLEX location rules:
+  - If `location` is a **zone** (e.g. `us-central1-a`), that satisfies “zone in location” for FLEX pool creation and the request body should omit `zone`/`replicaZone`.
+  - If `location` is a **region** (e.g. `us-central1`), FLEX pool creation requires both `zone` and `replicaZone`.
+- StoragePoolType:
+  - Users can optionally provide `storagePoolType` (`FILE`, `UNIFIED`, `UNIFIED_LARGE_CAPACITY`).
+  - `UNIFIED` and `UNIFIED_LARGE_CAPACITY` are only supported for **FLEX** service level.
 - In simple terms:
   - **FLEX** is the newer service level focused on flexibility (smaller minimum sizes and, in some regions, more independent performance scaling). It is also available in many more regions.
   - **STANDARD / PREMIUM / EXTREME** are the classic tiers; Premium and Extreme are higher-performance tiers than Standard.
@@ -92,6 +101,11 @@ Notes:
 Notes:
 
 - `protocols` is required for volume creation.
+- Supported `protocols`: `NFSV3`, `NFSV4`, `SMB`, `ISCSI`.
+- For iSCSI volumes:
+  - Use `protocols: ["ISCSI"]` (do not combine with NFS/SMB).
+  - Provide **either** `hostGroup` (single) or `hostGroups` (array) to attach initiator groups.
+  - Optionally provide `blockDevice` to control LUN identifier/size/osType.
 - Export policies contain nested rule fields—include only what the user provides.
 - Auto-tiering is a two-step enablement:
   - Pool: set `allowAutoTiering: true` when creating the storage pool.
@@ -111,13 +125,27 @@ Notes:
 ### Backup Vaults & Backups
 
 - `gcnv_backup_vault_create`, `..._delete`, `..._get`, `..._list`, `..._update`
-- `gcnv_backup_create`, `..._delete`, `..._get`, `..._list`, `..._update`, `gcnv_backup_restore`
+- `gcnv_backup_create`, `..._delete`, `..._get`, `..._list`, `..._update`
+- `gcnv_backup_restore` (restore a backup to a new/existing volume)
+- `gcnv_backup_restore_files` (restore specific files from a backup into a destination volume)
 
 Notes:
 
 - Backup vault immutability: use `backupRetentionPolicy` (for example `dailyBackupImmutable`, `weeklyBackupImmutable`, `monthlyBackupImmutable`, `manualBackupImmutable`) on create/update to make backups immutable per policy.
 - Backup create source: you can create a backup from either a `sourceVolumeName` or a `sourceSnapshotName` (provide exactly one).
 - Always clarify retention rules, correct region, and correct target volume/storage pool before creating/restoring.
+- For `gcnv_backup_restore_files`, confirm:
+  - Destination `volumeId`
+  - `fileList` contains absolute source paths
+  - `restoreDestinationPath` is an absolute destination directory path
+
+### Host Groups
+
+- `gcnv_host_group_create`
+- `gcnv_host_group_delete`
+- `gcnv_host_group_get`
+- `gcnv_host_group_list`
+- `gcnv_host_group_update`
 
 ### Backup Policies
 

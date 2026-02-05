@@ -1,6 +1,6 @@
 # Google Cloud NetApp Volumes MCP Server
 
-This is a Model Context Protocol (MCP) server for managing Google Cloud NetApp Volumes (GCNV) resources. It provides tools for managing storage pools, volumes, snapshots, backups, backup vaults, backup policies, replications, Active Directory, KMS configs, quota rules, and long-running operations.
+This is a Model Context Protocol (MCP) server for managing Google Cloud NetApp Volumes (GCNV) resources. It provides tools for managing storage pools, volumes, snapshots, backups (including file-level restore), backup vaults, backup policies, replications, Active Directory, KMS configs, quota rules, host groups, and long-running operations.
 
 ## Overview
 
@@ -42,6 +42,10 @@ The Google Cloud NetApp Volumes MCP Server is built using the Model Context Prot
   - Get detailed information about specific backups
   - Delete backups when they are no longer needed
   - Restore backups to new or existing volumes
+  - Restore specific files from a backup into an existing volume
+
+- **Host Group Management**:
+  - Create, list, get, update, and delete host groups (iSCSI initiator groups)
 
 - **Replication Management**:
   - Create, list, get, update, stop, resume, reverse direction, sync, and establish peering for replications
@@ -180,6 +184,12 @@ Notes:
 
 - **Availability varies by region**. Always check the latest docs for your target region.
 - **This MCP server accepts `serviceLevel` case-insensitively** for pool creation (for example `flex` or `FLEX`).
+- **FLEX location rules**:
+  - If `location` is a **zone** (for example `us-central1-a`), that satisfies “zone in location” for FLEX pools and you **do not** need to send `zone`/`replicaZone` in the request body.
+  - If `location` is a **region** (for example `us-central1`), then FLEX pool creation requires both `zone` and `replicaZone`.
+- **StoragePoolType (FLEX-only new types)**:
+  - `storagePoolType` supports `FILE | UNIFIED | UNIFIED_LARGE_CAPACITY` (plus `..._UNSPECIFIED`).
+  - `UNIFIED` and `UNIFIED_LARGE_CAPACITY` are only available for **FLEX** service level.
 
 References:
 
@@ -188,7 +198,7 @@ References:
 - Manual QoS (Google Cloud docs): `https://docs.cloud.google.com/netapp/volumes/docs/performance/optimize-performance#set_up_manual_qos_limits`
 
 1. **gcnv_storage_pool_create** - Create a new storage pool
-   - Inputs: projectId, location, storagePoolId, capacityGib, serviceLevel (`FLEX|STANDARD|PREMIUM|EXTREME`), description (optional), labels (optional), network (optional), activeDirectory (optional), kmsConfig (optional), encryptionType (optional), ldapEnabled (optional), totalThroughputMibps (optional; FLEX custom performance only), qosType (`AUTO|MANUAL`, optional; MANUAL is not supported for FLEX), allowAutoTiering (optional)
+   - Inputs: projectId, location, storagePoolId, capacityGib, serviceLevel (`FLEX|STANDARD|PREMIUM|EXTREME`), description (optional), labels (optional), network (optional), activeDirectory (optional), kmsConfig (optional), encryptionType (optional), ldapEnabled (optional), totalThroughputMibps (optional; FLEX custom performance only), qosType (`AUTO|MANUAL`, optional; MANUAL is not supported for FLEX), allowAutoTiering (optional), storagePoolType (optional; `UNIFIED*` is FLEX-only), zone (optional; required for FLEX when location is a region), replicaZone (optional; required for FLEX when location is a region)
 
 2. **gcnv_storage_pool_delete** - Delete an existing storage pool
    - Inputs: projectId, location, storagePoolId, force (optional)
@@ -200,7 +210,7 @@ References:
    - Inputs: projectId, location, filter (optional), pageSize (optional), pageToken (optional)
 
 5. **gcnv_storage_pool_update** - Update a storage pool's properties
-   - Inputs: projectId, location, storagePoolId, capacityGib (optional), description (optional), labels (optional), qosType (`AUTO|MANUAL`, optional; MANUAL is not supported for FLEX)
+   - Inputs: projectId, location, storagePoolId, capacityGib (optional), description (optional), labels (optional), qosType (`AUTO|MANUAL`, optional; MANUAL is not supported for FLEX), storagePoolType (optional; `UNIFIED*` is FLEX-only), zone (optional), replicaZone (optional)
 
 6. **gcnv_storage_pool_validate_directory_service** - Validate directory service policy attached to a storage pool
    - Inputs: projectId, location, storagePoolId, directoryServiceType (`ACTIVE_DIRECTORY|LDAP`)
@@ -219,7 +229,26 @@ References:
 #### Volume Tools
 
 1. **gcnv_volume_create** - Create a new volume in a storage pool
-   - Inputs: projectId, location, storagePoolId, volumeId, capacityGib, protocols, description (optional), shareName (optional), labels (optional), backupConfig (optional), snapshotPolicy (optional; scheduled snapshots: hourly/daily/weekly/monthly), tieringPolicy (optional; auto-tiering), hybridReplicationParameters (optional; hybrid replication), exportPolicy (optional), throughputMibps (optional; manual QoS volume throughput limit), largeCapacity (optional; Premium/Extreme only; requires >= 15 TiB), multipleEndpoints (optional; only with largeCapacity)
+   - Inputs: projectId, location, storagePoolId, volumeId, capacityGib, protocols (`NFSV3|NFSV4|SMB|ISCSI`), description (optional), shareName (optional), labels (optional), backupConfig (optional), snapshotPolicy (optional; scheduled snapshots: hourly/daily/weekly/monthly), tieringPolicy (optional; auto-tiering), hybridReplicationParameters (optional; hybrid replication), exportPolicy (optional), throughputMibps (optional; manual QoS volume throughput limit), largeCapacity (optional; Premium/Extreme only; requires >= 15 TiB), multipleEndpoints (optional; only with largeCapacity)
+   - iSCSI specifics:
+     - Set `protocols: ["ISCSI"]` (iSCSI cannot be combined with NFS/SMB protocols)
+     - Provide **either** `hostGroup` (single) **or** `hostGroups` (array). Values can be IDs (`hg1`) or fully-qualified names (`projects/.../locations/.../hostGroups/hg1`).
+     - Optional `blockDevice` object: `{ identifier?, sizeGib?, osType? }` where `osType` is `LINUX|WINDOWS|ESXI|OS_TYPE_UNSPECIFIED`.
+
+   Example (iSCSI volume create):
+
+   ```json
+   {
+     "projectId": "p1",
+     "location": "us-central1",
+     "storagePoolId": "projects/p1/locations/us-central1/storagePools/sp1",
+     "volumeId": "vol-iscsi",
+     "capacityGib": 100,
+     "protocols": ["ISCSI"],
+     "hostGroup": "hg1",
+     "blockDevice": { "identifier": "lun0", "osType": "LINUX", "sizeGib": 100 }
+   }
+   ```
 
 2. **gcnv_volume_delete** - Delete an existing volume
    - Inputs: projectId, location, volumeId, force (optional)
@@ -287,7 +316,10 @@ References:
 5. **gcnv_backup_restore** - Restore a backup to a new or existing volume
    - Inputs: projectId, location, backupVaultId, backupId, targetStoragePoolId, targetVolumeId, restoreOption
 
-6. **gcnv_backup_update** - Update a backup
+6. **gcnv_backup_restore_files** - Restore specific files from a backup into a destination volume
+   - Inputs: projectId, location, volumeId (destination), backupVaultId, backupId, fileList (absolute paths in source volume), restoreDestinationPath (absolute directory path in destination volume)
+
+7. **gcnv_backup_update** - Update a backup
    - Inputs: projectId, location, backupVaultId, backupId, description (optional), labels (optional)
 
 #### Backup Policy Tools
@@ -325,6 +357,10 @@ References:
 #### Quota Rule Tools
 
 - `gcnv_quota_rule_create`, `gcnv_quota_rule_delete`, `gcnv_quota_rule_get`, `gcnv_quota_rule_list`, `gcnv_quota_rule_update`
+
+#### Host Group Tools
+
+- `gcnv_host_group_create`, `gcnv_host_group_delete`, `gcnv_host_group_get`, `gcnv_host_group_list`, `gcnv_host_group_update`
 
 ## Architecture
 
@@ -379,12 +415,14 @@ For other chat AI applications, follow their documentation for linking stdio-bas
 - `src/tools/operation-tools.ts` - Operation tool definitions with schemas
 - `src/tools/backup-vault-tools.ts` - Backup vault tool definitions with schemas
 - `src/tools/backup-tools.ts` - Backup tool definitions with schemas
+- `src/tools/host-group-tools.ts` - Host group tool definitions with schemas
 - `src/tools/handlers/storage-pool-handler.ts` - Storage pool tool implementation
 - `src/tools/handlers/volume-handler.ts` - Volume tool implementation
 - `src/tools/handlers/snapshot-handler.ts` - Snapshot tool implementation
 - `src/tools/handlers/operation-handler.ts` - Operation tool implementation
 - `src/tools/handlers/backup-vault-handler.ts` - Backup vault tool implementation
 - `src/tools/handlers/backup-handler.ts` - Backup tool implementation
+- `src/tools/handlers/host-group-handler.ts` - Host group tool implementation
 - `src/utils/netapp-client-factory.ts` - Factory for NetApp client creation
 
 ## Development

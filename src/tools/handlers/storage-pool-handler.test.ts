@@ -46,7 +46,7 @@ describe('storage-pool-handler', () => {
     const { createStoragePoolHandler } = await import('./storage-pool-handler.js');
     await createStoragePoolHandler({
       projectId: 'p1',
-      location: 'us-central1',
+      location: 'us-central1-a',
       storagePoolId: 'sp1',
       capacityGib: 100,
       serviceLevel: 'flex',
@@ -67,7 +67,7 @@ describe('storage-pool-handler', () => {
     const { createStoragePoolHandler } = await import('./storage-pool-handler.js');
     await createStoragePoolHandler({
       projectId: 'p1',
-      location: 'us-central1',
+      location: 'us-central1-a',
       storagePoolId: 'sp1',
       capacityGib: 100,
       serviceLevel: 'flex',
@@ -92,7 +92,7 @@ describe('storage-pool-handler', () => {
     const { createStoragePoolHandler } = await import('./storage-pool-handler.js');
     await createStoragePoolHandler({
       projectId: 'p1',
-      location: 'us-central1',
+      location: 'us-central1-a',
       storagePoolId: 'sp1',
       capacityGib: 100,
       serviceLevel: 'flex',
@@ -199,7 +199,7 @@ describe('storage-pool-handler', () => {
     const { createStoragePoolHandler } = await import('./storage-pool-handler.js');
     const result = await createStoragePoolHandler({
       projectId: 'p1',
-      location: 'us-central1',
+      location: 'us-central1-a',
       storagePoolId: 'sp1',
       capacityGib: 100,
       serviceLevel: 'FLEX',
@@ -262,6 +262,62 @@ describe('storage-pool-handler', () => {
       allowAutoTiering: false,
     });
     expect(result.structuredContent).toMatchObject({ operationId: 'op-create-all' });
+  });
+
+  it('createStoragePoolHandler (FLEX) requires zone+replicaZone when location is a region', async () => {
+    const createStoragePool = vi.fn().mockResolvedValue([{ name: 'op-create' }]);
+    createClientMock.mockReturnValue({ createStoragePool });
+
+    const { createStoragePoolHandler } = await import('./storage-pool-handler.js');
+
+    const resMissingZone = (await createStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1', // region
+      storagePoolId: 'sp1',
+      capacityGib: 100,
+      serviceLevel: 'FLEX',
+      network: 'net1',
+    })) as any;
+    expect(resMissingZone.isError).toBe(true);
+    expect(resMissingZone.content[0].text).toContain('zone must be provided');
+    expect(createStoragePool).not.toHaveBeenCalled();
+
+    const resMissingReplica = (await createStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1', // region
+      storagePoolId: 'sp1',
+      capacityGib: 100,
+      serviceLevel: 'FLEX',
+      network: 'net1',
+      zone: 'us-central1-a',
+    })) as any;
+    expect(resMissingReplica.isError).toBe(true);
+    expect(resMissingReplica.content[0].text).toContain('replicaZone must be provided');
+    expect(createStoragePool).not.toHaveBeenCalled();
+  });
+
+  it('createStoragePoolHandler (FLEX) sets zone to location when location is zonal', async () => {
+    const createStoragePool = vi.fn().mockResolvedValue([{ name: 'op-create' }]);
+    createClientMock.mockReturnValue({ createStoragePool });
+
+    const { createStoragePoolHandler } = await import('./storage-pool-handler.js');
+    await createStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1-a',
+      storagePoolId: 'sp1',
+      capacityGib: 100,
+      serviceLevel: 'FLEX',
+      network: 'net1',
+    });
+
+    // For zonal pools, zone is encoded in URL/location; do not send zone/replicaZone in body.
+    expect(createStoragePool).toHaveBeenCalledWith(
+      expect.objectContaining({
+        storagePool: expect.not.objectContaining({
+          zone: expect.anything(),
+        }),
+      })
+    );
   });
 
   it('createStoragePoolHandler covers error path', async () => {

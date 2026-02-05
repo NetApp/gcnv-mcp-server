@@ -31,6 +31,12 @@ function parseStoragePoolType(input: any): { value?: number; error?: string } {
   return { error: 'storagePoolType must be a string enum name or enum number' };
 }
 
+function isLikelyZone(location: string): boolean {
+  // Treat anything ending with "-<letter>" as a zone (e.g. us-central1-a).
+  // This matches GCP zone formatting without being overly strict.
+  return /-[a-z]$/i.test(location.trim());
+}
+
 // Create Storage Pool Handler
 export const createStoragePoolHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {
@@ -51,6 +57,8 @@ export const createStoragePoolHandler: ToolHandler = async (args: { [key: string
       qosType,
       allowAutoTiering,
       storagePoolType,
+      zone,
+      replicaZone,
     } = args;
 
     // Create a new NetApp client using the factory
@@ -122,6 +130,36 @@ export const createStoragePoolHandler: ToolHandler = async (args: { [key: string
       };
     }
 
+    // FLEX location requirements:
+    // - If user provided a zonal location (e.g. us-central1-a), that satisfies "zone in location".
+    // - If user provided a regional location (e.g. us-central1), then zone + replicaZone must be provided.
+    const locStr = typeof location === 'string' ? location.trim() : '';
+    const locationIsZone = locStr ? isLikelyZone(locStr) : false;
+    if (normalizedServiceLevel === 'FLEX' && !locationIsZone) {
+      if (typeof zone !== 'string' || zone.trim() === '') {
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text' as const,
+              text: 'Error creating storage pool: for FLEX pools, if location is a region then zone must be provided.',
+            },
+          ],
+        };
+      }
+      if (typeof replicaZone !== 'string' || replicaZone.trim() === '') {
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text' as const,
+              text: 'Error creating storage pool: for FLEX pools, if location is a region then replicaZone must be provided.',
+            },
+          ],
+        };
+      }
+    }
+
     // Build the storage pool payload with provided fields only
     const storagePoolPayload: any = {
       capacityGib,
@@ -142,6 +180,16 @@ export const createStoragePoolHandler: ToolHandler = async (args: { [key: string
     if (normalizedQosType) storagePoolPayload.qosType = normalizedQosType;
     if (allowAutoTiering !== undefined) storagePoolPayload.allowAutoTiering = allowAutoTiering;
     if (parsedStoragePoolType !== undefined) storagePoolPayload.type = parsedStoragePoolType;
+
+    if (normalizedServiceLevel === 'FLEX') {
+      // IMPORTANT: For zonal pools, the zone is encoded in the URL/location already;
+      // do not send zone/replicaZone fields in the request body.
+      // For regional pools, zone + replicaZone must be provided and are sent in the body.
+      if (!locationIsZone) {
+        if (zone) storagePoolPayload.zone = zone;
+        if (replicaZone) storagePoolPayload.replicaZone = replicaZone;
+      }
+    }
 
     // Create the storage pool request
     const request = {
@@ -287,6 +335,8 @@ export const getStoragePoolHandler: ToolHandler = async (args: { [key: string]: 
         qosType: storagePool.qosType,
         allowAutoTiering: storagePool.allowAutoTiering ?? false,
         storagePoolType: storagePool.type,
+        zone: storagePool.zone,
+        replicaZone: storagePool.replicaZone,
       },
     };
   } catch (error: any) {
@@ -365,6 +415,8 @@ export const listStoragePoolsHandler: ToolHandler = async (args: { [key: string]
         qosType: pool.qosType,
         allowAutoTiering: pool.allowAutoTiering ?? false,
         storagePoolType: pool.type,
+        zone: pool.zone,
+        replicaZone: pool.replicaZone,
       };
     });
 
@@ -406,6 +458,8 @@ export const updateStoragePoolHandler: ToolHandler = async (args: { [key: string
       labels,
       qosType,
       storagePoolType,
+      zone,
+      replicaZone,
     } = args;
 
     // Create a new NetApp client using the factory
@@ -474,6 +528,15 @@ export const updateStoragePoolHandler: ToolHandler = async (args: { [key: string
 
       storagePool.type = parsedType;
       updateMask.push('type');
+    }
+
+    if (zone !== undefined) {
+      storagePool.zone = zone;
+      updateMask.push('zone');
+    }
+    if (replicaZone !== undefined) {
+      storagePool.replicaZone = replicaZone;
+      updateMask.push('replica_zone');
     }
 
     // Call the API to update the storage pool

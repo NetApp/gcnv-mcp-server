@@ -63,6 +63,18 @@ export const createStoragePoolTool: ToolConfig = {
       .boolean()
       .optional()
       .describe('Enable auto-tiering to manage capacity for the pool'),
+    zone: z
+      .string()
+      .optional()
+      .describe(
+        'Zone for the storage pool. For FLEX pools: if location is a region (e.g. us-central1), zone and replicaZone must be provided.'
+      ),
+    replicaZone: z
+      .string()
+      .optional()
+      .describe(
+        'Replica zone for the storage pool. For FLEX pools: required when location is a region (e.g. us-central1).'
+      ),
     storagePoolType: z
       .union([
         z.enum(['STORAGE_POOL_TYPE_UNSPECIFIED', 'FILE', 'UNIFIED', 'UNIFIED_LARGE_CAPACITY']),
@@ -145,6 +157,8 @@ export const getStoragePoolTool: ToolConfig = {
       .union([z.string(), z.number()])
       .optional()
       .describe('Storage pool type (StoragePoolType)'),
+    zone: z.string().optional().describe('Zone for the storage pool'),
+    replicaZone: z.string().optional().describe('Replica zone for the storage pool'),
   },
 };
 
@@ -205,6 +219,8 @@ export const listStoragePoolsTool: ToolConfig = {
             .union([z.string(), z.number()])
             .optional()
             .describe('Storage pool type (StoragePoolType)'),
+          zone: z.string().optional().describe('Zone for the storage pool'),
+          replicaZone: z.string().optional().describe('Replica zone for the storage pool'),
         })
       )
       .describe('List of storage pools'),
@@ -239,6 +255,18 @@ export const updateStoragePoolTool: ToolConfig = {
       .optional()
       .describe(
         'Storage pool type (StoragePoolType). UNIFIED and UNIFIED_LARGE_CAPACITY are only available for FLEX service level.'
+      ),
+    zone: z
+      .string()
+      .optional()
+      .describe(
+        'Zone for the storage pool (FLEX pools may require zone + replicaZone when location is a region)'
+      ),
+    replicaZone: z
+      .string()
+      .optional()
+      .describe(
+        'Replica zone for the storage pool (FLEX pools may require when location is a region)'
       ),
   },
   outputSchema: {
