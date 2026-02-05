@@ -184,6 +184,11 @@ Notes:
 
 - **Availability varies by region**. Always check the latest docs for your target region.
 - **This MCP server accepts `serviceLevel` case-insensitively** for pool creation (for example `flex` or `FLEX`).
+- **Minimum storage pool capacity (this project’s guidance)**:
+  - **FLEX**:
+    - `FILE` / `UNIFIED`: **1024 GiB**
+    - `UNIFIED_LARGE_CAPACITY`: **6 TiB (6144 GiB)**
+  - **STANDARD / PREMIUM / EXTREME**: **2048 GiB**
 - **FLEX location rules**:
   - If `location` is a **zone** (for example `us-central1-a`), that satisfies “zone in location” for FLEX pools and you **do not** need to send `zone`/`replicaZone` in the request body.
   - If `location` is a **region** (for example `us-central1`), then FLEX pool creation requires both `zone` and `replicaZone`.

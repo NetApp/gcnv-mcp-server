@@ -75,6 +75,11 @@ Notes:
 
 - `serviceLevel` options for pool creation: `FLEX`, `STANDARD`, `PREMIUM`, `EXTREME`.
 - Users often type `flex` in lowercase; the server accepts `serviceLevel` case-insensitively for pool creation (for example `flex` or `FLEX`).
+- Minimum storage pool capacity (this project’s guidance):
+  - `FLEX`:
+    - `FILE` / `UNIFIED`: **1024 GiB**
+    - `UNIFIED_LARGE_CAPACITY`: **6 TiB (6144 GiB)**
+  - `STANDARD`, `PREMIUM`, `EXTREME`: **2048 GiB**
 - Flex custom performance: users can optionally provide `totalThroughputMibps` (MiBps) when creating a **FLEX** pool. This is only supported in select regions; if the API rejects it, suggest using default performance or a supported region/zone.
 - Manual QoS: `qosType` can be `AUTO` or `MANUAL` for storage pools. Manual QoS is supported for Standard/Premium/Extreme and **isn't available for Flex**. See the Google Cloud docs: `https://docs.cloud.google.com/netapp/volumes/docs/performance/optimize-performance#set_up_manual_qos_limits`.
 - FLEX location rules:
