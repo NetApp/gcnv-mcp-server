@@ -6,7 +6,7 @@
     "gcnv-mcp": {
       "command": "npx",
       "transport": "jsonrpc",
-      "args": ["@gcnv/gcnv-mcp-server@latest"]
+      "args": ["@netapp/gcnv-mcp-server@latest"]
     }
   }
 }

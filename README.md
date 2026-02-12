@@ -68,7 +68,7 @@ The Google Cloud NetApp Volumes MCP Server is built using the Model Context Prot
 If you just want to run the published package (no local build), use:
 
 ```bash
-npx @gcnv/gcnv-mcp-server@latest --transport stdio
+npx @netapp/gcnv-mcp-server@latest --transport stdio
 ```
 
 Then configure `gemini-extension.json` (or your linked extension) to call the same command. To work from source, follow the steps below.
@@ -77,7 +77,7 @@ Then configure `gemini-extension.json` (or your linked extension) to call the sa
 
    ```bash
    git clone <repository-url>
-   cd GCNV-MCP-LOCAL
+   cd GCNV-MCP-SERVER
    ```
 
 2. Install dependencies:
@@ -383,7 +383,7 @@ The project follows a modular architecture:
 To use the MCP server with Gemini CLI or other MCP-aware clients:
 
 1. **Link the Extension**  
-   After building the project from source (or when relying on the published package via `npx @gcnv/gcnv-mcp-server@latest`), register the extension with the Gemini CLI. This enables Gemini to fork the stdio-based server on demand.
+   After building the project from source (or when relying on the published package via `npx @netapp/gcnv-mcp-server@latest`), register the extension with the Gemini CLI. This enables Gemini to fork the stdio-based server on demand.
 
    ```bash
    gemini extension link .

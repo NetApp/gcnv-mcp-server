@@ -1,5 +1,0 @@
-Implement a new  MCP server called (GCNV-HTTP-LOCAL) to support all the resources and operations on the resources supporetd by the Google Cloud NetApp Volumes GCNV service. The project already has declared a depednency on the SDK (@google-cloud/NetApp). 
-1. Keep the code simple and well organized, try to reuse the type definitions already n the SDK.
-2. Utilize the MCP server SDK "@modelcontextprotocol/sdk" constructs to implement the MCP server, utilize stateless http protocol.
-3. Use logger library to log all API calls, and the steps taken to execute MCP requests to log files
-4. If you need more info, ask me for clarifications  

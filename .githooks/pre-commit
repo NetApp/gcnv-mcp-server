@@ -1,69 +1,6 @@
 #!/bin/sh
 set -e
 
-echo "[pre-commit] Checking package.json version bump..."
-
-# Enforce: if staged "code" changes exist, package.json version must change vs HEAD.
-# This makes every code commit carry a unique version.
-#
-# Notes:
-# - We inspect the *staged* index (what will be committed), not working tree.
-# - "Code" is defined as typical source/config extensions, excluding docs/lockfiles.
-
-staged_files="$(git diff --cached --name-only --diff-filter=ACMRT)"
-if [ -z "$staged_files" ]; then
-  echo "[pre-commit] No staged changes; skipping version check."
-else
-  code_changed=0
-  for f in $staged_files; do
-    case "$f" in
-      # Ignore docs/meta-only files
-      README.md|GEMINI.md|LICENSE|project-instruction.txt)
-        continue
-        ;;
-      # Ignore lockfile-only churn
-      package-lock.json)
-        continue
-        ;;
-      # Always treat src/ as code
-      src/*)
-        code_changed=1
-        break
-        ;;
-      # Treat typical code/config extensions as code
-      *.ts|*.tsx|*.js|*.jsx|*.mjs|*.cjs|*.mts|*.cts|*.json|*.yaml|*.yml)
-        # Exclude package.json from triggering the "code changed" flag by itself
-        if [ "$f" = "package.json" ]; then
-          continue
-        fi
-        code_changed=1
-        break
-        ;;
-      *)
-        # Other files do not trigger the version requirement
-        ;;
-    esac
-  done
-
-  if [ "$code_changed" -eq 1 ]; then
-    # If this repo has no HEAD (initial commit), skip the comparison.
-    if git rev-parse --verify HEAD >/dev/null 2>&1; then
-      head_version="$(git show HEAD:package.json 2>/dev/null | node -e "let s='';process.stdin.on('data',d=>s+=d);process.stdin.on('end',()=>{try{console.log(JSON.parse(s).version||'')}catch(e){process.exit(2)}})")"
-      index_version="$(git show :package.json 2>/dev/null | node -e "let s='';process.stdin.on('data',d=>s+=d);process.stdin.on('end',()=>{try{console.log(JSON.parse(s).version||'')}catch(e){process.exit(2)}})")"
-
-      if [ -z "$head_version" ] || [ -z "$index_version" ]; then
-        echo "[pre-commit] Warning: could not read package.json version; skipping version check."
-      elif [ "$head_version" = "$index_version" ]; then
-        echo "[pre-commit] ERROR: Code changes detected but package.json version was not bumped."
-        echo "[pre-commit] Every commit should have a unique version."
-        echo "[pre-commit] Current HEAD version:   $head_version"
-        echo "[pre-commit] Staged package version: $index_version"
-        exit 1
-      fi
-    fi
-  fi
-fi
-
 echo "[pre-commit] Running lint..."
 npm run lint
 
@@ -71,4 +8,3 @@ echo "[pre-commit] Running unit tests..."
 npm test
 
 echo "[pre-commit] OK"
-
