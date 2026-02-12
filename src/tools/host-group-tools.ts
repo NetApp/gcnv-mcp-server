@@ -31,7 +31,10 @@ export const listHostGroupsTool: ToolConfig = {
   description: 'Lists host groups in a specific location (omit location for all locations)',
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().optional().describe('The location to list host groups from; omit or use "-" for all locations'),
+    location: z
+      .string()
+      .optional()
+      .describe('The location to list host groups from; omit or use "-" for all locations'),
     filter: z.string().optional().describe('Filter expression for filtering results'),
     orderBy: z.string().optional().describe('Order by expression'),
     pageSize: z.number().optional().describe('Maximum number of host groups to return per page'),

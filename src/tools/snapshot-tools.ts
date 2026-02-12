@@ -68,7 +68,10 @@ export const listSnapshotsTool: ToolConfig = {
   description: 'Lists all snapshots for a specified volume (omit location for all locations)',
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().optional().describe('The location of the volume; omit or use "-" for all locations'),
+    location: z
+      .string()
+      .optional()
+      .describe('The location of the volume; omit or use "-" for all locations'),
     volumeId: z.string().describe('The ID of the volume to list snapshots from'),
     filter: z.string().optional().describe('Filter expression for filtering results'),
     pageSize: z.number().optional().describe('The maximum number of snapshots to return'),

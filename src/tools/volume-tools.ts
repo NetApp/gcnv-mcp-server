@@ -343,7 +343,10 @@ export const listVolumesTool: ToolConfig = {
   description: 'Lists all volumes in the specified storage pool (omit location for all locations)',
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().optional().describe('The location to list volumes from; omit or use "-" for all locations'),
+    location: z
+      .string()
+      .optional()
+      .describe('The location to list volumes from; omit or use "-" for all locations'),
     filter: z.string().optional().describe('Filter expression for filtering results'),
     pageSize: z.number().optional().describe('The maximum number of volumes to return'),
     pageToken: z.string().optional().describe('Page token from a previous list request'),

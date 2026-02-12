@@ -76,10 +76,14 @@ export const getKmsConfigTool: ToolConfig = {
 export const listKmsConfigsTool: ToolConfig = {
   name: 'gcnv_kms_config_list',
   title: 'List KMS Configs',
-  description: 'Lists all KMS configurations in the specified location (omit location for all locations)',
+  description:
+    'Lists all KMS configurations in the specified location (omit location for all locations)',
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().optional().describe('The location to list KMS configs from; omit or use "-" for all locations'),
+    location: z
+      .string()
+      .optional()
+      .describe('The location to list KMS configs from; omit or use "-" for all locations'),
     filter: z.string().optional().describe('Filter expression'),
     pageSize: z.number().optional().describe('Maximum number of items to return'),
     pageToken: z.string().optional().describe('Page token from previous request'),

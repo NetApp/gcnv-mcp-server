@@ -43,10 +43,14 @@ export const cancelOperationTool: ToolConfig = {
 export const listOperationsTool: ToolConfig = {
   name: 'gcnv_operation_list',
   title: 'List Operations',
-  description: 'Lists all active long-running operations in the project (omit location for all locations)',
+  description:
+    'Lists all active long-running operations in the project (omit location for all locations)',
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().optional().describe('The location to list operations from; omit or use "-" for all locations'),
+    location: z
+      .string()
+      .optional()
+      .describe('The location to list operations from; omit or use "-" for all locations'),
     filter: z.string().optional().describe('Filter expression for operations'),
     pageSize: z.number().optional().describe('The maximum number of operations to return'),
     pageToken: z.string().optional().describe('Page token from a previous list request'),

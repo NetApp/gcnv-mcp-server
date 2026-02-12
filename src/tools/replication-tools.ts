@@ -80,7 +80,10 @@ export const listReplicationsTool: ToolConfig = {
   description: 'Lists all replications in the specified location (omit location for all locations)',
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().optional().describe('The location to list replications from; omit or use "-" for all locations'),
+    location: z
+      .string()
+      .optional()
+      .describe('The location to list replications from; omit or use "-" for all locations'),
     volumeId: z.string().describe('The ID of the volume for which the replications are listed'),
     filter: z.string().optional().describe('Filter expression for filtering results'),
     pageSize: z.number().optional().describe('The maximum number of replications to return'),
