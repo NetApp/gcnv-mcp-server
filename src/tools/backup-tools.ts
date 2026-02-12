@@ -94,10 +94,10 @@ export const getBackupTool: ToolConfig = {
 export const listBackupsTool: ToolConfig = {
   name: 'gcnv_backup_list',
   title: 'List Backups',
-  description: 'Lists backups in a specific backup vault',
+  description: 'Lists backups in a specific backup vault (omit location for all locations)',
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().describe('The location to list backups from'),
+    location: z.string().optional().describe('The location to list backups from; omit or use "-" for all locations'),
     backupVaultId: z.string().describe('The ID of the backup vault containing the backups'),
     filter: z.string().optional().describe('Filter expression for filtering results'),
     pageSize: z.number().optional().describe('Maximum number of backups to return per page'),

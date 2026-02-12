@@ -490,12 +490,13 @@ export const getVolumeHandler: ToolHandler = async (args: { [key: string]: any }
 // List Volumes Handler
 export const listVolumesHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {
-    const { projectId, location, filter, pageSize, pageToken } = args;
+    const { projectId, filter, pageSize, pageToken } = args;
+    const location = args.location ?? '-';
 
     // Create a new NetApp client using the factory
     const netAppClient = NetAppClientFactory.createClient();
 
-    // Format the parent path
+    // Format the parent path (use "-" for all locations)
     const parent = `projects/${projectId}/locations/${location}`;
 
     // Create the request object

@@ -175,7 +175,8 @@ export const getKmsConfigHandler: ToolHandler = async (args: { [key: string]: an
 // List KMS Configs Handler
 export const listKmsConfigsHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {
-    const { projectId, location, filter, pageSize, pageToken, orderBy } = args;
+    const { projectId, filter, pageSize, pageToken, orderBy } = args;
+    const location = args.location ?? '-';
 
     const netAppClient = NetAppClientFactory.createClient();
     const parent = `projects/${projectId}/locations/${location}`;

@@ -203,7 +203,8 @@ export const getActiveDirectoryHandler: ToolHandler = async (args: { [key: strin
 // List Active Directories Handler
 export const listActiveDirectoriesHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {
-    const { projectId, location, filter, pageSize, pageToken } = args;
+    const { projectId, filter, pageSize, pageToken } = args;
+    const location = args.location ?? '-';
 
     const netAppClient = NetAppClientFactory.createClient();
     const parent = `projects/${projectId}/locations/${location}`;

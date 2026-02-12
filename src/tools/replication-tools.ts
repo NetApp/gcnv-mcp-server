@@ -77,10 +77,10 @@ export const getReplicationTool: ToolConfig = {
 export const listReplicationsTool: ToolConfig = {
   name: 'gcnv_replication_list',
   title: 'List Replications',
-  description: 'Lists all replications in the specified location',
+  description: 'Lists all replications in the specified location (omit location for all locations)',
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().describe('The location to list replications from'),
+    location: z.string().optional().describe('The location to list replications from; omit or use "-" for all locations'),
     volumeId: z.string().describe('The ID of the volume for which the replications are listed'),
     filter: z.string().optional().describe('Filter expression for filtering results'),
     pageSize: z.number().optional().describe('The maximum number of replications to return'),

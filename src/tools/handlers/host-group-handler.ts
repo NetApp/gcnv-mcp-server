@@ -256,11 +256,11 @@ export const getHostGroupHandler: ToolHandler = async (args: { [key: string]: an
 // List Host Groups Handler
 export const listHostGroupsHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {
-    const { projectId, location, filter, orderBy, pageSize, pageToken } = args;
+    const { projectId, filter, orderBy, pageSize, pageToken } = args;
+    const location = args.location ?? '-';
 
     const errors: string[] = [];
     validateRequiredString(projectId, 'projectId', errors);
-    validateRequiredString(location, 'location', errors);
     if (errors.length > 0) {
       return {
         isError: true,

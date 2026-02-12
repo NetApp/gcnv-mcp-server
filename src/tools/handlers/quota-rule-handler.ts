@@ -320,7 +320,8 @@ export const getQuotaRuleHandler: ToolHandler = async (args: { [key: string]: an
 // List Quota Rules Handler
 export const listQuotaRulesHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {
-    const { projectId, location, volumeId, filter, pageSize, pageToken, orderBy } = args;
+    const { projectId, volumeId, filter, pageSize, pageToken, orderBy } = args;
+    const location = args.location ?? '-';
 
     const errors = validatePathArgs({ projectId, location, volumeId }, false);
 
