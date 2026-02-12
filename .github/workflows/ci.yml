@@ -1,0 +1,81 @@
+# CI: lint, format, typecheck, build, tests, and MCP-specific checks.
+# Require this workflow to pass in branch protection to block merges on failure.
+name: CI
+
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-format-typecheck-build-test:
+    name: Lint, format, build & tests (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['18', '20']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npx tsc
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Validate MCP manifest (gemini-extension.json)
+        run: |
+          node -e "
+          const fs = require('fs');
+          const m = JSON.parse(fs.readFileSync('gemini-extension.json', 'utf8'));
+          if (!m.name || typeof m.name !== 'string') throw new Error('manifest must have name');
+          if (!m.mcpServers || typeof m.mcpServers !== 'object') throw new Error('manifest must have mcpServers');
+          if (!m.contextFileName || typeof m.contextFileName !== 'string') throw new Error('manifest must have contextFileName');
+          console.log('Manifest OK:', m.name);
+          "
+
+      - name: Security audit (informational)
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Smoke test — server starts (stdio)
+        run: |
+          # Keep stdin open with a fifo so the server doesn't get EOF and exit (CI has no TTY)
+          FIFO=$(mktemp -u)
+          mkfifo "$FIFO"
+          node build/index.js < "$FIFO" &
+          PID=$!
+          exec 3>"$FIFO"
+          sleep 3
+          kill -0 $PID || { exec 3>-; rm -f "$FIFO"; echo "Server exited early"; exit 1; }
+          kill $PID 2>/dev/null || true
+          exec 3>-
+          wait $PID 2>/dev/null || true
+          rm -f "$FIFO"
+          echo "Server started successfully"

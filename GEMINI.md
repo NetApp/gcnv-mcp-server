@@ -85,7 +85,7 @@ Use this link to explain billing and estimate pricing (pair with the Google Clou
   - **Error / Failed / Unhealthy:** ❌ or 🔴
   - **Deleting / Stopping:** 🗑️ or ⏹️
   - **Unknown / Unspecified:** ⚪ or ❓
-  Use one style consistently (e.g. always emoji) and keep the actual state text next to the icon when helpful (e.g. `✅ READY` or `🟢 Healthy`).
+    Use one style consistently (e.g. always emoji) and keep the actual state text next to the icon when helpful (e.g. `✅ READY` or `🟢 Healthy`).
 - **Pagination:** If the response includes `nextPageToken`, mention it below the table (e.g. "More results are available; provide this token to fetch the next page.") and show the token.
 - **Do not** dump the raw tool output unless the user explicitly asks for JSON or full details.
 

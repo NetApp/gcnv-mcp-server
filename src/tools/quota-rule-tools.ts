@@ -98,7 +98,10 @@ export const listQuotaRulesTool: ToolConfig = {
   description: 'Lists all quota rules for a volume (omit location for all locations)',
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().optional().describe('The location of the volume; omit or use "-" for all locations'),
+    location: z
+      .string()
+      .optional()
+      .describe('The location of the volume; omit or use "-" for all locations'),
     volumeId: z.string().describe('The ID of the volume'),
     filter: z.string().optional().describe('Filter expression'),
     pageSize: z.number().optional().describe('Maximum number of items to return'),
