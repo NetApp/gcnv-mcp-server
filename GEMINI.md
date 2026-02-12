@@ -34,9 +34,9 @@ Use this link to explain billing and estimate pricing (pair with the Google Clou
 - Never guess resource identifiers. Always collect `projectId`, `location`, and resource-specific IDs explicitly.
 - Validate numeric fields (e.g., `capacityGib`) and repeat key parameters back to the user before running a tool.
 - Validate `location` format:
-  - For most tools, `location` is a **region** (e.g., `us-central1`).
-  - For **FLEX storage pool creation**, `location` may be a **zone** (e.g., `us-central1-a`) to satisfy “zone in location”.
-  - If FLEX pool creation uses a regional `location`, the user must provide `zone` and `replicaZone`.
+  - **Region or zone are both valid.** The API accepts either a **region** (e.g., `us-central1`, `us-west1`) or a **zone** (e.g., `us-central1-a`, `us-west1-b`). Use whichever the user specified—e.g. if they say "list my volumes in us-west1-b", pass `location: "us-west1-b"`; do not correct or reject zones.
+  - For **FLEX storage pool creation** only: if `location` is a **zone** (e.g., `us-central1-a`), that satisfies "zone in location" and you can omit `zone`/`replicaZone`. If `location` is a **region** (e.g., `us-central1`), the user must provide both `zone` and `replicaZone`.
+  - **For list tools (`gcnv_*_list`), `location` is optional.** If the user does not specify a location (e.g. "list my storage pools", "list all volumes"), omit the `location` parameter or pass `-`; the API will return resources from all locations. Do not ask for a location when the user only wants a full list.
 
 ### Request construction
 
@@ -57,6 +57,37 @@ Use this link to explain billing and estimate pricing (pair with the Google Clou
 
 - Prefer asking clarifying questions over assuming intent.
 - Summaries should be concise but mention important next steps (mount targets, replication follow-ups, etc.).
+
+### List response formatting
+
+- **Always beautify list tool responses in a tabular format.** When you receive results from any `gcnv_*_list` tool (e.g. `gcnv_storage_pool_list`, `gcnv_volume_list`, `gcnv_backup_vault_list`, `gcnv_host_group_list`, etc.), present the data to the user as a **markdown table** instead of raw JSON.
+- **Table structure:**
+  - Use a header row with column names derived from the list item fields (e.g. Name, ID, State, Location, Capacity, Service Level, Create Time—pick the most relevant fields for that resource type).
+  - **Include details that vary between resources.** Add columns for fields that differ across items (e.g. state, capacity, service level, location, protocol, backup state) so the table is informative and each row is distinguishable. Avoid a one-size-fits-all set of columns—tailor columns to the resource type and to what actually varies in the response.
+  - **Include these bare-minimum columns when present in the response** (so the table is always useful). Add any additional columns that vary and are relevant.
+    - **Storage pools:** name/ID, state, serviceLevel, capacityGib, **volumeCapacityGib**, **volumeCount** (or volumecount), **encryptionType**, **allowAutoTiering**, **totalThroughputMibps**, qosType, zone, replicaZone, createTime.
+    - **Volumes:** name/volumeId, state, capacityGib, usedGib, protocols, serviceLevel, **encryptionType**, **throughputMibps** (or availableThroughputMibps), **coldTierSizeGib**, **hotTierSizeUsedGib** (or hotTierSizeGib), tieringPolicy, createTime, storagePool.
+    - **Snapshots:** name/snapshotId, volumeId, state, createTime, description.
+    - **Backups:** backupId, backupVaultId, state, sourceVolume, backupType, volumeUsagebytes, chainStoragebytes, createTime, retentionDays.
+    - **Backup vaults:** backupVaultId, state, backupVaultType, sourceRegion, backupRegion, createTime.
+    - **Backup policies:** backupPolicyId, state, enabled, dailyBackupLimit, weeklyBackupLimit, monthlyBackupLimit, assignedVolumeCount, createTime.
+    - **Host groups:** hostGroupId, type, state, hosts (count or summary), osType, createTime.
+    - **KMS configs:** kmsConfigId, state, cryptoKeyName, stateDetails, createTime.
+    - **Replications:** replicationId, sourceVolume, destinationVolume, state, healthy, lastReplicationTime, createTime.
+    - **Quota rules:** quotaRuleId, target, quotaType, diskLimitMib, state, createTime.
+    - **Operations:** name (or operationId), done, success, target, verb, createTime, statusMessage.
+    - **Active directories:** activeDirectoryId, domain, site, state, createTime.
+  - One row per item; keep cells concise (e.g. short IDs, not full resource names unless needed).
+  - If the list is empty, say so clearly (e.g. "No storage pools found.") instead of showing an empty table.
+- **State column: mark states with icons.** In the State (or equivalent) column, prefix or replace raw state values with a short, clear icon so status is scannable at a glance. Examples:
+  - **Ready / READY / Healthy / Active:** ✅ or 🟢
+  - **Creating / Updating / Pending / In progress:** ⏳ or 🔄
+  - **Error / Failed / Unhealthy:** ❌ or 🔴
+  - **Deleting / Stopping:** 🗑️ or ⏹️
+  - **Unknown / Unspecified:** ⚪ or ❓
+  Use one style consistently (e.g. always emoji) and keep the actual state text next to the icon when helpful (e.g. `✅ READY` or `🟢 Healthy`).
+- **Pagination:** If the response includes `nextPageToken`, mention it below the table (e.g. "More results are available; provide this token to fetch the next page.") and show the token.
+- **Do not** dump the raw tool output unless the user explicitly asks for JSON or full details.
 
 ---
 
@@ -250,4 +281,5 @@ Notes:
 - Ask follow-up questions instead of assuming missing parameters.
 - Keep answers short unless the user asks for details.
 - When returning tool results, highlight only key fields unless the user requests full JSON.
+- **For list tool results:** Always present the items in a **tabular (markdown table) format**—do not show raw JSON by default.
 - Maintain safety-first decision making for all operations.

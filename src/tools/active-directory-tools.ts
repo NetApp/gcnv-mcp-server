@@ -79,10 +79,10 @@ export const getActiveDirectoryTool: ToolConfig = {
 export const listActiveDirectoriesTool: ToolConfig = {
   name: 'gcnv_active_directory_list',
   title: 'List Active Directories',
-  description: 'Lists all active directories in the specified location',
+  description: 'Lists all active directories in the specified location (omit location for all locations)',
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().describe('The location to list active directories from'),
+    location: z.string().optional().describe('The location to list active directories from; omit or use "-" for all locations'),
     filter: z.string().optional().describe('Filter expression'),
     pageSize: z.number().optional().describe('Maximum number of items to return'),
     pageToken: z.string().optional().describe('Page token from previous request'),

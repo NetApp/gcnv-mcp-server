@@ -356,12 +356,13 @@ export const getStoragePoolHandler: ToolHandler = async (args: { [key: string]: 
 // List Storage Pools Handler
 export const listStoragePoolsHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {
-    const { projectId, location, filter, pageSize, pageToken } = args;
+    const { projectId, filter, pageSize, pageToken } = args;
+    const location = args.location ?? '-';
 
     // Create a new NetApp client using the factory
     const netAppClient = NetAppClientFactory.createClient();
 
-    // Format the parent path for listing storage pools
+    // Format the parent path for listing storage pools (use "-" for all locations)
     const parent = `projects/${projectId}/locations/${location}`;
 
     // Call the API to list storage pools

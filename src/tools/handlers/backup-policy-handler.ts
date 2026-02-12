@@ -194,11 +194,12 @@ export const getBackupPolicyHandler: ToolHandler = async (args) => {
  */
 export const listBackupPoliciesHandler: ToolHandler = async (args) => {
   try {
-    const { projectId, location, filter, pageSize, pageToken } = args;
+    const { projectId, filter, pageSize, pageToken } = args;
+    const location = args.location ?? '-';
 
     const client = NetAppClientFactory.createClient();
 
-    // Format resource name
+    // Format resource name (use "-" for all locations)
     const parent = `projects/${projectId}/locations/${location}`;
 
     // Call the API to list backup policies

@@ -189,7 +189,8 @@ export const cancelOperationHandler: ToolHandler = async (args: { [key: string]:
 // List Operations Handler
 export const listOperationsHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {
-    const { projectId, location, filter, pageSize, pageToken } = args;
+    const { projectId, filter, pageSize, pageToken } = args;
+    const location = args.location ?? '-';
 
     // Create a new NetApp client using the factory
     const netAppClient = NetAppClientFactory.createClient();
@@ -204,7 +205,7 @@ export const listOperationsHandler: ToolHandler = async (args: { [key: string]: 
     if (pageSize) params.pageSize = pageSize;
     if (pageToken) params.pageToken = pageToken;
 
-    // Make the API request
+    // Make the API request (use "-" for all locations)
     const response = await axios.request({
       url: `https://netapp.googleapis.com/v1/projects/${projectId}/locations/${location}/operations`,
       method: 'GET',

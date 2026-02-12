@@ -166,10 +166,10 @@ export const getStoragePoolTool: ToolConfig = {
 export const listStoragePoolsTool: ToolConfig = {
   name: 'gcnv_storage_pool_list',
   title: 'List Storage Pools',
-  description: 'Lists all storage pools in the specified project and location',
+  description: 'Lists all storage pools in the specified project and location (omit location for all locations)',
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().describe('The location to list storage pools from'),
+    location: z.string().optional().describe('The location to list storage pools from; omit or use "-" for all locations'),
     filter: z.string().optional().describe('Filter expression for filtering results'),
     pageSize: z.number().optional().describe('The maximum number of storage pools to return'),
     pageToken: z.string().optional().describe('Page token from a previous list request'),

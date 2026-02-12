@@ -95,10 +95,10 @@ export const getQuotaRuleTool: ToolConfig = {
 export const listQuotaRulesTool: ToolConfig = {
   name: 'gcnv_quota_rule_list',
   title: 'List Quota Rules',
-  description: 'Lists all quota rules for a volume',
+  description: 'Lists all quota rules for a volume (omit location for all locations)',
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().describe('The location of the volume'),
+    location: z.string().optional().describe('The location of the volume; omit or use "-" for all locations'),
     volumeId: z.string().describe('The ID of the volume'),
     filter: z.string().optional().describe('Filter expression'),
     pageSize: z.number().optional().describe('Maximum number of items to return'),

@@ -80,10 +80,10 @@ export const getBackupPolicyTool: ToolConfig = {
 export const listBackupPoliciesTool: ToolConfig = {
   name: 'gcnv_backup_policy_list',
   title: 'List Backup Policies',
-  description: 'Lists backup policies in a specific project and location',
+  description: 'Lists backup policies in a specific project and location (omit location for all locations)',
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().describe('The location to list backup policies from'),
+    location: z.string().optional().describe('The location to list backup policies from; omit or use "-" for all locations'),
     filter: z.string().optional().describe('Filter expression for filtering results'),
     pageSize: z
       .number()

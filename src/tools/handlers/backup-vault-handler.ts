@@ -250,12 +250,13 @@ export const getBackupVaultHandler: ToolHandler = async (args: { [key: string]: 
 // List Backup Vaults Handler
 export const listBackupVaultsHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {
-    const { projectId, location, filter, pageSize, pageToken } = args;
+    const { projectId, filter, pageSize, pageToken } = args;
+    const location = args.location ?? '-';
 
     // Create a new NetApp client using the factory
     const netAppClient = NetAppClientFactory.createClient();
 
-    // Format the parent path for listing backup vaults
+    // Format the parent path for listing backup vaults (use "-" for all locations)
     const parent = `projects/${projectId}/locations/${location}`;
 
     // List the backup vaults

@@ -340,10 +340,10 @@ export const getVolumeTool: ToolConfig = {
 export const listVolumesTool: ToolConfig = {
   name: 'gcnv_volume_list',
   title: 'List Volumes',
-  description: 'Lists all volumes in the specified storage pool',
+  description: 'Lists all volumes in the specified storage pool (omit location for all locations)',
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().describe('The location to list volumes from'),
+    location: z.string().optional().describe('The location to list volumes from; omit or use "-" for all locations'),
     filter: z.string().optional().describe('Filter expression for filtering results'),
     pageSize: z.number().optional().describe('The maximum number of volumes to return'),
     pageToken: z.string().optional().describe('Page token from a previous list request'),
