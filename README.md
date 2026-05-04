@@ -113,10 +113,12 @@ HTTP endpoint: `http://localhost:<port>/message`
 
 **Service level guidance:**
 
-- **FLEX** -- Smaller minimums, broader region availability, independent performance scaling. Minimum: 1024 GiB (FILE/UNIFIED) or 6144 GiB (UNIFIED_LARGE_CAPACITY).
+- **FLEX** -- Smaller minimums, broader region availability, independent performance scaling. Minimum: 1024 GiB (FILE/UNIFIED) or 6144 GiB (UNIFIED large capacity).
 - **STANDARD / PREMIUM / EXTREME** -- Classic tiers with fixed performance-to-capacity ratio. Minimum: 2048 GiB.
 - `serviceLevel` is accepted case-insensitively (e.g. `flex` or `FLEX`).
 - FLEX pools in a region-level location require both `zone` and `replicaZone`; zone-level locations satisfy this automatically.
+- `storagePoolType` accepts `FILE` or `UNIFIED`; `UNIFIED` is only available for FLEX.
+- `scaleType`: only set to `SCALE_TYPE_SCALEOUT` when creating a large capacity FLEX `UNIFIED` pool. Omit for all other pools (defaults to standard capacity).
 
 ### Volume Tools
 

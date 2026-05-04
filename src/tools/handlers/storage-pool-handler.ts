@@ -9,14 +9,13 @@ function parseStoragePoolType(input: any): { value?: number; error?: string } {
     STORAGE_POOL_TYPE_UNSPECIFIED: 0,
     FILE: 1,
     UNIFIED: 2,
-    UNIFIED_LARGE_CAPACITY: 3,
   };
 
   if (input === undefined || input === null) return {};
 
   if (typeof input === 'number') {
     if (Object.values(enumMap).includes(input)) return { value: input };
-    return { error: 'storagePoolType must be a valid enum number (0-3)' };
+    return { error: 'storagePoolType must be a valid enum number (0-2)' };
   }
 
   if (typeof input === 'string') {
@@ -24,11 +23,44 @@ function parseStoragePoolType(input: any): { value?: number; error?: string } {
     if (enumMap[trimmed] !== undefined) return { value: enumMap[trimmed] };
     return {
       error:
-        'storagePoolType must be one of STORAGE_POOL_TYPE_UNSPECIFIED, FILE, UNIFIED, UNIFIED_LARGE_CAPACITY, or the corresponding enum number',
+        'storagePoolType must be one of STORAGE_POOL_TYPE_UNSPECIFIED, FILE, UNIFIED, or the corresponding enum number',
     };
   }
 
   return { error: 'storagePoolType must be a string enum name or enum number' };
+}
+
+function parseMode(input: any): { value?: string; error?: string } {
+  if (input === undefined || input === null) return {};
+
+  if (typeof input === 'string') {
+    const trimmed = input.trim().toUpperCase();
+    if (trimmed === 'DEFAULT' || trimmed === 'ONTAP') return { value: trimmed };
+    return { error: 'mode must be DEFAULT or ONTAP' };
+  }
+
+  return { error: 'mode must be a string' };
+}
+
+function parseScaleType(input: any): { value?: string; error?: string } {
+  const validValues = new Set([
+    'SCALE_TYPE_UNSPECIFIED',
+    'SCALE_TYPE_DEFAULT',
+    'SCALE_TYPE_SCALEOUT',
+  ]);
+
+  if (input === undefined || input === null) return {};
+
+  if (typeof input === 'string') {
+    const trimmed = input.trim().toUpperCase();
+    if (validValues.has(trimmed)) return { value: trimmed };
+    return {
+      error:
+        'scaleType must be one of SCALE_TYPE_UNSPECIFIED, SCALE_TYPE_DEFAULT, SCALE_TYPE_SCALEOUT',
+    };
+  }
+
+  return { error: 'scaleType must be a string enum name' };
 }
 
 function normalizeStoragePoolState(state: any): string {
@@ -61,6 +93,8 @@ export const createStoragePoolHandler: ToolHandler = async (args: { [key: string
       qosType,
       allowAutoTiering,
       storagePoolType,
+      scaleType,
+      mode,
       zone,
       replicaZone,
     } = args;
@@ -91,10 +125,85 @@ export const createStoragePoolHandler: ToolHandler = async (args: { [key: string
       };
     }
 
-    // New pool types (UNIFIED / UNIFIED_LARGE_CAPACITY) are only available for FLEX
+    const { value: parsedScaleType, error: scaleTypeError } = parseScaleType(scaleType);
+    if (scaleTypeError) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: `Error creating storage pool: ${scaleTypeError}`,
+          },
+        ],
+      };
+    }
+
+    // scaleType is only applicable to FLEX UNIFIED pools
+    if (parsedScaleType !== undefined && normalizedServiceLevel !== 'FLEX') {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error creating storage pool: scaleType is only applicable to FLEX UNIFIED storage pools.',
+          },
+        ],
+      };
+    }
+    if (parsedScaleType !== undefined && parsedStoragePoolType !== 2) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error creating storage pool: scaleType requires storagePoolType to be explicitly set to UNIFIED.',
+          },
+        ],
+      };
+    }
+
+    // ONTAP mode requires storagePoolType UNIFIED and serviceLevel FLEX
+    const { value: parsedMode, error: modeError } = parseMode(mode);
+    if (modeError) {
+      return {
+        isError: true,
+        content: [{ type: 'text' as const, text: `Error creating storage pool: ${modeError}` }],
+      };
+    }
+
+    if (parsedMode === 'ONTAP' && parsedStoragePoolType !== 2) {
+      const hint =
+        parsedStoragePoolType === undefined
+          ? 'storagePoolType was not specified'
+          : `storagePoolType is ${storagePoolType}`;
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text:
+              `Error creating storage pool: ONTAP mode requires storagePoolType UNIFIED, but ${hint}. ` +
+              'Please specify storagePoolType as UNIFIED.',
+          },
+        ],
+      };
+    }
+    if (parsedMode === 'ONTAP' && normalizedServiceLevel !== 'FLEX') {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error creating storage pool: ONTAP mode requires serviceLevel FLEX.',
+          },
+        ],
+      };
+    }
+
+    // UNIFIED is only available for FLEX
     if (
       parsedStoragePoolType !== undefined &&
-      (parsedStoragePoolType === 2 || parsedStoragePoolType === 3) &&
+      parsedStoragePoolType === 2 &&
       normalizedServiceLevel !== 'FLEX'
     ) {
       return {
@@ -102,7 +211,7 @@ export const createStoragePoolHandler: ToolHandler = async (args: { [key: string
         content: [
           {
             type: 'text' as const,
-            text: 'Error creating storage pool: storagePoolType UNIFIED and UNIFIED_LARGE_CAPACITY are only supported when serviceLevel is FLEX.',
+            text: 'Error creating storage pool: storagePoolType UNIFIED is only supported when serviceLevel is FLEX.',
           },
         ],
       };
@@ -184,6 +293,8 @@ export const createStoragePoolHandler: ToolHandler = async (args: { [key: string
     if (normalizedQosType) storagePoolPayload.qosType = normalizedQosType;
     if (allowAutoTiering !== undefined) storagePoolPayload.allowAutoTiering = allowAutoTiering;
     if (parsedStoragePoolType !== undefined) storagePoolPayload.type = parsedStoragePoolType;
+    if (parsedScaleType !== undefined) storagePoolPayload.scaleType = parsedScaleType;
+    if (parsedMode !== undefined) storagePoolPayload.mode = parsedMode;
 
     if (normalizedServiceLevel === 'FLEX') {
       // IMPORTANT: For zonal pools, the zone is encoded in the URL/location already;
@@ -329,6 +440,7 @@ export const getStoragePoolHandler: ToolHandler = async (args: { [key: string]: 
       qosType: storagePool.qosType,
       allowAutoTiering: storagePool.allowAutoTiering ?? false,
       storagePoolType: storagePool.type,
+      mode: (storagePool as any).mode,
       zone: storagePool.zone,
       replicaZone: storagePool.replicaZone,
     };
@@ -418,6 +530,7 @@ export const listStoragePoolsHandler: ToolHandler = async (args: { [key: string]
         qosType: pool.qosType,
         allowAutoTiering: pool.allowAutoTiering ?? false,
         storagePoolType: pool.type,
+        mode: pool.mode,
         zone: pool.zone,
         replicaZone: pool.replicaZone,
       };
@@ -540,8 +653,8 @@ export const updateStoragePoolHandler: ToolHandler = async (args: { [key: string
         };
       }
 
-      // Only enforce FLEX for new types; FILE is allowed everywhere (and is the historical default)
-      if (parsedType === 2 || parsedType === 3) {
+      // Only enforce FLEX for UNIFIED; FILE is allowed everywhere (and is the historical default)
+      if (parsedType === 2) {
         const existing = await getExistingPool();
         const existingServiceLevel =
           typeof existing?.serviceLevel === 'string'
@@ -553,7 +666,7 @@ export const updateStoragePoolHandler: ToolHandler = async (args: { [key: string
             content: [
               {
                 type: 'text' as const,
-                text: 'Error updating storage pool: storagePoolType UNIFIED and UNIFIED_LARGE_CAPACITY are only supported when serviceLevel is FLEX.',
+                text: 'Error updating storage pool: storagePoolType UNIFIED is only supported when serviceLevel is FLEX.',
               },
             ],
           };

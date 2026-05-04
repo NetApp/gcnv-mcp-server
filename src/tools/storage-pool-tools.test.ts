@@ -42,7 +42,7 @@ describe('storage-pool-tools', () => {
     ).not.toThrow();
   });
 
-  it('createStoragePoolTool accepts storagePoolType values (validation is enforced in handler)', () => {
+  it('createStoragePoolTool accepts valid storagePoolType values and rejects removed UNIFIED_LARGE_CAPACITY', () => {
     const schema = z.object(createStoragePoolTool.inputSchema);
 
     expect(() =>
@@ -52,7 +52,7 @@ describe('storage-pool-tools', () => {
         storagePoolId: 'sp1',
         capacityGib: 100,
         serviceLevel: 'FLEX',
-        storagePoolType: 'UNIFIED_LARGE_CAPACITY',
+        storagePoolType: 'UNIFIED',
       })
     ).not.toThrow();
 
@@ -66,6 +66,74 @@ describe('storage-pool-tools', () => {
         storagePoolType: 'FILE',
       })
     ).not.toThrow();
+
+    // Negative: UNIFIED_LARGE_CAPACITY was removed from the enum; schema must reject it
+    expect(() =>
+      schema.parse({
+        projectId: 'p1',
+        location: 'us-central1',
+        storagePoolId: 'sp1',
+        capacityGib: 100,
+        serviceLevel: 'FLEX',
+        storagePoolType: 'UNIFIED_LARGE_CAPACITY',
+      })
+    ).toThrow();
+  });
+
+  it('createStoragePoolTool accepts scaleType values', () => {
+    const schema = z.object(createStoragePoolTool.inputSchema);
+
+    for (const scaleType of [
+      'SCALE_TYPE_UNSPECIFIED',
+      'SCALE_TYPE_DEFAULT',
+      'SCALE_TYPE_SCALEOUT',
+    ]) {
+      expect(() =>
+        schema.parse({
+          projectId: 'p1',
+          location: 'us-central1',
+          storagePoolId: 'sp1',
+          capacityGib: 100,
+          serviceLevel: 'FLEX',
+          storagePoolType: 'UNIFIED',
+          scaleType,
+        })
+      ).not.toThrow();
+    }
+
+    expect(() =>
+      schema.parse({
+        projectId: 'p1',
+        location: 'us-central1',
+        storagePoolId: 'sp1',
+        capacityGib: 100,
+        serviceLevel: 'FLEX',
+        storagePoolType: 'UNIFIED',
+        scaleType: 'INVALID_SCALE_TYPE',
+      })
+    ).toThrow();
+  });
+
+  it('createStoragePoolTool accepts DEFAULT and ONTAP mode (case-insensitive) and rejects other values', () => {
+    const schema = z.object(createStoragePoolTool.inputSchema);
+
+    const base = {
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      capacityGib: 100,
+      serviceLevel: 'FLEX',
+      storagePoolType: 'UNIFIED',
+      network: 'net1',
+    };
+
+    for (const mode of ['DEFAULT', 'ONTAP', 'default', 'ontap']) {
+      expect(() => schema.parse({ ...base, mode })).not.toThrow();
+    }
+
+    for (const mode of ['INVALID', 'FILE', 123]) {
+      expect(() => schema.parse({ ...base, mode })).toThrow();
+    }
   });
 
   it('updateStoragePoolTool accepts totalThroughputMibps input', () => {

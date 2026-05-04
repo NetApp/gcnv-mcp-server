@@ -120,8 +120,8 @@ Notes:
 - Users often type `flex` in lowercase; the server accepts `serviceLevel` case-insensitively for pool creation (for example `flex` or `FLEX`).
 - Minimum storage pool capacity (this project’s guidance):
   - `FLEX`:
-    - `FILE` / `UNIFIED`: **1024 GiB**
-    - `UNIFIED_LARGE_CAPACITY`: **6 TiB (6144 GiB)**
+    - `FILE` / `UNIFIED` (default scale): **1024 GiB**
+    - `UNIFIED` (large capacity): **6 TiB (6144 GiB)**
   - `STANDARD`, `PREMIUM`, `EXTREME`: **2048 GiB**
 - Flex custom performance: users can optionally provide `totalThroughputMibps` (MiBps) when creating a **FLEX** pool. This is only supported in select regions; if the API rejects it, suggest using default performance or a supported region/zone.
 - Manual QoS: `qosType` can be `AUTO` or `MANUAL` for storage pools. Manual QoS is supported for Standard/Premium/Extreme and **isn't available for Flex**. See the Google Cloud docs: `https://docs.cloud.google.com/netapp/volumes/docs/performance/optimize-performance#set_up_manual_qos_limits`.
@@ -129,8 +129,17 @@ Notes:
   - If `location` is a **zone** (e.g. `us-central1-a`), that satisfies “zone in location” for FLEX pool creation and the request body should omit `zone`/`replicaZone`.
   - If `location` is a **region** (e.g. `us-central1`), FLEX pool creation requires both `zone` and `replicaZone`.
 - StoragePoolType:
-  - Users can optionally provide `storagePoolType` (`FILE`, `UNIFIED`, `UNIFIED_LARGE_CAPACITY`).
-  - `UNIFIED` and `UNIFIED_LARGE_CAPACITY` are only supported for **FLEX** service level.
+  - Users can optionally provide `storagePoolType` (`FILE`, `UNIFIED`).
+  - `UNIFIED` is only supported for **FLEX** service level.
+- ScaleType:
+  - `scaleType` is **only applicable to FLEX `UNIFIED` pools**. Do not send it for `FILE` pools or non-FLEX service levels (Standard/Premium/Extreme).
+  - **Only send `SCALE_TYPE_SCALEOUT`** when the user explicitly wants a large capacity FLEX `UNIFIED` pool. For all other FLEX `UNIFIED` pools, omit `scaleType` entirely — the API defaults to `SCALE_TYPE_DEFAULT`.
+  - Do not ask the user about `scaleType` unless they are creating a large capacity pool.
+- Mode:
+  - `mode` is optional: `DEFAULT` (standard pool) or `ONTAP` (ONTAP expert mode pool).
+  - `ONTAP` mode requires `storagePoolType: UNIFIED` and `serviceLevel: FLEX`.
+  - Do not ask for `mode` unless the user explicitly requests ONTAP expert mode.
+  - When listing or getting pools, `mode` is returned in the response and indicates whether the pool is a standard or ONTAP expert mode pool.
 - In simple terms:
   - **FLEX** is the newer service level focused on flexibility (smaller minimum sizes and, in some regions, more independent performance scaling). It is also available in many more regions.
   - **STANDARD / PREMIUM / EXTREME** are the classic tiers; Premium and Extreme are higher-performance tiers than Standard.
