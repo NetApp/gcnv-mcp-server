@@ -1,0 +1,64 @@
+diff --git a/node_modules/@google-cloud/netapp/build/protos/protos.d.ts b/node_modules/@google-cloud/netapp/build/protos/protos.d.ts
+index ebfa437..2b5fd97 100644
+--- a/node_modules/@google-cloud/netapp/build/protos/protos.d.ts
++++ b/node_modules/@google-cloud/netapp/build/protos/protos.d.ts
+@@ -11621,6 +11621,9 @@ export namespace google {
+                     /** Volume blockDevices */
+                     blockDevices?: (google.cloud.netapp.v1.IBlockDevice[]|null);
+ 
++                    /** Volume largeCapacityConfig */
++                    largeCapacityConfig?: (google.cloud.netapp.v1.ILargeCapacityConfig|null);
++
+                     /** Volume cloneDetails */
+                     cloneDetails?: (google.cloud.netapp.v1.Volume.ICloneDetails|null);
+                 }
+@@ -11967,6 +11970,13 @@ export namespace google {
+                     }
+                 }
+ 
++                /** Properties of a LargeCapacityConfig. */
++                interface ILargeCapacityConfig {
++
++                    /** LargeCapacityConfig constituentCount */
++                    constituentCount?: (number|null);
++                }
++
+                 /** Properties of an ExportPolicy. */
+                 interface IExportPolicy {
+ 
+diff --git a/node_modules/@google-cloud/netapp/build/protos/protos.json b/node_modules/@google-cloud/netapp/build/protos/protos.json
+index f5efdb4..5906d74 100644
+--- a/node_modules/@google-cloud/netapp/build/protos/protos.json
++++ b/node_modules/@google-cloud/netapp/build/protos/protos.json
+@@ -4757,6 +4757,13 @@
+                             "(google.api.field_behavior)": "OPTIONAL"
+                           }
+                         },
++                        "largeCapacityConfig": {
++                          "type": "LargeCapacityConfig",
++                          "id": 46,
++                          "options": {
++                            "(google.api.field_behavior)": "OPTIONAL"
++                          }
++                        },
+                         "cloneDetails": {
+                           "type": "CloneDetails",
+                           "id": 47,
+@@ -4809,6 +4816,17 @@
+                         }
+                       }
+                     },
++                    "LargeCapacityConfig": {
++                      "fields": {
++                        "constituentCount": {
++                          "type": "int32",
++                          "id": 1,
++                          "options": {
++                            "(google.api.field_behavior)": "OPTIONAL"
++                          }
++                        }
++                      }
++                    },
+                     "ExportPolicy": {
+                       "fields": {
+                         "rules": {

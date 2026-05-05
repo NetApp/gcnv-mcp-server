@@ -9,14 +9,13 @@ function parseStoragePoolType(input: any): { value?: number; error?: string } {
     STORAGE_POOL_TYPE_UNSPECIFIED: 0,
     FILE: 1,
     UNIFIED: 2,
-    UNIFIED_LARGE_CAPACITY: 3,
   };
 
   if (input === undefined || input === null) return {};
 
   if (typeof input === 'number') {
     if (Object.values(enumMap).includes(input)) return { value: input };
-    return { error: 'storagePoolType must be a valid enum number (0-3)' };
+    return { error: 'storagePoolType must be a valid enum number (0-2)' };
   }
 
   if (typeof input === 'string') {
@@ -24,11 +23,32 @@ function parseStoragePoolType(input: any): { value?: number; error?: string } {
     if (enumMap[trimmed] !== undefined) return { value: enumMap[trimmed] };
     return {
       error:
-        'storagePoolType must be one of STORAGE_POOL_TYPE_UNSPECIFIED, FILE, UNIFIED, UNIFIED_LARGE_CAPACITY, or the corresponding enum number',
+        'storagePoolType must be one of STORAGE_POOL_TYPE_UNSPECIFIED, FILE, UNIFIED, or the corresponding enum number',
     };
   }
 
   return { error: 'storagePoolType must be a string enum name or enum number' };
+}
+
+function parseScaleType(input: any): { value?: string; error?: string } {
+  const validValues = new Set([
+    'SCALE_TYPE_UNSPECIFIED',
+    'SCALE_TYPE_DEFAULT',
+    'SCALE_TYPE_SCALEOUT',
+  ]);
+
+  if (input === undefined || input === null) return {};
+
+  if (typeof input === 'string') {
+    const trimmed = input.trim().toUpperCase();
+    if (validValues.has(trimmed)) return { value: trimmed };
+    return {
+      error:
+        'scaleType must be one of SCALE_TYPE_UNSPECIFIED, SCALE_TYPE_DEFAULT, SCALE_TYPE_SCALEOUT',
+    };
+  }
+
+  return { error: 'scaleType must be a string enum name' };
 }
 
 function normalizeStoragePoolState(state: any): string {
@@ -61,6 +81,7 @@ export const createStoragePoolHandler: ToolHandler = async (args: { [key: string
       qosType,
       allowAutoTiering,
       storagePoolType,
+      scaleType,
       zone,
       replicaZone,
     } = args;
@@ -91,18 +112,51 @@ export const createStoragePoolHandler: ToolHandler = async (args: { [key: string
       };
     }
 
-    // New pool types (UNIFIED / UNIFIED_LARGE_CAPACITY) are only available for FLEX
-    if (
-      parsedStoragePoolType !== undefined &&
-      (parsedStoragePoolType === 2 || parsedStoragePoolType === 3) &&
-      normalizedServiceLevel !== 'FLEX'
-    ) {
+    const { value: parsedScaleType, error: scaleTypeError } = parseScaleType(scaleType);
+    if (scaleTypeError) {
       return {
         isError: true,
         content: [
           {
             type: 'text' as const,
-            text: 'Error creating storage pool: storagePoolType UNIFIED and UNIFIED_LARGE_CAPACITY are only supported when serviceLevel is FLEX.',
+            text: `Error creating storage pool: ${scaleTypeError}`,
+          },
+        ],
+      };
+    }
+
+    // scaleType is only applicable to FLEX UNIFIED pools
+    if (parsedScaleType !== undefined && normalizedServiceLevel !== 'FLEX') {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error creating storage pool: scaleType is only applicable to FLEX UNIFIED storage pools.',
+          },
+        ],
+      };
+    }
+    if (parsedScaleType !== undefined && parsedStoragePoolType === 1) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error creating storage pool: scaleType is only applicable to UNIFIED storage pools, not FILE pools.',
+          },
+        ],
+      };
+    }
+
+    // UNIFIED is only available for FLEX
+    if (parsedStoragePoolType != undefined && parsedStoragePoolType === 2 && normalizedServiceLevel !== 'FLEX') {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error creating storage pool: storagePoolType UNIFIED is only supported when serviceLevel is FLEX.',
           },
         ],
       };
@@ -184,6 +238,7 @@ export const createStoragePoolHandler: ToolHandler = async (args: { [key: string
     if (normalizedQosType) storagePoolPayload.qosType = normalizedQosType;
     if (allowAutoTiering !== undefined) storagePoolPayload.allowAutoTiering = allowAutoTiering;
     if (parsedStoragePoolType !== undefined) storagePoolPayload.type = parsedStoragePoolType;
+    if (parsedScaleType !== undefined) storagePoolPayload.scaleType = parsedScaleType;
 
     if (normalizedServiceLevel === 'FLEX') {
       // IMPORTANT: For zonal pools, the zone is encoded in the URL/location already;
@@ -540,8 +595,8 @@ export const updateStoragePoolHandler: ToolHandler = async (args: { [key: string
         };
       }
 
-      // Only enforce FLEX for new types; FILE is allowed everywhere (and is the historical default)
-      if (parsedType === 2 || parsedType === 3) {
+      // Only enforce FLEX for UNIFIED; FILE is allowed everywhere (and is the historical default)
+      if (parsedType === 2) {
         const existing = await getExistingPool();
         const existingServiceLevel =
           typeof existing?.serviceLevel === 'string'
@@ -553,7 +608,7 @@ export const updateStoragePoolHandler: ToolHandler = async (args: { [key: string
             content: [
               {
                 type: 'text' as const,
-                text: 'Error updating storage pool: storagePoolType UNIFIED and UNIFIED_LARGE_CAPACITY are only supported when serviceLevel is FLEX.',
+                text: 'Error updating storage pool: storagePoolType UNIFIED is only supported when serviceLevel is FLEX.',
               },
             ],
           };

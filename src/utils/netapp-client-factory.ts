@@ -17,6 +17,9 @@ export class NetAppClientFactory {
       maxDelayMs: 30000,
       maxRetries: 5,
     },
+    // Use REST/JSON transport instead of gRPC binary encoding.  REST sends fields by name
+    // which is more robust and forward-compatible with API changes.
+    fallback: true,
   };
 
   /**

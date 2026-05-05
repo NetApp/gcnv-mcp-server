@@ -88,7 +88,7 @@ describe('volume-handler', () => {
       parent: 'projects/p1/locations/us-central1',
       volumeId: 'vol1',
       volume: {
-        storagePool: 'projects/p1/locations/us-central1/storagePools/sp1',
+        storagePool: 'sp1',
         capacityGib: 100,
         protocols: [1],
         description: 'd',
@@ -381,7 +381,7 @@ describe('volume-handler', () => {
     );
   });
 
-  it('createVolumeHandler supports Large Capacity Volumes (Premium/Extreme only)', async () => {
+  it('createVolumeHandler supports Large Capacity Volumes (FLEX / Premium / Extreme)', async () => {
     const createVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-lcv' }]);
     const getStoragePool = vi.fn().mockResolvedValue([{ serviceLevel: 'PREMIUM' }]);
     createClientMock.mockReturnValue({ createVolume, getStoragePool });
@@ -392,7 +392,7 @@ describe('volume-handler', () => {
       location: 'us-central1',
       storagePoolId: 'projects/p1/locations/us-central1/storagePools/sp1',
       volumeId: 'vol-big',
-      capacityGib: 15360,
+      capacityGib: 4916,
       protocols: ['NFSV3'],
       largeCapacity: true,
       multipleEndpoints: true,
@@ -404,10 +404,51 @@ describe('volume-handler', () => {
     expect(createVolume.mock.calls[0]?.[0]).toMatchObject({
       volumeId: 'vol-big',
       volume: expect.objectContaining({
-        largeCapacity: true,
+        largeCapacityConfig: {},
         multipleEndpoints: true,
       }),
     });
+    expect(createVolume.mock.calls[0]?.[0]?.volume).not.toHaveProperty('largeCapacity');
+  });
+
+  it('createVolumeHandler sends largeCapacityConfig {} on FLEX scale-out pool for SMB volume', async () => {
+    const createVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-lcc' }]);
+    const getStoragePool = vi.fn().mockResolvedValue([{ serviceLevel: 'FLEX' }]);
+    createClientMock.mockReturnValue({ createVolume, getStoragePool });
+
+    const { createVolumeHandler } = await import('./volume-handler.js');
+    await createVolumeHandler({
+      projectId: 'netapp-gcnv-vsa-control-plane',
+      location: 'us-east4-a',
+      storagePoolId: 'pool-mcp-lv-ad',
+      volumeId: 'volsmb3',
+      capacityGib: 4916,
+      protocols: ['SMB'],
+      largeCapacity: true,
+    });
+
+    const vol = createVolume.mock.calls[0]?.[0]?.volume as Record<string, unknown>;
+    expect(vol?.largeCapacityConfig).toEqual({});
+    expect(vol).not.toHaveProperty('largeCapacity');
+  });
+
+  it('createVolumeHandler omits largeCapacityConfig when the flag is not set', async () => {
+    const createVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-no-lc' }]);
+    createClientMock.mockReturnValue({ createVolume });
+
+    const { createVolumeHandler } = await import('./volume-handler.js');
+    await createVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      volumeId: 'vol-small',
+      capacityGib: 1024,
+      protocols: ['NFSV3'],
+    });
+
+    const vol = createVolume.mock.calls[0]?.[0]?.volume as Record<string, unknown>;
+    expect(vol).not.toHaveProperty('largeCapacity');
+    expect(vol).not.toHaveProperty('largeCapacityConfig');
   });
 
   it('createVolumeHandler supports ISCSI with hostGroup and creates blockDevices payload', async () => {
@@ -689,9 +730,10 @@ describe('volume-handler', () => {
     expect(getStoragePool).not.toHaveBeenCalled();
     expect(createVolume).not.toHaveBeenCalled();
     expect((result as any).isError).toBe(true);
+    expect((result.content?.[0] as any)?.text).toMatch(/large-capacity/);
   });
 
-  it('createVolumeHandler rejects largeCapacity when capacity is < 15 TiB', async () => {
+  it('createVolumeHandler rejects largeCapacity when capacity is below minimum GiB', async () => {
     const createVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-lcv' }]);
     const getStoragePool = vi.fn().mockResolvedValue([{ serviceLevel: 'PREMIUM' }]);
     createClientMock.mockReturnValue({ createVolume, getStoragePool });
@@ -710,9 +752,53 @@ describe('volume-handler', () => {
     expect(getStoragePool).not.toHaveBeenCalled();
     expect(createVolume).not.toHaveBeenCalled();
     expect((result as any).isError).toBe(true);
+    expect((result.content?.[0] as any)?.text).toContain('4916');
   });
 
-  it('createVolumeHandler rejects largeCapacity for non-PREMIUM/EXTREME pools', async () => {
+  it('createVolumeHandler rejects largeCapacity when capacity is one GiB below minimum', async () => {
+    const createVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-lcv' }]);
+    const getStoragePool = vi.fn().mockResolvedValue([{ serviceLevel: 'FLEX' }]);
+    createClientMock.mockReturnValue({ createVolume, getStoragePool });
+
+    const { createVolumeHandler } = await import('./volume-handler.js');
+    const result = await createVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      volumeId: 'vol-edge',
+      capacityGib: 4915,
+      protocols: ['NFSV3'],
+      largeCapacity: true,
+    });
+
+    expect(getStoragePool).not.toHaveBeenCalled();
+    expect(createVolume).not.toHaveBeenCalled();
+    expect((result as any).isError).toBe(true);
+  });
+
+  it('createVolumeHandler allows largeCapacity on FLEX pool at minimum GiB', async () => {
+    const createVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-lcv-flex' }]);
+    const getStoragePool = vi.fn().mockResolvedValue([{ serviceLevel: 'FLEX' }]);
+    createClientMock.mockReturnValue({ createVolume, getStoragePool });
+
+    const { createVolumeHandler } = await import('./volume-handler.js');
+    await createVolumeHandler({
+      projectId: 'p1',
+      location: 'us-east4-a',
+      storagePoolId: 'pool-mcp-lv-ad',
+      volumeId: 'volsmb1',
+      capacityGib: 4916,
+      protocols: ['SMB'],
+      largeCapacity: true,
+    });
+
+    expect(getStoragePool).toHaveBeenCalled();
+    expect(createVolume).toHaveBeenCalled();
+    expect(createVolume.mock.calls[0]?.[0]?.volume?.largeCapacityConfig).toEqual({});
+    expect(createVolume.mock.calls[0]?.[0]?.volume).not.toHaveProperty('largeCapacity');
+  });
+
+  it('createVolumeHandler rejects largeCapacity for pools outside FLEX/PREMIUM/EXTREME', async () => {
     const createVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-lcv' }]);
     const getStoragePool = vi.fn().mockResolvedValue([{ serviceLevel: 'STANDARD' }]);
     createClientMock.mockReturnValue({ createVolume, getStoragePool });
@@ -723,7 +809,7 @@ describe('volume-handler', () => {
       location: 'us-central1',
       storagePoolId: 'sp1', // exercise "ID" form -> handler builds full name
       volumeId: 'vol-big',
-      capacityGib: 15360,
+      capacityGib: 4916,
       protocols: ['NFSV3'],
       largeCapacity: true,
     });
@@ -733,6 +819,7 @@ describe('volume-handler', () => {
     });
     expect(createVolume).not.toHaveBeenCalled();
     expect((result as any).isError).toBe(true);
+    expect((result.content?.[0] as any)?.text).toMatch(/FLEX|PREMIUM|EXTREME/);
   });
 
   it('createVolumeHandler shows UNKNOWN in error when storage pool serviceLevel is missing (covers poolServiceLevel || \"UNKNOWN\")', async () => {
@@ -746,7 +833,7 @@ describe('volume-handler', () => {
       location: 'us-central1',
       storagePoolId: 'projects/p1/locations/us-central1/storagePools/sp1',
       volumeId: 'vol-big',
-      capacityGib: 15360,
+      capacityGib: 4916,
       protocols: ['NFSV3'],
       largeCapacity: true,
     });
@@ -756,7 +843,7 @@ describe('volume-handler', () => {
     expect((result as any).content?.[0]?.text).toContain('UNKNOWN');
   });
 
-  it('createVolumeHandler computes storagePoolName when storagePoolId is missing (covers storagePoolId || \"\" branch)', async () => {
+  it('createVolumeHandler rejects create when neither storagePoolId nor storagePool is provided', async () => {
     const createVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-lcv' }]);
     const getStoragePool = vi.fn().mockResolvedValue([{ serviceLevel: 'STANDARD' }]);
     createClientMock.mockReturnValue({ createVolume, getStoragePool });
@@ -765,18 +852,38 @@ describe('volume-handler', () => {
     const result = await createVolumeHandler({
       projectId: 'p1',
       location: 'us-central1',
-      // storagePoolId intentionally omitted to cover `storagePoolId || ''`
       volumeId: 'vol-big',
-      capacityGib: 15360,
+      capacityGib: 4916,
       protocols: ['NFSV3'],
       largeCapacity: true,
     });
 
-    expect(getStoragePool).toHaveBeenCalledWith({
-      name: 'projects/p1/locations/us-central1/storagePools/undefined',
-    });
+    expect(getStoragePool).not.toHaveBeenCalled();
     expect(createVolume).not.toHaveBeenCalled();
     expect((result as any).isError).toBe(true);
+    expect((result.content?.[0] as any)?.text).toMatch(/storagePoolId or storagePool is required/);
+  });
+
+  it('createVolumeHandler accepts storagePool without storagePoolId', async () => {
+    const createVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-pool-alias' }]);
+    createClientMock.mockReturnValue({ createVolume });
+
+    const { createVolumeHandler } = await import('./volume-handler.js');
+    await createVolumeHandler({
+      projectId: 'p1',
+      location: 'us-east4-a',
+      storagePool: 'pool-mcp-lv-ad',
+      volumeId: 'vol1',
+      capacityGib: 1024,
+      protocols: ['SMB'],
+    });
+
+    expect(createVolume).toHaveBeenCalledTimes(1);
+    expect(createVolume.mock.calls[0]?.[0]).toMatchObject({
+      parent: 'projects/p1/locations/us-east4-a',
+      volumeId: 'vol1',
+      volume: expect.objectContaining({ storagePool: 'pool-mcp-lv-ad' }),
+    });
   });
 
   it('createVolumeHandler defaults protocols to NFSV3 and uses provided shareName', async () => {

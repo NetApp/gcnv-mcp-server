@@ -4,6 +4,11 @@ import { logger } from '../../logger.js';
 
 const log = logger.child({ module: 'volume-handler' });
 
+/** Minimum volume size (GiB) for GCNV large-capacity volumes (Unified scale-out pools). */
+const LARGE_CAPACITY_VOLUME_MIN_CAPACITY_GIB = 4916;
+
+const LARGE_CAPACITY_ALLOWED_POOL_SERVICE_LEVELS = new Set(['FLEX', 'PREMIUM', 'EXTREME']);
+
 // Optional display hint when resource name matches a legacy pattern (used by some clients for UI)
 function normalizeResourceOutput(o: Record<string, any>): void {
   if (!o || typeof o.name !== 'string') return;
@@ -180,11 +185,43 @@ function buildSmbSettingsForCreate(args: {
 function resolveStoragePoolResourceName(
   projectId: string,
   location: string,
-  storagePoolId: string
+  storagePoolRef: string
 ): string {
-  return String(storagePoolId || '').includes('/')
-    ? storagePoolId
-    : `projects/${projectId}/locations/${location}/storagePools/${storagePoolId}`;
+  return String(storagePoolRef || '').includes('/')
+    ? storagePoolRef
+    : `projects/${projectId}/locations/${location}/storagePools/${storagePoolRef}`;
+}
+
+/**
+ * Value for Volume.storagePool on create. The NetApp Volumes API expects the pool's short ID (final segment
+ * of the storage pool resource name), matching Volume.storagePool on GET — not a full
+ * projects/.../storagePools/... path.
+ */
+function storagePoolFieldForVolumeCreate(storagePoolRef: string): string {
+  const trimmed = String(storagePoolRef || '').trim();
+  if (!trimmed) {
+    return trimmed;
+  }
+  const marker = '/storagePools/';
+  const idx = trimmed.indexOf(marker);
+  if (idx >= 0) {
+    return trimmed.slice(idx + marker.length);
+  }
+  const parts = trimmed.split('/').filter(Boolean);
+  if (parts.length > 1) {
+    return parts[parts.length - 1] ?? trimmed;
+  }
+  return trimmed;
+}
+
+function firstNonEmptyPoolRef(args: { [key: string]: unknown }): string | undefined {
+  const candidates = [args.storagePoolId, args.storagePool, args.storage_pool];
+  for (const c of candidates) {
+    if (typeof c === 'string' && c.trim() !== '') {
+      return c.trim();
+    }
+  }
+  return undefined;
 }
 
 // Helper to format volume data for responses
@@ -267,7 +304,6 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
     const {
       projectId,
       location,
-      storagePoolId,
       volumeId,
       capacityGib,
       protocols: rawProtocols,
@@ -292,6 +328,19 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
       smbContinuouslyAvailable,
     } = args;
 
+    const storagePoolRef = firstNonEmptyPoolRef(args);
+    if (!storagePoolRef) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error creating volume: storagePoolId or storagePool is required.',
+          },
+        ],
+      };
+    }
+
     // Create a new NetApp client using the factory
     const netAppClient = NetAppClientFactory.createClient();
 
@@ -300,32 +349,33 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
     const storagePoolResourceName = resolveStoragePoolResourceName(
       projectId,
       location,
-      String(storagePoolId)
+      storagePoolRef
     );
+    const volumeStoragePool = storagePoolFieldForVolumeCreate(storagePoolRef);
 
-    // Large Capacity Volumes guardrails:
-    // - Premium/Extreme only (enforced by checking the storage pool service level)
-    // - Minimum size 15 TiB => 15360 GiB
-    if (multipleEndpoints && !largeCapacity) {
+    const isLargeCapacity = largeCapacity === true;
+
+    // Large Capacity Volumes guardrails (pool capabilities are still enforced by the API).
+    if (multipleEndpoints && !isLargeCapacity) {
       return {
         isError: true,
         content: [
           {
             type: 'text' as const,
-            text: 'Error creating volume: multipleEndpoints is only valid when largeCapacity is true.',
+            text: 'Error creating volume: multipleEndpoints is only valid for large-capacity volumes (set largeCapacity true).',
           },
         ],
       };
     }
 
-    if (largeCapacity) {
-      if (capacityGib < 15360) {
+    if (isLargeCapacity) {
+      if (capacityGib < LARGE_CAPACITY_VOLUME_MIN_CAPACITY_GIB) {
         return {
           isError: true,
           content: [
             {
               type: 'text' as const,
-              text: 'Error creating volume: largeCapacity requires capacityGib >= 15360 (15 TiB).',
+              text: `Error creating volume: large-capacity volumes require capacityGib >= ${LARGE_CAPACITY_VOLUME_MIN_CAPACITY_GIB} GiB.`,
             },
           ],
         };
@@ -333,13 +383,13 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
 
       const [pool] = await netAppClient.getStoragePool({ name: storagePoolResourceName });
       const poolServiceLevel = (pool?.serviceLevel || '').toString().toUpperCase();
-      if (poolServiceLevel !== 'PREMIUM' && poolServiceLevel !== 'EXTREME') {
+      if (!LARGE_CAPACITY_ALLOWED_POOL_SERVICE_LEVELS.has(poolServiceLevel)) {
         return {
           isError: true,
           content: [
             {
               type: 'text' as const,
-              text: `Error creating volume: largeCapacity volumes are only supported in PREMIUM or EXTREME pools (got ${poolServiceLevel || 'UNKNOWN'}).`,
+              text: `Error creating volume: large-capacity volumes require a FLEX, PREMIUM, or EXTREME storage pool (got ${poolServiceLevel || 'UNKNOWN'}).`,
             },
           ],
         };
@@ -500,12 +550,14 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
     const protocolEnums = normalizedProtocolNames.map((p) => protocolEnumMap[p]);
     const effectiveShareName = isIscsi ? undefined : shareName || volumeId;
 
-    // Create the volume request
+    // CreateVolume (CCFE): volumeId is a query parameter; the body is a Volume resource. The JSON field for
+    // the pool is always `storagePool` — there is no `storagePoolId` on Volume. MCP tools accept
+    // `storagePoolId` / `storagePool` as arguments only; they are mapped into `volume.storagePool` here.
     const request = {
       parent,
       volumeId,
       volume: {
-        storagePool: storagePoolId,
+        storagePool: volumeStoragePool,
         capacityGib,
         protocols: protocolEnums,
         description,
@@ -518,7 +570,9 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
         exportPolicy,
         ...(blockDevicesPayload ? { blockDevices: blockDevicesPayload } : {}),
         ...(throughputMibps !== undefined ? { throughputMibps } : {}),
-        ...(largeCapacity !== undefined ? { largeCapacity } : {}),
+        // Unified scale-out pools require `largeCapacityConfig` (mutually exclusive with the legacy `largeCapacity`
+        // boolean). The `@google-cloud/netapp` proto is patched (see patches/) to recognize field 46.
+        ...(isLargeCapacity ? { largeCapacityConfig: {} } : {}),
         ...(multipleEndpoints !== undefined ? { multipleEndpoints } : {}),
         ...(smbSettingsList && smbSettingsList.length > 0 ? { smbSettings: smbSettingsList } : {}),
       },

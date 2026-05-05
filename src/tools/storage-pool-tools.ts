@@ -77,13 +77,22 @@ export const createStoragePoolTool: ToolConfig = {
       ),
     storagePoolType: z
       .union([
-        z.enum(['STORAGE_POOL_TYPE_UNSPECIFIED', 'FILE', 'UNIFIED', 'UNIFIED_LARGE_CAPACITY']),
-        z.enum(['storage_pool_type_unspecified', 'file', 'unified', 'unified_large_capacity']),
+        z.enum(['STORAGE_POOL_TYPE_UNSPECIFIED', 'FILE', 'UNIFIED']),
+        z.enum(['storage_pool_type_unspecified', 'file', 'unified']),
         z.number(),
       ])
       .optional()
       .describe(
-        'Storage pool type (StoragePoolType). UNIFIED and UNIFIED_LARGE_CAPACITY are only available for FLEX service level.'
+        'Storage pool type (StoragePoolType). UNIFIED is only available for FLEX service level.'
+      ),
+    scaleType: z
+      .union([
+        z.enum(['SCALE_TYPE_UNSPECIFIED', 'SCALE_TYPE_DEFAULT', 'SCALE_TYPE_SCALEOUT']),
+        z.enum(['scale_type_unspecified', 'scale_type_default', 'scale_type_scaleout']),
+      ])
+      .optional()
+      .describe(
+        'Scale type for the UNIFIED storage pool. SCALE_TYPE_SCALEOUT: higher capacity and performance, suitable for more demanding workloads (large capacity pools). SCALE_TYPE_DEFAULT: standard capacity and performance, suitable for general purpose workloads. Must be set explicitly — the handler does not infer this from capacity.'
       ),
   },
   outputSchema: {
@@ -259,13 +268,13 @@ export const updateStoragePoolTool: ToolConfig = {
       ),
     storagePoolType: z
       .union([
-        z.enum(['STORAGE_POOL_TYPE_UNSPECIFIED', 'FILE', 'UNIFIED', 'UNIFIED_LARGE_CAPACITY']),
-        z.enum(['storage_pool_type_unspecified', 'file', 'unified', 'unified_large_capacity']),
+        z.enum(['STORAGE_POOL_TYPE_UNSPECIFIED', 'FILE', 'UNIFIED']),
+        z.enum(['storage_pool_type_unspecified', 'file', 'unified']),
         z.number(),
       ])
       .optional()
       .describe(
-        'Storage pool type (StoragePoolType). UNIFIED and UNIFIED_LARGE_CAPACITY are only available for FLEX service level.'
+        'Storage pool type (StoragePoolType). UNIFIED is only available for FLEX service level.'
       ),
     zone: z
       .string()

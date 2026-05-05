@@ -9,7 +9,18 @@ export const createVolumeTool: ToolConfig = {
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
     location: z.string().describe('The location where the volume should be created'),
-    storagePoolId: z.string().describe('The ID of the storage pool to create the volume in'),
+    storagePoolId: z
+      .string()
+      .optional()
+      .describe(
+        'The storage pool short ID or full resource name. Provide this and/or storagePool (same meaning as the API Volume.storagePool field).'
+      ),
+    storagePool: z
+      .string()
+      .optional()
+      .describe(
+        'Alias for storagePoolId (matches API JSON field storagePool). At least one of storagePoolId or storagePool must be set.'
+      ),
     volumeId: z.string().describe('The ID to assign to the volume'),
     capacityGib: z.number().describe('The capacity of the volume in GiB'),
     protocols: z
@@ -286,13 +297,13 @@ export const createVolumeTool: ToolConfig = {
       .boolean()
       .optional()
       .describe(
-        'Enable Large Capacity Volume mode (Premium/Extreme only). Requires capacityGib >= 15360 (15 TiB).'
+        'When true, creates the volume as a large-capacity volume by sending `largeCapacityConfig: {}` (mutually exclusive with the legacy `largeCapacity` boolean, which is for legacy FILE pools only). Required for volumes in Unified scale-out / large-capacity pools. Requires capacityGib >= 4916 with FLEX/PREMIUM/EXTREME pool.'
       ),
     multipleEndpoints: z
       .boolean()
       .optional()
       .describe(
-        'Use multiple storage endpoints for Large Capacity Volumes (only valid when largeCapacity is true).'
+        'Use multiple storage endpoints for large-capacity volumes (requires largeCapacity to be true).'
       ),
     smbEncryptData: z
       .boolean()

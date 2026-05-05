@@ -109,7 +109,196 @@ describe('storage-pool-handler', () => {
     });
   });
 
-  it('createStoragePoolHandler rejects UNIFIED_* storagePoolType for non-FLEX service levels', async () => {
+  it('createStoragePoolHandler includes scaleType in request payload', async () => {
+    const createStoragePool = vi.fn().mockResolvedValue([{ name: 'op-create' }]);
+    createClientMock.mockReturnValue({ createStoragePool });
+
+    const { createStoragePoolHandler } = await import('./storage-pool-handler.js');
+    await createStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1-a',
+      storagePoolId: 'sp1',
+      capacityGib: 6144,
+      serviceLevel: 'FLEX',
+      network: 'net1',
+      storagePoolType: 'UNIFIED',
+      scaleType: 'SCALE_TYPE_SCALEOUT',
+    });
+
+    expect(createStoragePool).toHaveBeenCalledTimes(1);
+    expect(createStoragePool.mock.calls[0]?.[0]).toMatchObject({
+      storagePool: expect.objectContaining({
+        serviceLevel: 'FLEX',
+        type: 2,
+        scaleType: 'SCALE_TYPE_SCALEOUT',
+      }),
+    });
+  });
+
+  it('createStoragePoolHandler accepts all valid scaleType values (case-insensitive)', async () => {
+    const createStoragePool = vi.fn().mockResolvedValue([{ name: 'op-create' }]);
+    createClientMock.mockReturnValue({ createStoragePool });
+    const { createStoragePoolHandler } = await import('./storage-pool-handler.js');
+
+    const defaults = ['SCALE_TYPE_DEFAULT', 'scale_type_default', 'Scale_Type_Default'];
+    for (const scaleType of defaults) {
+      createStoragePool.mockClear();
+      await createStoragePoolHandler({
+        projectId: 'p1',
+        location: 'us-central1-a',
+        storagePoolId: 'sp1',
+        capacityGib: 1024,
+        serviceLevel: 'FLEX',
+        network: 'net1',
+        scaleType,
+      });
+      expect(createStoragePool.mock.calls[0]?.[0]).toMatchObject({
+        storagePool: expect.objectContaining({ scaleType: 'SCALE_TYPE_DEFAULT' }),
+      });
+    }
+
+    createStoragePool.mockClear();
+    await createStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1-a',
+      storagePoolId: 'sp1',
+      capacityGib: 1024,
+      serviceLevel: 'FLEX',
+      network: 'net1',
+      scaleType: 'SCALE_TYPE_UNSPECIFIED',
+    });
+    expect(createStoragePool.mock.calls[0]?.[0]).toMatchObject({
+      storagePool: expect.objectContaining({ scaleType: 'SCALE_TYPE_UNSPECIFIED' }),
+    });
+  });
+
+  it('createStoragePoolHandler rejects invalid scaleType', async () => {
+    const createStoragePool = vi.fn().mockResolvedValue([{ name: 'op-create' }]);
+    createClientMock.mockReturnValue({ createStoragePool });
+    const { createStoragePoolHandler } = await import('./storage-pool-handler.js');
+
+    const result = await createStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1-a',
+      storagePoolId: 'sp1',
+      capacityGib: 1024,
+      serviceLevel: 'FLEX',
+      network: 'net1',
+      scaleType: 'INVALID_SCALE',
+    });
+
+    expect((result as any).isError).toBe(true);
+    expect((result as any).content?.[0]?.text).toContain('scaleType must be one of');
+    expect(createStoragePool).not.toHaveBeenCalled();
+  });
+
+  it('createStoragePoolHandler rejects non-string scaleType', async () => {
+    const createStoragePool = vi.fn().mockResolvedValue([{ name: 'op-create' }]);
+    createClientMock.mockReturnValue({ createStoragePool });
+    const { createStoragePoolHandler } = await import('./storage-pool-handler.js');
+
+    const result = await createStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1-a',
+      storagePoolId: 'sp1',
+      capacityGib: 1024,
+      serviceLevel: 'FLEX',
+      network: 'net1',
+      scaleType: 42,
+    });
+
+    expect((result as any).isError).toBe(true);
+    expect((result as any).content?.[0]?.text).toContain('scaleType must be a string enum name');
+    expect(createStoragePool).not.toHaveBeenCalled();
+  });
+
+  it('createStoragePoolHandler omits scaleType from payload when storagePoolType is not UNIFIED and scaleType not provided', async () => {
+    const createStoragePool = vi.fn().mockResolvedValue([{ name: 'op-create' }]);
+    createClientMock.mockReturnValue({ createStoragePool });
+    const { createStoragePoolHandler } = await import('./storage-pool-handler.js');
+
+    await createStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      capacityGib: 2048,
+      serviceLevel: 'PREMIUM',
+      network: 'net1',
+    });
+
+    const payload = createStoragePool.mock.calls[0]?.[0]?.storagePool;
+    expect(payload).not.toHaveProperty('scaleType');
+  });
+
+  it('createStoragePoolHandler omits scaleType from payload when UNIFIED pool created without scaleType', async () => {
+    const createStoragePool = vi.fn().mockResolvedValue([{ name: 'op-create' }]);
+    createClientMock.mockReturnValue({ createStoragePool });
+    const { createStoragePoolHandler } = await import('./storage-pool-handler.js');
+
+    // No auto-inference — scaleType must be provided explicitly
+    await createStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1-a',
+      storagePoolId: 'sp1',
+      capacityGib: 6144,
+      serviceLevel: 'FLEX',
+      network: 'net1',
+      storagePoolType: 'UNIFIED',
+    });
+
+    const payload = createStoragePool.mock.calls[0]?.[0]?.storagePool;
+    expect(payload).not.toHaveProperty('scaleType');
+  });
+
+  it('createStoragePoolHandler sends SCALE_TYPE_SCALEOUT when explicitly provided for large capacity UNIFIED pool', async () => {
+    const createStoragePool = vi.fn().mockResolvedValue([{ name: 'op-create' }]);
+    createClientMock.mockReturnValue({ createStoragePool });
+    const { createStoragePoolHandler } = await import('./storage-pool-handler.js');
+
+    await createStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1-a',
+      storagePoolId: 'sp1',
+      capacityGib: 6144,
+      serviceLevel: 'FLEX',
+      network: 'net1',
+      storagePoolType: 'UNIFIED',
+      scaleType: 'SCALE_TYPE_SCALEOUT',
+    });
+
+    expect(createStoragePool.mock.calls[0]?.[0]).toMatchObject({
+      storagePool: expect.objectContaining({
+        type: 2,
+        scaleType: 'SCALE_TYPE_SCALEOUT',
+      }),
+    });
+  });
+
+  it('createStoragePoolHandler sends SCALE_TYPE_DEFAULT when explicitly provided for standard UNIFIED pool', async () => {
+    const createStoragePool = vi.fn().mockResolvedValue([{ name: 'op-create' }]);
+    createClientMock.mockReturnValue({ createStoragePool });
+    const { createStoragePoolHandler } = await import('./storage-pool-handler.js');
+
+    await createStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1-a',
+      storagePoolId: 'sp1',
+      capacityGib: 1024,
+      serviceLevel: 'FLEX',
+      network: 'net1',
+      storagePoolType: 'UNIFIED',
+      scaleType: 'SCALE_TYPE_DEFAULT',
+    });
+
+    expect(createStoragePool.mock.calls[0]?.[0]).toMatchObject({
+      storagePool: expect.objectContaining({
+        type: 2,
+        scaleType: 'SCALE_TYPE_DEFAULT',
+      }),
+    });
+  });
+
+  it('createStoragePoolHandler rejects UNIFIED storagePoolType for non-FLEX service levels', async () => {
     const createStoragePool = vi.fn().mockResolvedValue([{ name: 'op-create' }]);
     createClientMock.mockReturnValue({ createStoragePool });
 
@@ -121,11 +310,11 @@ describe('storage-pool-handler', () => {
       capacityGib: 100,
       serviceLevel: 'STANDARD',
       network: 'net1',
-      storagePoolType: 'UNIFIED_LARGE_CAPACITY',
+      storagePoolType: 'UNIFIED',
     });
 
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('storagePoolType UNIFIED and UNIFIED_LARGE_CAPACITY');
+    expect(result.content[0].text).toContain('storagePoolType UNIFIED is only supported');
     expect(createStoragePool).not.toHaveBeenCalled();
   });
 
@@ -927,9 +1116,7 @@ describe('storage-pool-handler', () => {
       storagePoolType: 'UNIFIED',
     });
     expect((nonFlex as any).isError).toBe(true);
-    expect((nonFlex as any).content?.[0]?.text).toContain(
-      'UNIFIED and UNIFIED_LARGE_CAPACITY are only supported'
-    );
+    expect((nonFlex as any).content?.[0]?.text).toContain('UNIFIED is only supported');
   });
 
   it('updateStoragePoolHandler supports updating zone and replicaZone', async () => {

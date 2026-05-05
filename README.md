@@ -113,10 +113,12 @@ HTTP endpoint: `http://localhost:<port>/message`
 
 **Service level guidance:**
 
-- **FLEX** -- Smaller minimums, broader region availability, independent performance scaling. Minimum: 1024 GiB (FILE/UNIFIED) or 6144 GiB (UNIFIED_LARGE_CAPACITY).
+- **FLEX** -- Smaller minimums, broader region availability, independent performance scaling. Minimum: 1024 GiB (FILE/UNIFIED) or 6144 GiB (UNIFIED large capacity).
 - **STANDARD / PREMIUM / EXTREME** -- Classic tiers with fixed performance-to-capacity ratio. Minimum: 2048 GiB.
 - `serviceLevel` is accepted case-insensitively (e.g. `flex` or `FLEX`).
 - FLEX pools in a region-level location require both `zone` and `replicaZone`; zone-level locations satisfy this automatically.
+- `storagePoolType` accepts `FILE` or `UNIFIED`; `UNIFIED` is only available for FLEX.
+- `scaleType` accepts `SCALE_TYPE_DEFAULT` (standard capacity, general purpose) or `SCALE_TYPE_SCALEOUT` (higher capacity and performance, used for large capacity UNIFIED pools).
 
 ### Volume Tools
 
@@ -130,7 +132,9 @@ HTTP endpoint: `http://localhost:<port>/message`
 
 **iSCSI notes:** Protocols must be `["ISCSI"]` only (no mixing). Requires `hostGroup` or `hostGroups`. Optional `blockDevice` object with `identifier`, `osType` (`LINUX` / `WINDOWS` / `ESXI`), and `sizeGib`.
 
-**Large capacity volumes:** Set `largeCapacity: true` (Premium/Extreme only, minimum 15 TiB). Optional `multipleEndpoints: true`.
+**Large capacity volumes:** Set `largeCapacity: true` to create a large-capacity volume. Required when the storage pool is a Unified scale-out / large-capacity pool (volumes in such pools must themselves be large-capacity). The MCP server sends `largeCapacityConfig: {}` (Volume field 46) — the legacy `largeCapacity` boolean is reserved for legacy FILE pools and is mutually exclusive. FLEX scale-out / PREMIUM / EXTREME; minimum 4916 GiB. Optional `multipleEndpoints: true`.
+
+> Note: `LargeCapacityConfig` is not yet shipped in `@google-cloud/netapp@0.17.1`. This repo applies a small `patch-package` patch (`patches/@google-cloud+netapp+0.17.1.patch`) to add the message + Volume field 46 to the bundled proto so the gRPC client can serialize it. The patch is applied automatically via the `postinstall` script.
 
 **SMB attributes:** When `protocols` includes `SMB`, `gcnv_volume_create` accepts optional SMB feature flags that map to the `smbSettings` field on the volume:
 
