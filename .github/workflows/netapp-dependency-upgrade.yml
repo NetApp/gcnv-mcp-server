@@ -52,8 +52,9 @@ jobs:
         run: |
           # Numeric semver comparison guards against accidental downgrades.
           NEEDS_UPGRADE=$(node -e "
-            const [lMaj, lMin, lPat] = process.env.LATEST.split('.').map(Number);
-            const [cMaj, cMin, cPat] = process.env.CURRENT.split('.').map(Number);
+            const clean = v => v.split('-')[0];
+            const [lMaj, lMin, lPat] = clean(process.env.LATEST).split('.').map(Number);
+            const [cMaj, cMin, cPat] = clean(process.env.CURRENT).split('.').map(Number);
             const newer =
               lMaj > cMaj ||
               (lMaj === cMaj && lMin > cMin) ||
@@ -115,7 +116,7 @@ jobs:
         if: steps.semver.outputs.needs_upgrade == 'true' && steps.existing_pr.outputs.count == '0'
         env:
           LATEST: ${{ steps.versions.outputs.latest }}
-        run: npm install @google-cloud/netapp@"$LATEST" --no-fund --no-audit
+        run: npm install @google-cloud/netapp@"$LATEST" --no-fund --no-audit --ignore-scripts
 
       - name: Commit changes
         if: steps.semver.outputs.needs_upgrade == 'true' && steps.existing_pr.outputs.count == '0'
@@ -130,7 +131,11 @@ jobs:
         if: steps.semver.outputs.needs_upgrade == 'true' && steps.existing_pr.outputs.count == '0'
         env:
           BRANCH: ${{ steps.existing_pr.outputs.branch }}
-        run: git push origin "$BRANCH"
+        run: |
+          # Delete the remote branch if it exists from a previously closed PR
+          # to avoid a non-fast-forward push failure.
+          git push origin --delete "$BRANCH" || true
+          git push origin "$BRANCH"
 
       - name: Open PR
         if: steps.semver.outputs.needs_upgrade == 'true' && steps.existing_pr.outputs.count == '0'
