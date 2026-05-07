@@ -1,0 +1,163 @@
+# Runs weekly to detect new releases of @google-cloud/netapp and opens a PR
+# targeting main for team review. Dependabot is configured to ignore this
+# package (see dependabot.yml) to avoid duplicate upgrade PRs.
+name: NetApp dependency upgrade
+
+on:
+  schedule:
+    # Every Monday at 06:00 UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# Prevents concurrent runs from racing to create duplicate PRs.
+concurrency:
+  group: netapp-dependency-upgrade
+  cancel-in-progress: false
+
+jobs:
+  check-and-pr:
+    name: Check for new @google-cloud/netapp release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Resolve versions
+        id: versions
+        run: |
+          LATEST=$(npm view @google-cloud/netapp version)
+          CURRENT=$(node -p "require('./package.json').dependencies['@google-cloud/netapp'].replace(/^[\^~>=]+/, '')")
+          echo "latest=$LATEST"   >> "$GITHUB_OUTPUT"
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+
+      - name: Check if upgrade is needed (semver-aware)
+        id: semver
+        env:
+          LATEST: ${{ steps.versions.outputs.latest }}
+          CURRENT: ${{ steps.versions.outputs.current }}
+        run: |
+          # Numeric semver comparison guards against accidental downgrades.
+          NEEDS_UPGRADE=$(node -e "
+            const [lMaj, lMin, lPat] = process.env.LATEST.split('.').map(Number);
+            const [cMaj, cMin, cPat] = process.env.CURRENT.split('.').map(Number);
+            const newer =
+              lMaj > cMaj ||
+              (lMaj === cMaj && lMin > cMin) ||
+              (lMaj === cMaj && lMin === cMin && lPat > cPat);
+            console.log(newer ? 'true' : 'false');
+          ")
+          echo "needs_upgrade=$NEEDS_UPGRADE" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if already up to date
+        if: steps.semver.outputs.needs_upgrade == 'false'
+        run: |
+          echo "@google-cloud/netapp is already at the latest version (${{ steps.versions.outputs.current }}). Nothing to do."
+
+      - name: Check for existing PR for this version
+        if: steps.semver.outputs.needs_upgrade == 'true'
+        id: existing_pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LATEST: ${{ steps.versions.outputs.latest }}
+        run: |
+          BRANCH="deps/update-google-cloud-netapp-sdk-$LATEST"
+          COUNT=$(gh pr list --head "$BRANCH" --state open --json number --jq 'length')
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if PR already exists for this version
+        if: steps.semver.outputs.needs_upgrade == 'true' && steps.existing_pr.outputs.count != '0'
+        run: |
+          echo "A PR for @google-cloud/netapp ${{ steps.versions.outputs.latest }} already exists. Nothing to do."
+
+      - name: Close stale upgrade PRs for older versions
+        if: steps.semver.outputs.needs_upgrade == 'true' && steps.existing_pr.outputs.count == '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LATEST: ${{ steps.versions.outputs.latest }}
+        run: |
+          STALE_PRS=$(gh pr list \
+            --state open \
+            --json number,headRefName \
+            --jq '.[] | select(.headRefName | startswith("deps/update-google-cloud-netapp-sdk-")) | select(.headRefName != "deps/update-google-cloud-netapp-sdk-'"$LATEST"'") | .number')
+          for PR in $STALE_PRS; do
+            echo "Closing stale PR #$PR"
+            gh pr close "$PR" --comment "Superseded by a newer @google-cloud/netapp upgrade PR."
+          done
+
+      - name: Configure git identity
+        if: steps.semver.outputs.needs_upgrade == 'true' && steps.existing_pr.outputs.count == '0'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create upgrade branch
+        if: steps.semver.outputs.needs_upgrade == 'true' && steps.existing_pr.outputs.count == '0'
+        env:
+          BRANCH: ${{ steps.existing_pr.outputs.branch }}
+        run: git checkout -b "$BRANCH"
+
+      - name: Install new version
+        if: steps.semver.outputs.needs_upgrade == 'true' && steps.existing_pr.outputs.count == '0'
+        env:
+          LATEST: ${{ steps.versions.outputs.latest }}
+        run: npm install @google-cloud/netapp@"$LATEST" --no-fund --no-audit
+
+      - name: Commit changes
+        if: steps.semver.outputs.needs_upgrade == 'true' && steps.existing_pr.outputs.count == '0'
+        env:
+          CURRENT: ${{ steps.versions.outputs.current }}
+          LATEST: ${{ steps.versions.outputs.latest }}
+        run: |
+          git add package.json package-lock.json
+          git commit -m "chore(deps): bump @google-cloud/netapp from $CURRENT to $LATEST"
+
+      - name: Push branch
+        if: steps.semver.outputs.needs_upgrade == 'true' && steps.existing_pr.outputs.count == '0'
+        env:
+          BRANCH: ${{ steps.existing_pr.outputs.branch }}
+        run: git push origin "$BRANCH"
+
+      - name: Open PR
+        if: steps.semver.outputs.needs_upgrade == 'true' && steps.existing_pr.outputs.count == '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CURRENT: ${{ steps.versions.outputs.current }}
+          LATEST: ${{ steps.versions.outputs.latest }}
+          BRANCH: ${{ steps.existing_pr.outputs.branch }}
+        run: |
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "chore(deps): bump @google-cloud/netapp from $CURRENT to $LATEST" \
+            --label "dependencies" \
+            --body "$(cat <<EOF
+          ## Dependency upgrade: \`@google-cloud/netapp\`
+
+          | | Version |
+          |---|---|
+          | **Current** | \`$CURRENT\` |
+          | **Latest** | \`$LATEST\` |
+
+          ### Links
+          - [npm changelog](https://www.npmjs.com/package/@google-cloud/netapp?activeTab=versions)
+          - [GitHub releases](https://github.com/googleapis/google-cloud-node/releases?q=%40google-cloud%2Fnetapp)
+
+          ---
+          *Opened automatically by the [NetApp dependency upgrade](${{ github.server_url }}/${{ github.repository }}/actions/workflows/netapp-dependency-upgrade.yml) workflow.*
+          EOF
+          )"
