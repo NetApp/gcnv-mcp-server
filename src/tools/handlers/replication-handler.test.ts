@@ -210,7 +210,7 @@ describe('replication-handler', () => {
       name: 'projects/p1/locations/us-central1/volumes/vol1/replications/r1',
       replicationId: 'r1',
     });
-    expect((result.structuredContent as any).createTime).toBeInstanceOf(Date);
+    expect((result.structuredContent as any).createTime).toMatch(/^\d{4}-/);
   });
 
   it('getReplicationHandler formats lastReplicationTime when present', async () => {
@@ -230,7 +230,7 @@ describe('replication-handler', () => {
       replicationId: 'r1',
     });
 
-    expect((result.structuredContent as any).lastReplicationTime).toBeInstanceOf(Date);
+    expect((result.structuredContent as any).lastReplicationTime).toMatch(/^\d{4}-/);
   });
 
   it('getReplicationHandler formats all optional fields', async () => {
@@ -266,8 +266,8 @@ describe('replication-handler', () => {
       description: 'd',
       labels: { a: 'b' },
     });
-    expect((result.structuredContent as any).createTime).toBeInstanceOf(Date);
-    expect((result.structuredContent as any).lastReplicationTime).toBeInstanceOf(Date);
+    expect((result.structuredContent as any).createTime).toMatch(/^\d{4}-/);
+    expect((result.structuredContent as any).lastReplicationTime).toMatch(/^\d{4}-/);
   });
 
   it('getReplicationHandler normalizes non-string state to UNKNOWN', async () => {

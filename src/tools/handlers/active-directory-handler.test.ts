@@ -167,7 +167,7 @@ describe('active-directory-handler', () => {
       activeDirectoryId: 'ad1',
       domain: 'example.com',
     });
-    expect((result.structuredContent as any).createTime).toBeInstanceOf(Date);
+    expect((result.structuredContent as any).createTime).toMatch(/^\d{4}-/);
   });
 
   it('getActiveDirectoryHandler formats all optional fields', async () => {
@@ -207,7 +207,7 @@ describe('active-directory-handler', () => {
       description: 'd',
       labels: { a: 'b' },
     });
-    expect((result.structuredContent as any).createTime).toBeInstanceOf(Date);
+    expect((result.structuredContent as any).createTime).toMatch(/^\d{4}-/);
   });
 
   it('getActiveDirectoryHandler normalizes non-string state to UNKNOWN', async () => {

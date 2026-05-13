@@ -79,7 +79,7 @@ export const createBackupPolicyHandler: ToolHandler = async (args) => {
         },
       ],
       structuredContent: {
-        name: `projects/${projectId}/locations/${location}/backupPolicy/${backupPolicyId}`,
+        name: `projects/${projectId}/locations/${location}/backupPolicies/${backupPolicyId}`,
         operationId: operation.name || '',
       },
     };
@@ -166,8 +166,8 @@ export const getBackupPolicyHandler: ToolHandler = async (args) => {
       assignedVolumeCount: backupPolicy.assignedVolumeCount,
       state: normalizeStringEnum(backupPolicy.state),
       createTime: backupPolicy.createTime
-        ? new Date(Number((backupPolicy.createTime as any).seconds || 0) * 1000)
-        : new Date(),
+        ? new Date(Number((backupPolicy.createTime as any).seconds || 0) * 1000).toISOString()
+        : undefined,
       labels: backupPolicy.labels,
     };
 
@@ -235,7 +235,7 @@ export const listBackupPoliciesHandler: ToolHandler = async (args) => {
         assignedVolumeCount: policy.assignedVolumeCount,
         state: normalizeStringEnum(policy.state),
         createTime: policy.createTime
-          ? new Date(Number(policy.createTime.seconds ?? 0) * 1000)
+          ? new Date(Number(policy.createTime.seconds ?? 0) * 1000).toISOString()
           : undefined,
         labels: policy.labels,
       })),

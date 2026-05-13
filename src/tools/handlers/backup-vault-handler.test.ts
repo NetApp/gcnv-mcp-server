@@ -113,7 +113,7 @@ describe('backup-vault-handler', () => {
       sourceBackupVault: '',
       destinationBackupVault: '',
     });
-    expect((result.structuredContent as any).createTime).toBeInstanceOf(Date);
+    expect((result.structuredContent as any).createTime).toMatch(/^\d{4}-/);
   });
 
   it('getBackupVaultHandler handles undefined backupVault (covers formatBackupVaultData !backupVault branch)', async () => {
@@ -219,7 +219,7 @@ describe('backup-vault-handler', () => {
       backupVaultId: 'bv1',
     });
 
-    expect((result.structuredContent as any).updateTime).toBeInstanceOf(Date);
+    expect((result.structuredContent as any).updateTime).toMatch(/^\d{4}-/);
   });
 
   it('getBackupVaultHandler formats all optional fields (covers most formatBackupVaultData branches)', async () => {
@@ -265,8 +265,8 @@ describe('backup-vault-handler', () => {
       description: 'd',
       labels: { a: 'b' },
     });
-    expect((result.structuredContent as any).createTime).toBeInstanceOf(Date);
-    expect((result.structuredContent as any).updateTime).toBeInstanceOf(Date);
+    expect((result.structuredContent as any).createTime).toMatch(/^\d{4}-/);
+    expect((result.structuredContent as any).updateTime).toMatch(/^\d{4}-/);
   });
 
   it('listBackupVaultsHandler calls listBackupVaults and returns formatted list', async () => {

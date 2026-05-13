@@ -62,7 +62,7 @@ export const getKmsConfigTool: ToolConfig = {
       .string()
       .optional()
       .describe('Additional state details when the KMS config is not ready'),
-    createTime: z.date().optional().describe('The creation timestamp'),
+    createTime: z.string().optional().describe('The creation timestamp'),
     description: z.string().optional().describe('Description'),
     labels: z.record(z.string()).optional().describe('Labels'),
     serviceAccount: z
@@ -104,7 +104,7 @@ export const listKmsConfigsTool: ToolConfig = {
             .string()
             .optional()
             .describe('Additional state details when the KMS config is not ready'),
-          createTime: z.date().optional().describe('The creation timestamp'),
+          createTime: z.string().optional().describe('The creation timestamp'),
           description: z.string().optional().describe('Description'),
           labels: z.record(z.string()).optional().describe('Labels'),
           serviceAccount: z

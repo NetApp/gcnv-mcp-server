@@ -4,20 +4,21 @@ A [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server for man
 
 ## Supported Resources
 
-| Resource             | Operations                                                                                  |
-| -------------------- | ------------------------------------------------------------------------------------------- |
-| **Storage Pools**    | create, get, list, update, delete, validate directory service                               |
-| **Volumes**          | create, get, list, update, delete                                                           |
-| **Snapshots**        | create, get, list, update, delete, revert                                                   |
-| **Backup Vaults**    | create, get, list, update, delete                                                           |
-| **Backups**          | create, get, list, update, delete, restore, restore files                                   |
-| **Backup Policies**  | create, get, list, update, delete                                                           |
-| **Replications**     | create, get, list, update, delete, stop, resume, reverse direction, sync, establish peering |
-| **Active Directory** | create, get, list, update, delete                                                           |
-| **KMS Configs**      | create, get, list, update, delete, verify, encrypt volumes                                  |
-| **Quota Rules**      | create, get, list, update, delete                                                           |
-| **Host Groups**      | create, get, list, update, delete                                                           |
-| **Operations**       | get, list, cancel                                                                           |
+| Resource              | Operations                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------- |
+| **Storage Pools**     | create, get, list, update, delete, validate directory service                               |
+| **Volumes**           | create, get, list, update, delete                                                           |
+| **Snapshots**         | create, get, list, update, delete, revert                                                   |
+| **Backup Vaults**     | create, get, list, update, delete                                                           |
+| **Backups**           | create, get, list, update, delete, restore, restore files                                   |
+| **Backup Policies**   | create, get, list, update, delete                                                           |
+| **Replications**      | create, get, list, update, delete, stop, resume, reverse direction, sync, establish peering |
+| **Active Directory**  | create, get, list, update, delete                                                           |
+| **KMS Configs**       | create, get, list, update, delete, verify, encrypt volumes                                  |
+| **Quota Rules**       | create, get, list, update, delete                                                           |
+| **Host Groups**       | create, get, list, update, delete                                                           |
+| **Operations**        | get, list, cancel                                                                           |
+| **ONTAP Expert Mode** | discover and execute supported ONTAP REST operations for ONTAP-mode pools                   |
 
 ## Prerequisites
 
@@ -94,6 +95,8 @@ npm start -- -t http -p 8080       # custom port
 
 HTTP endpoint: `http://localhost:<port>/message`
 
+> **Security note:** The HTTP/SSE transport does not provide built-in TLS. If you expose it beyond a local trusted client, use customer-managed TLS and network access controls, such as a reverse proxy, VPN, service mesh, or SSH tunnel. Do not expose the MCP HTTP endpoint directly to the public internet.
+
 ## Tool Reference
 
 ### Storage Pool Tools
@@ -115,6 +118,7 @@ HTTP endpoint: `http://localhost:<port>/message`
 - FLEX pools in a region-level location require both `zone` and `replicaZone`; zone-level locations satisfy this automatically.
 - `storagePoolType` accepts `FILE` or `UNIFIED`; `UNIFIED` is only available for FLEX.
 - `scaleType`: only set to `SCALE_TYPE_SCALEOUT` when creating a large capacity FLEX `UNIFIED` pool. Omit for all other pools (defaults to `SCALE_TYPE_DEFAULT`).
+- `mode`: defaults to `DEFAULT` for a standard pool, or set to `ONTAP` to create an ONTAP-mode pool that exposes advanced ONTAP features (SnapMirror, QoS policies, direct ONTAP REST access) via the [ONTAP Expert Mode Tools](#ontap-expert-mode-tools). ONTAP mode requires `serviceLevel: FLEX` and `storagePoolType: UNIFIED`.
 
 ### Volume Tools
 
@@ -259,6 +263,34 @@ Replication is supported between specific region pairs (Standard/Premium/Extreme
 | `gcnv_operation_list`   | List operations with filtering and pagination |
 | `gcnv_operation_cancel` | Cancel an in-progress operation               |
 
+### ONTAP Expert Mode Tools
+
+ONTAP Expert Mode is available for storage pools created with `mode: ONTAP`. It exposes supported ONTAP REST operations through the MCP server while still using Google Cloud authentication and the GCNV control plane proxy. No separate ONTAP credentials or direct ONTAP endpoint configuration are required.
+
+| Tool               | Description                                                         |
+| ------------------ | ------------------------------------------------------------------- |
+| `ontap_discover`   | Search the bundled ONTAP REST index by resource or intent           |
+| `ontap_execute`    | Execute a discovered ONTAP REST endpoint                            |
+| `ontap_audit_log`  | Enable or disable local Markdown audit logging for ONTAP tool calls |
+| `ontap_job_get`    | Poll an ONTAP async job until success or failure                    |
+| `ontap_svm_list`   | List ONTAP SVM details for a pool                                   |
+| `ontap_volume_*`   | Convenience tools for common ONTAP volume operations                |
+| `ontap_snapshot_*` | Convenience tools for common ONTAP snapshot operations              |
+| `ontap_lun_*`      | Convenience tools for common ONTAP LUN operations                   |
+
+For advanced resources such as QoS policies, SnapMirror, export policies, CIFS services, igroups, snapshot policies, SnapLock, Event Based Retention, schedules, and cluster/SVM peering, use `ontap_discover` first and then call `ontap_execute` with the discovered method, path, and body template.
+
+`ontap_discover` responses include descriptions, hints, example body templates, and generated `requiredBody` metadata when ONTAP swagger marks body fields as required. `ontap_execute` preflight-validates requests against the bundled API index (method, path, and required body fields) before calling ONTAP. Unlisted paths — including GET — are rejected with a `scope_denied` envelope; use `ontap_discover` to find supported endpoints. For POST/PATCH calls, pass the body as a JSON string.
+
+ONTAP mutating operations commonly return async jobs. After create, update, delete, or replication actions, poll the returned job UUID with `ontap_job_get`; a returned job reference does not by itself mean the operation is complete.
+
+Safety guardrails:
+
+- ONTAP DELETE operations are preview-first. The first call returns a delete preview with the target `resourceName` (resolved via read-only GET). After explicit user approval, call again with `confirmDelete=true` and `confirmedResourceName` set to the exact name from the preview. Applies to `ontap_execute` DELETE and dedicated delete tools (`ontap_volume_delete`, `ontap_snapshot_delete`, `ontap_lun_delete`).
+- Some endpoints are out of scope for this MCP server or blocked by the proxy/RBAC policy. These return a `scope_denied` envelope and should not be retried with sibling paths or private CLI variants.
+- `/api/private/cli` subpaths are intentionally blocked at preflight. Use public `/api/...` endpoints from `ontap_discover` or dedicated tools instead.
+- User-facing clients should redact sensitive fields before displaying tool output.
+
 ## Architecture
 
 ```
@@ -267,15 +299,29 @@ src/
   logger.ts                         # Structured logging (pino)
   registry/
     register-tools.ts               # Tool registration
+  resources/
+    ontap-api-index.json            # Static ONTAP REST API catalog (powers ontap_discover)
   tools/
     *-tools.ts                      # Tool definitions (Zod schemas)
+    ontap-*-tool.ts                 # ONTAP Expert Mode tool schemas
     handlers/
       *-handler.ts                  # Tool implementations
   types/
     tool.ts                         # Shared TypeScript interfaces
   utils/
     netapp-client-factory.ts        # NetApp client factory with caching
+    ontap-http-client.ts            # ONTAP REST client (auth, body envelope, response unwrapping)
+    ontap-index-loader.ts           # Loads and indexes the ONTAP API catalog
+    ontap-preflight-validator.ts    # Pre-execution validation (index allowlist, CLI block, required body)
+    ontap-delete-preview.ts         # DELETE preview / confirmation guardrail
+    ontap-response-utils.ts         # ONTAP response shaping and error helpers
+    ontap-audit-logger.ts           # Optional Markdown audit log for ONTAP tool calls
+    scope-denied-envelope.ts        # Proxy/RBAC scope denial envelope
 ```
+
+## Troubleshooting
+
+**`ontap_execute` returns `scope_denied: ONTAP API index could not be loaded ...`** — the bundled API index file is missing or unreadable, usually from an incomplete install. Re-add `gcnv-mcp-server` in your MCP client to trigger a fresh `npx` download; if that doesn't help, run `npm cache clean --force` and re-add. Persistent failures: file an issue at <https://github.com/NetApp/gcnv-mcp-server> with the server log.
 
 ## Development
 
@@ -286,6 +332,7 @@ npm install
 npm run build          # lint + format + compile
 npm test               # run all tests
 npm run test:coverage  # with coverage report
+npm run sbom           # print an SPDX SBOM
 ```
 
 ### Dev mode

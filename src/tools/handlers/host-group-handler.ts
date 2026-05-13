@@ -54,7 +54,7 @@ function formatHostGroupData(hostGroup: any): any {
   if (hostGroup.labels) result.labels = hostGroup.labels;
 
   if (hostGroup.createTime && hostGroup.createTime.seconds !== undefined) {
-    result.createTime = new Date(Number(hostGroup.createTime.seconds) * 1000);
+    result.createTime = new Date(Number(hostGroup.createTime.seconds) * 1000).toISOString();
   }
 
   return result;

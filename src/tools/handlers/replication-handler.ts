@@ -30,11 +30,13 @@ function formatReplicationData(replication: any): any {
 
   // Format timestamps if they exist
   if (replication.createTime) {
-    result.createTime = new Date(replication.createTime.seconds * 1000);
+    result.createTime = new Date(replication.createTime.seconds * 1000).toISOString();
   }
 
   if (replication.lastReplicationTime) {
-    result.lastReplicationTime = new Date(replication.lastReplicationTime.seconds * 1000);
+    result.lastReplicationTime = new Date(
+      replication.lastReplicationTime.seconds * 1000
+    ).toISOString();
   }
 
   // Copy optional properties

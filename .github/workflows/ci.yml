@@ -60,9 +60,8 @@ jobs:
           console.log('Manifest OK:', m.name);
           "
 
-      - name: Security audit (informational)
-        run: npm audit --audit-level=high
-        continue-on-error: true
+      - name: Security audit
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Smoke test — server starts (stdio)
         run: |

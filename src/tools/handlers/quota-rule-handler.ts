@@ -75,7 +75,7 @@ function formatQuotaRuleData(rule: any): any {
   if (rule.state !== undefined) result.state = normalizeStringEnum(rule.state);
 
   if (rule.createTime) {
-    result.createTime = new Date(rule.createTime.seconds * 1000);
+    result.createTime = new Date(rule.createTime.seconds * 1000).toISOString();
   }
 
   if (rule.description) result.description = rule.description;

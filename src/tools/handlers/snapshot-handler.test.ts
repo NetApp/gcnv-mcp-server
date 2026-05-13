@@ -142,7 +142,7 @@ describe('snapshot-handler', () => {
       snapshotId: 's1',
       volumeId: 'vol1',
     });
-    expect((result.structuredContent as any).createTime).toBeInstanceOf(Date);
+    expect((result.structuredContent as any).createTime).toMatch(/^\d{4}-/);
   });
 
   it('getSnapshotHandler handles snapshot name without /volumes/../snapshots pattern (covers regex false branch)', async () => {

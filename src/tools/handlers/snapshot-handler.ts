@@ -32,7 +32,7 @@ function formatSnapshotData(snapshot: any): any {
 
   // Format timestamps if they exist
   if (snapshot.createTime) {
-    result.createTime = new Date(snapshot.createTime.seconds * 1000);
+    result.createTime = new Date(snapshot.createTime.seconds * 1000).toISOString();
   }
 
   // Copy optional properties

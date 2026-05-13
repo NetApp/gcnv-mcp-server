@@ -67,6 +67,39 @@ function normalizeStoragePoolState(state: any): string {
   return typeof state === 'string' ? state : 'UNKNOWN';
 }
 
+function normalizeStoragePoolMode(mode: any): string | undefined {
+  if (typeof mode === 'string') return mode;
+  if (typeof mode === 'number') {
+    if (mode === 1) return 'DEFAULT';
+    if (mode === 2) return 'ONTAP';
+    return String(mode);
+  }
+  return undefined;
+}
+
+function formatCreateTime(createTime: any): string | undefined {
+  const seconds = createTime?.seconds;
+  if (seconds === undefined || seconds === null) return undefined;
+
+  const millis = Number(seconds) * 1000;
+  if (!Number.isFinite(millis)) return undefined;
+
+  return new Date(millis).toISOString();
+}
+
+function isOntapPool(pool: { mode?: any }): boolean {
+  const mode = pool.mode;
+  if (typeof mode === 'string') return mode.toUpperCase() === 'ONTAP';
+  if (typeof mode === 'number') return mode === 2;
+  return false;
+}
+
+const ONTAP_TOOL_GUIDANCE =
+  '⚠️ ONTAP Expert Mode Pool Detected: This pool uses ONTAP expert mode. ' +
+  'To manage resources (volumes, LUNs, snapshots, SVMs, etc.) on this pool, ' +
+  'use the ontap_* tools (e.g. ontap_volume_list, ontap_volume_create, ontap_discover, ontap_execute). ' +
+  'Do NOT use the standard gcnv_* volume/snapshot tools — they are for DEFAULT-mode pools only.';
+
 function isLikelyZone(location: string): boolean {
   // Treat anything ending with "-<letter>" as a zone (e.g. us-central1-a).
   // This matches GCP zone formatting without being overly strict.
@@ -418,10 +451,7 @@ export const getStoragePoolHandler: ToolHandler = async (args: { [key: string]: 
       volumecount: storagePool.volumeCount || 0,
       serviceLevel: storagePool.serviceLevel || '',
       state: normalizeStoragePoolState(storagePool.state),
-      createTime:
-        storagePool.createTime && storagePool.createTime.seconds
-          ? new Date(Number(storagePool.createTime.seconds) * 1000)
-          : new Date(),
+      createTime: formatCreateTime(storagePool.createTime),
       description: storagePool.description || '',
       labels: storagePool.labels || {},
       network: storagePool.network,
@@ -440,17 +470,19 @@ export const getStoragePoolHandler: ToolHandler = async (args: { [key: string]: 
       qosType: storagePool.qosType,
       allowAutoTiering: storagePool.allowAutoTiering ?? false,
       storagePoolType: storagePool.type,
-      mode: (storagePool as any).mode,
-      zone: storagePool.zone,
-      replicaZone: storagePool.replicaZone,
+      mode: normalizeStoragePoolMode((storagePool as any).mode),
+      zone: (storagePool as any).zone,
+      replicaZone: (storagePool as any).replicaZone,
     };
+    const contentBlocks: { type: 'text'; text: string }[] = [
+      { type: 'text' as const, text: JSON.stringify(sc, null, 2) },
+    ];
+    if (isOntapPool(storagePool as any)) {
+      contentBlocks.push({ type: 'text' as const, text: ONTAP_TOOL_GUIDANCE });
+    }
+
     return {
-      content: [
-        {
-          type: 'text' as const,
-          text: JSON.stringify(storagePool, null, 2),
-        },
-      ],
+      content: contentBlocks,
       structuredContent: sc,
     };
   } catch (error: any) {
@@ -508,10 +540,7 @@ export const listStoragePoolsHandler: ToolHandler = async (args: { [key: string]
         volumeCapacityGib: Number(pool.volumeCapacityGib) || 0,
         volumecount: pool.volumeCount || 0,
         state: normalizeStoragePoolState(pool.state),
-        createTime:
-          pool.createTime && pool.createTime.seconds
-            ? new Date(Number(pool.createTime.seconds) * 1000)
-            : new Date(),
+        createTime: formatCreateTime(pool.createTime),
         description: pool.description || '',
         labels: pool.labels || {},
         network: pool.network,
@@ -530,19 +559,29 @@ export const listStoragePoolsHandler: ToolHandler = async (args: { [key: string]
         qosType: pool.qosType,
         allowAutoTiering: pool.allowAutoTiering ?? false,
         storagePoolType: pool.type,
-        mode: pool.mode,
+        mode: normalizeStoragePoolMode(pool.mode),
         zone: pool.zone,
         replicaZone: pool.replicaZone,
       };
     });
 
+    const contentBlocks: { type: 'text'; text: string }[] = [
+      {
+        type: 'text' as const,
+        text: JSON.stringify(
+          { storagePools: formattedPools, nextPageToken: nextPageToken },
+          null,
+          2
+        ),
+      },
+    ];
+    const hasOntapPool = storagePools.some((pool: any) => isOntapPool(pool));
+    if (hasOntapPool) {
+      contentBlocks.push({ type: 'text' as const, text: ONTAP_TOOL_GUIDANCE });
+    }
+
     return {
-      content: [
-        {
-          type: 'text' as const,
-          text: JSON.stringify(storagePools, null, 2),
-        },
-      ],
+      content: contentBlocks,
       structuredContent: {
         storagePools: formattedPools,
         nextPageToken: nextPageToken,

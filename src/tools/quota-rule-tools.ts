@@ -85,7 +85,7 @@ export const getQuotaRuleTool: ToolConfig = {
     type: z.number().optional().describe('Type of quota rule (enum number)'),
     diskLimitMib: z.number().optional().describe('Quota size in MiB'),
     state: z.string().optional().describe('The current state'),
-    createTime: z.date().optional().describe('The creation timestamp'),
+    createTime: z.string().optional().describe('The creation timestamp'),
     description: z.string().optional().describe('Description'),
     labels: z.record(z.string()).optional().describe('Labels'),
   },
@@ -119,7 +119,7 @@ export const listQuotaRulesTool: ToolConfig = {
           type: z.number().optional().describe('Type of quota rule (enum number)'),
           diskLimitMib: z.number().optional().describe('Quota size in MiB'),
           state: z.string().optional().describe('The current state'),
-          createTime: z.date().optional().describe('The creation timestamp'),
+          createTime: z.string().optional().describe('The creation timestamp'),
           description: z.string().optional().describe('Description'),
           labels: z.record(z.string()).optional().describe('Labels'),
         })

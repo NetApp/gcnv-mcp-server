@@ -180,7 +180,7 @@ describe('kms-config-handler', () => {
       kmsConfigId: 'k1',
       cryptoKeyName: 'ck',
     });
-    expect((result.structuredContent as any).createTime).toBeInstanceOf(Date);
+    expect((result.structuredContent as any).createTime).toMatch(/^\d{4}-/);
   });
 
   it('getKmsConfigHandler formats all optional fields when present', async () => {
@@ -216,7 +216,7 @@ describe('kms-config-handler', () => {
       description: 'd',
       labels: { a: 'b' },
     });
-    expect((result.structuredContent as any).createTime).toBeInstanceOf(Date);
+    expect((result.structuredContent as any).createTime).toMatch(/^\d{4}-/);
   });
 
   it('getKmsConfigHandler returns isError when API returns undefined config (covers formatKmsConfigData !config branch)', async () => {

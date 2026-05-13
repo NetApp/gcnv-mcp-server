@@ -29,7 +29,7 @@ function formatActiveDirectoryData(ad: any): any {
   if (ad.state !== undefined) result.state = normalizeStringEnum(ad.state);
 
   if (ad.createTime) {
-    result.createTime = new Date(ad.createTime.seconds * 1000);
+    result.createTime = new Date(ad.createTime.seconds * 1000).toISOString();
   }
 
   if (ad.description) result.description = ad.description;

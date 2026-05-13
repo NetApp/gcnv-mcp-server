@@ -196,7 +196,7 @@ describe('backup-handler', () => {
       backupVaultId: 'bv1',
       sourceVolume: 'projects/p1/locations/us-central1/volumes/vol1',
     });
-    expect((result.structuredContent as any).createTime).toBeInstanceOf(Date);
+    expect((result.structuredContent as any).createTime).toMatch(/^\d{4}-/);
   });
 
   it('getBackupHandler formats all optional fields (covers most formatBackupData branches)', async () => {
@@ -245,7 +245,7 @@ describe('backup-handler', () => {
       sourceSnapshot: 'snap',
       labels: { a: 'b' },
     });
-    expect((result.structuredContent as any).createTime).toBeInstanceOf(Date);
+    expect((result.structuredContent as any).createTime).toMatch(/^\d{4}-/);
   });
 
   it('getBackupHandler normalizes non-string state and backupType to UNKNOWN', async () => {

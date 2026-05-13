@@ -12,12 +12,16 @@
   },
   "files": [
     "build",
+    "src/resources",
     "GEMINI.md",
     "gemini-extension.json",
     "README.md",
     "LICENSE"
   ],
   "type": "module",
+  "imports": {
+    "#resources/*": "./src/resources/*"
+  },
   "engines": {
     "node": ">=18"
   },
@@ -35,6 +39,7 @@
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
+    "sbom": "npm sbom --sbom-format=spdx",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -57,20 +62,20 @@
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@types/node": "^24.1.0",
-    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/coverage-v8": "^3.2.6",
     "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.1",
     "prettier": "^3.4.1",
     "tsx": "^4.19.1",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.48.0",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.6"
   },
   "dependencies": {
     "@google-cloud/netapp": "^0.18.0",
-    "@google-cloud/local-auth": "3.0.1",
-    "@modelcontextprotocol/sdk": "^1.20.1",
-    "axios": "^1.6.3",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "google-auth-library": "^10.7.0",
+    "google-gax": "^5.0.7",
     "pino": "^9.5.0",
     "pino-pretty": "^11.3.0",
     "zod": "^3.25.76"

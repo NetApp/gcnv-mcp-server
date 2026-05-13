@@ -268,7 +268,7 @@ describe('quota-rule-handler', () => {
       quotaRuleId: 'qr1',
       diskLimitMib: 10,
     });
-    expect((result.structuredContent as any).createTime).toBeInstanceOf(Date);
+    expect((result.structuredContent as any).createTime).toMatch(/^\d{4}-/);
   });
 
   it('getQuotaRuleHandler formats target/description when present (covers formatQuotaRuleData branches)', async () => {
@@ -331,7 +331,7 @@ describe('quota-rule-handler', () => {
     });
 
     expect(result.structuredContent).toMatchObject({ state: 'READY', labels: { a: 'b' } });
-    expect((result.structuredContent as any).createTime).toBeInstanceOf(Date);
+    expect((result.structuredContent as any).createTime).toMatch(/^\d{4}-/);
   });
 
   it('getQuotaRuleHandler normalizes non-string state to UNKNOWN', async () => {

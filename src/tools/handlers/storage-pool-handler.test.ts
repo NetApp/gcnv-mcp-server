@@ -848,7 +848,7 @@ describe('storage-pool-handler', () => {
       capacityGib: 1,
       state: 'READY',
     });
-    expect(result.structuredContent?.createTime).toBeInstanceOf(Date);
+    expect(result.structuredContent?.createTime).toMatch(/^\d{4}-/);
   });
 
   it('getStoragePoolHandler surfaces Flex custom performance fields when present', async () => {
@@ -921,7 +921,7 @@ describe('storage-pool-handler', () => {
     });
   });
 
-  it('getStoragePoolHandler uses createTime fallback when missing', async () => {
+  it('getStoragePoolHandler omits createTime when missing', async () => {
     const getStoragePool = vi
       .fn()
       .mockResolvedValue([
@@ -936,16 +936,16 @@ describe('storage-pool-handler', () => {
       storagePoolId: 'sp1',
     });
 
-    expect((result.structuredContent as any).createTime).toBeInstanceOf(Date);
+    expect((result.structuredContent as any).createTime).toBeUndefined();
   });
 
-  it('getStoragePoolHandler includes mode in structured output', async () => {
+  it('getStoragePoolHandler normalizes numeric mode in structured output', async () => {
     const getStoragePool = vi.fn().mockResolvedValue([
       {
         name: 'projects/p1/locations/us-central1/storagePools/ontap-pool',
         capacityGib: '2048',
         serviceLevel: 'FLEX',
-        mode: 'ONTAP',
+        mode: 2,
       },
     ]);
     createClientMock.mockReturnValue({ getStoragePool });
@@ -1081,6 +1081,75 @@ describe('storage-pool-handler', () => {
     });
   });
 
+  it('listStoragePoolsHandler normalizes mode in structured output for ONTAP and DEFAULT pools', async () => {
+    const listStoragePools = vi.fn().mockResolvedValue([
+      [
+        {
+          name: 'projects/p1/locations/us-central1/storagePools/ontap-pool',
+          capacityGib: '2048',
+          mode: 2,
+        },
+        {
+          name: 'projects/p1/locations/us-central1/storagePools/default-pool',
+          capacityGib: '1024',
+          mode: 1,
+        },
+        {
+          name: 'projects/p1/locations/us-central1/storagePools/old-pool',
+          capacityGib: '512',
+        },
+      ],
+      undefined,
+      undefined,
+    ]);
+    createClientMock.mockReturnValue({ listStoragePools });
+
+    const { listStoragePoolsHandler } = await import('./storage-pool-handler.js');
+    const result = await listStoragePoolsHandler({ projectId: 'p1', location: 'us-central1' });
+    const pools = (result.structuredContent as any).storagePools;
+
+    expect(pools[0]).toMatchObject({ storagePoolId: 'ontap-pool', mode: 'ONTAP' });
+    expect(pools[1]).toMatchObject({ storagePoolId: 'default-pool', mode: 'DEFAULT' });
+    expect(pools[2].mode).toBeUndefined();
+  });
+
+  it('getStoragePoolHandler includes mode in structured output', async () => {
+    const getStoragePool = vi.fn().mockResolvedValue([
+      {
+        name: 'projects/p1/locations/us-central1/storagePools/ontap-pool',
+        capacityGib: '2048',
+        serviceLevel: 'FLEX',
+        mode: 'ONTAP',
+      },
+    ]);
+    createClientMock.mockReturnValue({ getStoragePool });
+
+    const { getStoragePoolHandler } = await import('./storage-pool-handler.js');
+    const result = await getStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'ontap-pool',
+    });
+
+    expect((result.structuredContent as any).mode).toBe('ONTAP');
+  });
+
+  it('listStoragePoolsHandler passes filter to API', async () => {
+    const listStoragePools = vi.fn().mockResolvedValue([[], undefined, undefined]);
+    createClientMock.mockReturnValue({ listStoragePools });
+
+    const { listStoragePoolsHandler } = await import('./storage-pool-handler.js');
+    await listStoragePoolsHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      filter: 'state="READY"',
+    });
+
+    expect(listStoragePools).toHaveBeenCalledWith(
+      expect.objectContaining({ filter: 'state="READY"' })
+    );
+  });
+
   it('updateStoragePoolHandler preserves non-string qosType (covers typeof qosType !== \"string\" branch)', async () => {
     const updateStoragePool = vi.fn().mockResolvedValue([{ name: 'op-upd-qos2' }]);
     createClientMock.mockReturnValue({ updateStoragePool });
@@ -1116,7 +1185,7 @@ describe('storage-pool-handler', () => {
     const { listStoragePoolsHandler } = await import('./storage-pool-handler.js');
     const result = await listStoragePoolsHandler({ projectId: 'p1', location: 'us-central1' });
 
-    expect((result.structuredContent as any).storagePools[0].createTime).toBeInstanceOf(Date);
+    expect((result.structuredContent as any).storagePools[0].createTime).toMatch(/^\d{4}-/);
   });
 
   it('listStoragePoolsHandler formats sparse pools and handles missing paginated_response', async () => {
@@ -1124,7 +1193,7 @@ describe('storage-pool-handler', () => {
       [
         {
           // missing name/serviceLevel/capacity -> hit || fallbacks
-          createTime: { seconds: 0 }, // falsy seconds -> fallback new Date()
+          createTime: { seconds: 0 },
           description: '',
           labels: undefined,
           ldapEnabled: undefined,
@@ -1145,7 +1214,9 @@ describe('storage-pool-handler', () => {
       ],
       nextPageToken: undefined,
     });
-    expect((result.structuredContent as any).storagePools[0].createTime).toBeInstanceOf(Date);
+    expect((result.structuredContent as any).storagePools[0].createTime).toBe(
+      '1970-01-01T00:00:00.000Z'
+    );
   });
 
   it('listStoragePoolsHandler includes mode in structured output for ONTAP and DEFAULT pools', async () => {

@@ -103,7 +103,8 @@ export const getBackupVaultTool: ToolConfig = {
       .optional()
       .describe('The backup retention policy of the backup vault'),
     state: z.string().describe('The current state of the backup vault'),
-    createTime: z.date().describe('The creation time of the backup vault'),
+    createTime: z.string().describe('The creation time of the backup vault'),
+    updateTime: z.string().optional().describe('The last update time of the backup vault'),
     description: z.string().optional().describe('Description of the backup vault'),
     labels: z.record(z.string()).optional().describe('Labels applied to the backup vault'),
   },
@@ -155,7 +156,8 @@ export const listBackupVaultsTool: ToolConfig = {
             .optional()
             .describe('The backup retention policy of the backup vault'),
           state: z.string().describe('The current state of the backup vault'),
-          createTime: z.date().describe('The creation time of the backup vault'),
+          createTime: z.string().describe('The creation time of the backup vault'),
+          updateTime: z.string().optional().describe('The last update time of the backup vault'),
           description: z.string().optional().describe('Description of the backup vault'),
           labels: z.record(z.string()).optional().describe('Labels applied to the backup vault'),
         })

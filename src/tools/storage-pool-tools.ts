@@ -144,7 +144,7 @@ export const getStoragePoolTool: ToolConfig = {
     volumeCapacityGib: z.number().describe('The total volume capacity in GiB'),
     volumecount: z.number().describe('The number of volumes in the storage pool'),
     state: z.string().describe('The current state of the storage pool'),
-    createTime: z.date().describe('The timestamp when the storage pool was created'),
+    createTime: z.string().optional().describe('The timestamp when the storage pool was created'),
     description: z.string().optional().describe('The description of the storage pool'),
     labels: z.record(z.string()).optional().describe('Labels applied to the storage pool'),
     network: z.string().optional().describe('The VPC network used by the storage pool'),
@@ -210,7 +210,10 @@ export const listStoragePoolsTool: ToolConfig = {
           volumeCapacityGib: z.number().describe('The total volume capacity in GiB'),
           volumecount: z.number().describe('The number of volumes in the storage pool'),
           state: z.string().describe('The current state of the storage pool'),
-          createTime: z.date().describe('The timestamp when the storage pool was created'),
+          createTime: z
+            .string()
+            .optional()
+            .describe('The timestamp when the storage pool was created'),
           description: z.string().optional().describe('The description of the storage pool'),
           labels: z.record(z.string()).optional().describe('Labels applied to the storage pool'),
           network: z.string().optional().describe('The VPC network used by the storage pool'),
