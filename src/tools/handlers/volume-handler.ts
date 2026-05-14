@@ -104,6 +104,89 @@ function normalizeProtocols(raw: any): {
   return { protocols: out };
 }
 
+/** Values accepted in Volume.smbSettings (GCNV v1beta). */
+const SMB_SETTING_API_VALUES = new Set([
+  'SMB_SETTINGS_UNSPECIFIED',
+  'ENCRYPT_DATA',
+  'BROWSABLE',
+  'CHANGE_NOTIFY',
+  'NON_BROWSABLE',
+  'OPLOCKS',
+  'SHOW_SNAPSHOT',
+  'SHOW_PREVIOUS_VERSIONS',
+  'ACCESS_BASED_ENUMERATION',
+  'CONTINUOUSLY_AVAILABLE',
+]);
+
+function buildSmbSettingsForCreate(args: {
+  smbSettings?: unknown;
+  smbEncryptData?: unknown;
+  smbHideShare?: unknown;
+  smbAccessBasedEnumeration?: unknown;
+  smbContinuouslyAvailable?: unknown;
+}): { smbSettings?: string[]; error?: string } {
+  const out = new Set<string>();
+
+  if (Array.isArray(args.smbSettings)) {
+    for (const item of args.smbSettings) {
+      if (typeof item !== 'string' || item.trim() === '') {
+        return { error: 'smbSettings must be an array of non-empty strings' };
+      }
+      const v = item.trim().toUpperCase();
+      if (!SMB_SETTING_API_VALUES.has(v)) {
+        return {
+          error: `Invalid smbSettings value "${item}". Allowed: ${[...SMB_SETTING_API_VALUES].join(', ')}`,
+        };
+      }
+      if (v === 'SMB_SETTINGS_UNSPECIFIED') {
+        return {
+          error:
+            'smbSettings must not include SMB_SETTINGS_UNSPECIFIED; omit smbSettings or pass concrete enum values.',
+        };
+      }
+      out.add(v);
+    }
+  } else if (args.smbSettings !== undefined && args.smbSettings !== null) {
+    return { error: 'smbSettings must be an array of strings when provided' };
+  }
+
+  if (args.smbEncryptData === true) out.add('ENCRYPT_DATA');
+  if (args.smbHideShare === true) out.add('NON_BROWSABLE');
+  if (args.smbAccessBasedEnumeration === true) out.add('ACCESS_BASED_ENUMERATION');
+  if (args.smbContinuouslyAvailable === true) out.add('CONTINUOUSLY_AVAILABLE');
+
+  if (out.has('BROWSABLE') && out.has('NON_BROWSABLE')) {
+    return {
+      error:
+        'Conflicting SMB share visibility: BROWSABLE and NON_BROWSABLE cannot be set together (check smbSettings and smbHideShare).',
+    };
+  }
+
+  // Hide-share (NON_BROWSABLE) and CA share (CONTINUOUSLY_AVAILABLE) are mutually
+  // exclusive — the GCNV console enforces this in the volume creation UI, and CA
+  // shares are only supported on non-FLEX pools where this combination makes no
+  // practical sense (CA clients must be able to see/reconnect to the share).
+  if (out.has('NON_BROWSABLE') && out.has('CONTINUOUSLY_AVAILABLE')) {
+    return {
+      error:
+        'Conflicting SMB attributes: NON_BROWSABLE (hide share) and CONTINUOUSLY_AVAILABLE (CA share) cannot be set together (check smbHideShare/smbContinuouslyAvailable and smbSettings).',
+    };
+  }
+
+  if (out.size === 0) return {};
+  return { smbSettings: [...out] };
+}
+
+function resolveStoragePoolResourceName(
+  projectId: string,
+  location: string,
+  storagePoolId: string
+): string {
+  return String(storagePoolId || '').includes('/')
+    ? storagePoolId
+    : `projects/${projectId}/locations/${location}/storagePools/${storagePoolId}`;
+}
+
 // Helper to format volume data for responses
 function formatVolumeData(volume: any): any {
   const result: any = {};
@@ -202,6 +285,11 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
       hostGroups,
       hostGroup,
       blockDevice,
+      smbSettings: rawSmbSettings,
+      smbEncryptData,
+      smbHideShare,
+      smbAccessBasedEnumeration,
+      smbContinuouslyAvailable,
     } = args;
 
     // Create a new NetApp client using the factory
@@ -209,6 +297,11 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
 
     // Format the parent path for the volume
     const parent = `projects/${projectId}/locations/${location}`;
+    const storagePoolResourceName = resolveStoragePoolResourceName(
+      projectId,
+      location,
+      String(storagePoolId)
+    );
 
     // Large Capacity Volumes guardrails:
     // - Premium/Extreme only (enforced by checking the storage pool service level)
@@ -238,10 +331,7 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
         };
       }
 
-      const storagePoolName = String(storagePoolId || '').includes('/')
-        ? storagePoolId
-        : `projects/${projectId}/locations/${location}/storagePools/${storagePoolId}`;
-      const [pool] = await netAppClient.getStoragePool({ name: storagePoolName });
+      const [pool] = await netAppClient.getStoragePool({ name: storagePoolResourceName });
       const poolServiceLevel = (pool?.serviceLevel || '').toString().toUpperCase();
       if (poolServiceLevel !== 'PREMIUM' && poolServiceLevel !== 'EXTREME') {
         return {
@@ -271,6 +361,47 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
 
     const normalizedProtocolNames: Array<'NFSV3' | 'NFSV4' | 'SMB' | 'ISCSI'> =
       protocols && protocols.length > 0 ? protocols : ['NFSV3'];
+
+    const { smbSettings: smbSettingsList, error: smbSettingsError } = buildSmbSettingsForCreate({
+      smbSettings: rawSmbSettings,
+      smbEncryptData,
+      smbHideShare,
+      smbAccessBasedEnumeration,
+      smbContinuouslyAvailable,
+    });
+    if (smbSettingsError) {
+      return {
+        isError: true,
+        content: [{ type: 'text' as const, text: `Error creating volume: ${smbSettingsError}` }],
+      };
+    }
+    if (smbSettingsList && smbSettingsList.length > 0 && !normalizedProtocolNames.includes('SMB')) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error creating volume: smbSettings / SMB flags require protocols to include SMB.',
+          },
+        ],
+      };
+    }
+
+    if (smbSettingsList?.includes('CONTINUOUSLY_AVAILABLE')) {
+      const [pool] = await netAppClient.getStoragePool({ name: storagePoolResourceName });
+      const poolServiceLevel = (pool?.serviceLevel || '').toString().toUpperCase();
+      if (poolServiceLevel === 'FLEX') {
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text' as const,
+              text: 'Error creating volume: Continuous availability (CA) share for SQL Server / FSLogix (CONTINUOUSLY_AVAILABLE) is not supported on FLEX storage pools. Use Standard, Premium, or Extreme.',
+            },
+          ],
+        };
+      }
+    }
 
     const isIscsi = normalizedProtocolNames.includes('ISCSI');
     if (isIscsi) {
@@ -389,6 +520,7 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
         ...(throughputMibps !== undefined ? { throughputMibps } : {}),
         ...(largeCapacity !== undefined ? { largeCapacity } : {}),
         ...(multipleEndpoints !== undefined ? { multipleEndpoints } : {}),
+        ...(smbSettingsList && smbSettingsList.length > 0 ? { smbSettings: smbSettingsList } : {}),
       },
     };
 

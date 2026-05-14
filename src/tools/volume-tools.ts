@@ -294,6 +294,48 @@ export const createVolumeTool: ToolConfig = {
       .describe(
         'Use multiple storage endpoints for Large Capacity Volumes (only valid when largeCapacity is true).'
       ),
+    smbEncryptData: z
+      .boolean()
+      .optional()
+      .describe(
+        'When true, sets smbSettings ENCRYPT_DATA (SMB encryption). Requires protocols to include SMB.'
+      ),
+    smbHideShare: z
+      .boolean()
+      .optional()
+      .describe(
+        'When true, sets smbSettings NON_BROWSABLE (hidden / not browsable share). Requires protocols to include SMB. Mutually exclusive with smbContinuouslyAvailable / CONTINUOUSLY_AVAILABLE.'
+      ),
+    smbAccessBasedEnumeration: z
+      .boolean()
+      .optional()
+      .describe(
+        'When true, sets smbSettings ACCESS_BASED_ENUMERATION (ABE). Requires protocols to include SMB.'
+      ),
+    smbContinuouslyAvailable: z
+      .boolean()
+      .optional()
+      .describe(
+        'When true, sets smbSettings CONTINUOUSLY_AVAILABLE (CA share for SQL Server / FSLogix). Permanent choice on the volume. Not supported on FLEX pools — request fails early. Requires protocols to include SMB. Mutually exclusive with smbHideShare / NON_BROWSABLE.'
+      ),
+    smbSettings: z
+      .array(
+        z.enum([
+          'ENCRYPT_DATA',
+          'BROWSABLE',
+          'CHANGE_NOTIFY',
+          'NON_BROWSABLE',
+          'OPLOCKS',
+          'SHOW_SNAPSHOT',
+          'SHOW_PREVIOUS_VERSIONS',
+          'ACCESS_BASED_ENUMERATION',
+          'CONTINUOUSLY_AVAILABLE',
+        ])
+      )
+      .optional()
+      .describe(
+        'Additional smbSettings API enum names (e.g. OPLOCKS, CONTINUOUSLY_AVAILABLE). BROWSABLE and NON_BROWSABLE together (or BROWSABLE with smbHideShare) are invalid. NON_BROWSABLE and CONTINUOUSLY_AVAILABLE together (or smbHideShare with smbContinuouslyAvailable) are invalid — CA shares must be browsable. Merged with the smb* boolean flags. CONTINUOUSLY_AVAILABLE is rejected for FLEX pools. Requires protocols to include SMB when non-empty.'
+      ),
   },
   outputSchema: {
     name: z.string().describe('The name of the created volume'),

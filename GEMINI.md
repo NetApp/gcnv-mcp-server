@@ -160,6 +160,16 @@ Notes:
   - Volume: set `tieringPolicy` on the volume (for example `tierAction: ENABLED`, optional `coolingThresholdDays`, optional `hotTierBypassModeEnabled`).
 - Hybrid replication: set `hybridReplicationParameters` on the volume (for example `replicationSchedule: HOURLY` and `hybridReplicationType: CONTINUOUS_REPLICATION`) along with peer details (cluster/SVM/IPs).
 - Large capacity volumes: set `largeCapacity: true` (Premium/Extreme only; minimum 15 TiB) and optionally `multipleEndpoints: true` for multiple storage endpoints. See the volume limits and overview docs.
+- SMB attributes (only when `protocols` includes `SMB`):
+  - Boolean shortcuts on `gcnv_volume_create`:
+    - `smbEncryptData: true` → SMB encryption (`ENCRYPT_DATA`)
+    - `smbHideShare: true` → hidden / non-browsable share (`NON_BROWSABLE`)
+    - `smbAccessBasedEnumeration: true` → access-based enumeration (`ACCESS_BASED_ENUMERATION`) — controls the visibility of files and folders based on the permissions assigned to the user
+    - `smbContinuouslyAvailable: true` → CA share for SQL Server / FSLogix (`CONTINUOUSLY_AVAILABLE`); **permanent** on the volume.
+  - Advanced: `smbSettings: ["OPLOCKS", ...]` accepts raw API enum names and is merged with the booleans above. Do not pass `SMB_SETTINGS_UNSPECIFIED`. `BROWSABLE` together with `NON_BROWSABLE` (or `BROWSABLE` with `smbHideShare`) are rejected.
+  - Any SMB flag without `protocols: ["SMB", ...]` is rejected.
+  - `CONTINUOUSLY_AVAILABLE` is **not supported on FLEX storage pools** — the server rejects the request before calling the API. Tell users to use STANDARD / PREMIUM / EXTREME for CA shares.
+  - Confirm CA explicitly with the user before creating, since it cannot be turned off later.
 
 ### Snapshots
 
