@@ -166,7 +166,7 @@ Notes:
     - `smbHideShare: true` → hidden / non-browsable share (`NON_BROWSABLE`)
     - `smbAccessBasedEnumeration: true` → access-based enumeration (`ACCESS_BASED_ENUMERATION`) — controls the visibility of files and folders based on the permissions assigned to the user
     - `smbContinuouslyAvailable: true` → CA share for SQL Server / FSLogix (`CONTINUOUSLY_AVAILABLE`); **permanent** on the volume.
-  - Advanced: `smbSettings: ["OPLOCKS", ...]` accepts raw API enum names and is merged with the booleans above. Do not pass `SMB_SETTINGS_UNSPECIFIED`. `BROWSABLE` together with `NON_BROWSABLE` (or `BROWSABLE` with `smbHideShare`) are rejected.
+  - Advanced: `smbSettings: ["OPLOCKS", ...]` accepts raw API enum names and is merged with the booleans above. Do not pass `SMB_SETTINGS_UNSPECIFIED`. `BROWSABLE` together with `NON_BROWSABLE` (or `BROWSABLE` with `smbHideShare`) are rejected. `NON_BROWSABLE` and `CONTINUOUSLY_AVAILABLE` together (or `smbHideShare` with `smbContinuouslyAvailable`) are invalid — CA shares must be browsable.
   - Any SMB flag without `protocols: ["SMB", ...]` is rejected.
   - `CONTINUOUSLY_AVAILABLE` is **not supported on FLEX storage pools** — the server rejects the request before calling the API. Tell users to use STANDARD / PREMIUM / EXTREME for CA shares.
   - Confirm CA explicitly with the user before creating, since it cannot be turned off later.
