@@ -122,6 +122,265 @@ describe('volume-handler', () => {
     });
   });
 
+  it('createVolumeHandler passes smbSettings when SMB flags are set', async () => {
+    const createVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-smb' }]);
+    createClientMock.mockReturnValue({ createVolume });
+
+    const { createVolumeHandler } = await import('./volume-handler.js');
+    await createVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      volumeId: 'volsmb2',
+      capacityGib: 10,
+      protocols: ['SMB'],
+      smbEncryptData: true,
+      smbHideShare: true,
+      smbAccessBasedEnumeration: true,
+    });
+
+    expect(createVolume.mock.calls[0]?.[0]?.volume?.storagePool).toBe('sp1');
+    expect(createVolume.mock.calls[0]?.[0]?.volume?.smbSettings).toEqual(
+      expect.arrayContaining(['ENCRYPT_DATA', 'NON_BROWSABLE', 'ACCESS_BASED_ENUMERATION'])
+    );
+    expect(createVolume.mock.calls[0]?.[0]?.volume?.smbSettings).toHaveLength(3);
+  });
+
+  it('createVolumeHandler merges smbSettings array with boolean flags', async () => {
+    const createVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-smb2' }]);
+    createClientMock.mockReturnValue({ createVolume });
+
+    const { createVolumeHandler } = await import('./volume-handler.js');
+    await createVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      volumeId: 'v1',
+      capacityGib: 10,
+      protocols: ['SMB'],
+      smbSettings: ['OPLOCKS'],
+      smbEncryptData: true,
+    });
+
+    const smb = createVolume.mock.calls[0]?.[0]?.volume?.smbSettings as string[];
+    expect(smb).toEqual(expect.arrayContaining(['OPLOCKS', 'ENCRYPT_DATA']));
+    expect(smb).toHaveLength(2);
+  });
+
+  it('createVolumeHandler rejects smb flags when protocols omit SMB', async () => {
+    const createVolume = vi.fn();
+    createClientMock.mockReturnValue({ createVolume });
+
+    const { createVolumeHandler } = await import('./volume-handler.js');
+    const result = await createVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      volumeId: 'v1',
+      capacityGib: 10,
+      protocols: ['NFSV3'],
+      smbEncryptData: true,
+    });
+
+    expect(createVolume).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
+    expect((result.content?.[0] as any)?.text).toMatch(/SMB/);
+  });
+
+  it('createVolumeHandler rejects invalid smbSettings entries', async () => {
+    const createVolume = vi.fn();
+    createClientMock.mockReturnValue({ createVolume });
+
+    const { createVolumeHandler } = await import('./volume-handler.js');
+    const result = await createVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      volumeId: 'v1',
+      capacityGib: 10,
+      protocols: ['SMB'],
+      smbSettings: ['NOT_A_REAL_SETTING'],
+    });
+
+    expect(createVolume).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
+  });
+
+  it('createVolumeHandler rejects smbSettings containing only SMB_SETTINGS_UNSPECIFIED', async () => {
+    const createVolume = vi.fn();
+    createClientMock.mockReturnValue({ createVolume });
+
+    const { createVolumeHandler } = await import('./volume-handler.js');
+    const result = await createVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      volumeId: 'v1',
+      capacityGib: 10,
+      protocols: ['SMB'],
+      smbSettings: ['SMB_SETTINGS_UNSPECIFIED'],
+    });
+
+    expect(createVolume).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
+    expect((result.content?.[0] as any)?.text).toMatch(/SMB_SETTINGS_UNSPECIFIED/);
+  });
+
+  it('createVolumeHandler rejects conflicting BROWSABLE and NON_BROWSABLE', async () => {
+    const createVolume = vi.fn();
+    createClientMock.mockReturnValue({ createVolume });
+
+    const { createVolumeHandler } = await import('./volume-handler.js');
+    const both = await createVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      volumeId: 'v1',
+      capacityGib: 10,
+      protocols: ['SMB'],
+      smbSettings: ['BROWSABLE', 'NON_BROWSABLE'],
+    });
+    expect(both.isError).toBe(true);
+    expect(createVolume).not.toHaveBeenCalled();
+
+    const hideWithBrowse = await createVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      volumeId: 'v2',
+      capacityGib: 10,
+      protocols: ['SMB'],
+      smbSettings: ['BROWSABLE'],
+      smbHideShare: true,
+    });
+    expect(hideWithBrowse.isError).toBe(true);
+    expect(createVolume).not.toHaveBeenCalled();
+  });
+
+  it('createVolumeHandler rejects NON_BROWSABLE + CONTINUOUSLY_AVAILABLE', async () => {
+    const createVolume = vi.fn();
+    const getStoragePool = vi.fn();
+    createClientMock.mockReturnValue({ createVolume, getStoragePool });
+
+    const { createVolumeHandler } = await import('./volume-handler.js');
+
+    // Both as enum values in smbSettings.
+    const bothEnum = await createVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      volumeId: 'v1',
+      capacityGib: 10,
+      protocols: ['SMB'],
+      smbSettings: ['NON_BROWSABLE', 'CONTINUOUSLY_AVAILABLE'],
+    });
+    expect(bothEnum.isError).toBe(true);
+    expect((bothEnum.content?.[0] as any)?.text).toMatch(/NON_BROWSABLE/);
+    expect((bothEnum.content?.[0] as any)?.text).toMatch(/CONTINUOUSLY_AVAILABLE/);
+    expect(getStoragePool).not.toHaveBeenCalled();
+    expect(createVolume).not.toHaveBeenCalled();
+
+    // Both as boolean flags.
+    const bothFlags = await createVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      volumeId: 'v2',
+      capacityGib: 10,
+      protocols: ['SMB'],
+      smbHideShare: true,
+      smbContinuouslyAvailable: true,
+    });
+    expect(bothFlags.isError).toBe(true);
+    expect(getStoragePool).not.toHaveBeenCalled();
+    expect(createVolume).not.toHaveBeenCalled();
+
+    // Mixed: flag + enum.
+    const mixed = await createVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      volumeId: 'v3',
+      capacityGib: 10,
+      protocols: ['SMB'],
+      smbHideShare: true,
+      smbSettings: ['CONTINUOUSLY_AVAILABLE'],
+    });
+    expect(mixed.isError).toBe(true);
+    expect(getStoragePool).not.toHaveBeenCalled();
+    expect(createVolume).not.toHaveBeenCalled();
+  });
+
+  it('createVolumeHandler rejects CONTINUOUSLY_AVAILABLE on FLEX pools (boolean flag)', async () => {
+    const createVolume = vi.fn();
+    const getStoragePool = vi.fn().mockResolvedValue([{ serviceLevel: 'FLEX' }]);
+    createClientMock.mockReturnValue({ createVolume, getStoragePool });
+
+    const { createVolumeHandler } = await import('./volume-handler.js');
+    const result = await createVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'pool-flex',
+      volumeId: 'v1',
+      capacityGib: 10,
+      protocols: ['SMB'],
+      smbContinuouslyAvailable: true,
+    });
+
+    expect(getStoragePool).toHaveBeenCalledWith({
+      name: 'projects/p1/locations/us-central1/storagePools/pool-flex',
+    });
+    expect(createVolume).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
+    expect((result.content?.[0] as any)?.text).toMatch(/FLEX/);
+  });
+
+  it('createVolumeHandler rejects CONTINUOUSLY_AVAILABLE on FLEX pools (smbSettings array)', async () => {
+    const createVolume = vi.fn();
+    const getStoragePool = vi.fn().mockResolvedValue([{ serviceLevel: 'flex' }]);
+    createClientMock.mockReturnValue({ createVolume, getStoragePool });
+
+    const { createVolumeHandler } = await import('./volume-handler.js');
+    const result = await createVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'projects/p1/locations/us-central1/storagePools/p1',
+      volumeId: 'v1',
+      capacityGib: 10,
+      protocols: ['SMB'],
+      smbSettings: ['CONTINUOUSLY_AVAILABLE'],
+    });
+
+    expect(getStoragePool).toHaveBeenCalledWith({
+      name: 'projects/p1/locations/us-central1/storagePools/p1',
+    });
+    expect(createVolume).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
+  });
+
+  it('createVolumeHandler passes CONTINUOUSLY_AVAILABLE when pool is not FLEX', async () => {
+    const createVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-ca' }]);
+    const getStoragePool = vi.fn().mockResolvedValue([{ serviceLevel: 'STANDARD' }]);
+    createClientMock.mockReturnValue({ createVolume, getStoragePool });
+
+    const { createVolumeHandler } = await import('./volume-handler.js');
+    await createVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'pool-std',
+      volumeId: 'v1',
+      capacityGib: 10,
+      protocols: ['SMB'],
+      smbContinuouslyAvailable: true,
+    });
+
+    expect(getStoragePool).toHaveBeenCalled();
+    expect(createVolume.mock.calls[0]?.[0]?.volume?.storagePool).toBe('pool-std');
+    expect(createVolume.mock.calls[0]?.[0]?.volume?.smbSettings).toContain(
+      'CONTINUOUSLY_AVAILABLE'
+    );
+  });
+
   it('createVolumeHandler supports Large Capacity Volumes (Premium/Extreme only)', async () => {
     const createVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-lcv' }]);
     const getStoragePool = vi.fn().mockResolvedValue([{ serviceLevel: 'PREMIUM' }]);

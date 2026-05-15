@@ -132,6 +132,16 @@ HTTP endpoint: `http://localhost:<port>/message`
 
 **Large capacity volumes:** Set `largeCapacity: true` (Premium/Extreme only, minimum 15 TiB). Optional `multipleEndpoints: true`.
 
+**SMB attributes:** When `protocols` includes `SMB`, `gcnv_volume_create` accepts optional SMB feature flags that map to the `smbSettings` field on the volume:
+
+- `smbEncryptData: true` → `ENCRYPT_DATA` (require SMB encryption in flight)
+- `smbHideShare: true` → `NON_BROWSABLE` (hide the share from browse lists)
+- `smbAccessBasedEnumeration: true` → `ACCESS_BASED_ENUMERATION` (ABE) — controls the visibility of files and folders based on the permissions assigned to the user
+- `smbContinuouslyAvailable: true` → `CONTINUOUSLY_AVAILABLE` (CA share for SQL Server / FSLogix; choice is permanent on the volume)
+- `smbSettings: ["OPLOCKS", ...]` — additional API enum values; merged with the booleans above. Do not pass `SMB_SETTINGS_UNSPECIFIED`; `BROWSABLE` and `NON_BROWSABLE` (or `BROWSABLE` together with `smbHideShare`) are rejected. `NON_BROWSABLE` and `CONTINUOUSLY_AVAILABLE` together (or `smbHideShare` with `smbContinuouslyAvailable`) are also rejected — CA shares must be browsable.
+
+These flags require `protocols` to include `SMB`. `CONTINUOUSLY_AVAILABLE` is **not supported on `FLEX` storage pools** — the request is rejected before reaching the API. Use `STANDARD`, `PREMIUM`, or `EXTREME` for CA shares.
+
 ### Snapshot Tools
 
 | Tool                   | Description                           |
