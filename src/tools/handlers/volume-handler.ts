@@ -4,6 +4,8 @@ import { logger } from '../../logger.js';
 
 const log = logger.child({ module: 'volume-handler' });
 
+const LARGE_CAPACITY_ALLOWED_POOL_SERVICE_LEVELS = new Set(['FLEX', 'PREMIUM', 'EXTREME']);
+
 // Optional display hint when resource name matches a legacy pattern (used by some clients for UI)
 function normalizeResourceOutput(o: Record<string, any>): void {
   if (!o || typeof o.name !== 'string') return;
@@ -282,6 +284,7 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
       throughputMibps,
       largeCapacity,
       multipleEndpoints,
+      largeCapacityConstituentCount,
       hostGroups,
       hostGroup,
       blockDevice,
@@ -303,47 +306,80 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
       String(storagePoolId)
     );
 
-    // Large Capacity Volumes guardrails:
-    // - Premium/Extreme only (enforced by checking the storage pool service level)
-    // - Minimum size 15 TiB => 15360 GiB
-    if (multipleEndpoints && !largeCapacity) {
+    const isLargeCapacity = largeCapacity === true;
+    let largeCapacityPoolServiceLevel: string | undefined;
+
+    // Large Capacity Volumes guardrails (pool capabilities are still enforced by the API).
+    if (multipleEndpoints !== undefined && !isLargeCapacity) {
       return {
         isError: true,
         content: [
           {
             type: 'text' as const,
-            text: 'Error creating volume: multipleEndpoints is only valid when largeCapacity is true.',
+            text: 'Error creating volume: multipleEndpoints is only valid for large-capacity volumes (set largeCapacity true, or omit multipleEndpoints).',
           },
         ],
       };
     }
 
-    if (largeCapacity) {
-      if (capacityGib < 15360) {
+    if (largeCapacityConstituentCount !== undefined && !isLargeCapacity) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error creating volume: largeCapacityConstituentCount is only valid for large-capacity volumes (set largeCapacity true).',
+          },
+        ],
+      };
+    }
+
+    if (isLargeCapacity) {
+      const [pool] = await netAppClient.getStoragePool({ name: storagePoolResourceName });
+      const poolServiceLevel = (pool?.serviceLevel || '').toString().toUpperCase();
+      if (!LARGE_CAPACITY_ALLOWED_POOL_SERVICE_LEVELS.has(poolServiceLevel)) {
         return {
           isError: true,
           content: [
             {
               type: 'text' as const,
-              text: 'Error creating volume: largeCapacity requires capacityGib >= 15360 (15 TiB).',
+              text: `Error creating volume: large-capacity volumes require a FLEX, PREMIUM, or EXTREME storage pool (got ${poolServiceLevel || 'SERVICE_LEVEL_UNSPECIFIED'}).`,
             },
           ],
         };
       }
 
-      const [pool] = await netAppClient.getStoragePool({ name: storagePoolResourceName });
-      const poolServiceLevel = (pool?.serviceLevel || '').toString().toUpperCase();
-      if (poolServiceLevel !== 'PREMIUM' && poolServiceLevel !== 'EXTREME') {
+      if (poolServiceLevel === 'FLEX') {
+        const poolScaleType = (pool?.scaleType || '').toString().toUpperCase();
+        if (poolScaleType !== 'SCALE_TYPE_SCALEOUT') {
+          return {
+            isError: true,
+            content: [
+              {
+                type: 'text' as const,
+                text: `Error creating volume: FLEX large-capacity volumes require a scale-out storage pool (scaleType=SCALE_TYPE_SCALEOUT); got ${poolScaleType || 'SCALE_TYPE_UNSPECIFIED'}.`,
+              },
+            ],
+          };
+        }
+      }
+
+      // `largeCapacityConstituentCount` only applies to FLEX UNIFIED scale-out volumes (which are
+      // assembled from multiple constituent volumes). PREMIUM/EXTREME large-capacity volumes use the
+      // legacy `largeCapacity: true` boolean and have no constituent concept.
+      if (largeCapacityConstituentCount !== undefined && poolServiceLevel !== 'FLEX') {
         return {
           isError: true,
           content: [
             {
               type: 'text' as const,
-              text: `Error creating volume: largeCapacity volumes are only supported in PREMIUM or EXTREME pools (got ${poolServiceLevel || 'UNKNOWN'}).`,
+              text: `Error creating volume: largeCapacityConstituentCount is only valid for FLEX UNIFIED scale-out pools; got ${poolServiceLevel}.`,
             },
           ],
         };
       }
+
+      largeCapacityPoolServiceLevel = poolServiceLevel;
     }
 
     const { protocols, error: protocolsError } = normalizeProtocols(rawProtocols);
@@ -500,6 +536,12 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
     const protocolEnums = normalizedProtocolNames.map((p) => protocolEnumMap[p]);
     const effectiveShareName = isIscsi ? undefined : shareName || volumeId;
 
+    const needsMultipleEndpointsDefault =
+      isLargeCapacity &&
+      largeCapacityPoolServiceLevel !== 'FLEX' &&
+      multipleEndpoints === undefined;
+    const effectiveMultipleEndpoints = needsMultipleEndpointsDefault ? true : multipleEndpoints;
+
     // Create the volume request
     const request = {
       parent,
@@ -518,8 +560,22 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
         exportPolicy,
         ...(blockDevicesPayload ? { blockDevices: blockDevicesPayload } : {}),
         ...(throughputMibps !== undefined ? { throughputMibps } : {}),
-        ...(largeCapacity !== undefined ? { largeCapacity } : {}),
-        ...(multipleEndpoints !== undefined ? { multipleEndpoints } : {}),
+        // FLEX UNIFIED scale-out volumes use the new `largeCapacityConfig` message; PREMIUM/EXTREME
+        // large-capacity volumes use the legacy `largeCapacity: true` boolean. The two are mutually
+        // exclusive.
+        ...(isLargeCapacity
+          ? largeCapacityPoolServiceLevel === 'FLEX'
+            ? {
+                largeCapacityConfig:
+                  largeCapacityConstituentCount !== undefined
+                    ? { constituentCount: largeCapacityConstituentCount }
+                    : {},
+              }
+            : { largeCapacity: true }
+          : {}),
+        ...(effectiveMultipleEndpoints !== undefined
+          ? { multipleEndpoints: effectiveMultipleEndpoints }
+          : {}),
         ...(smbSettingsList && smbSettingsList.length > 0 ? { smbSettings: smbSettingsList } : {}),
       },
     };

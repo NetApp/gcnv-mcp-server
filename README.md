@@ -1,9 +1,5 @@
 # Google Cloud NetApp Volumes MCP Server
 
-## ⚠️ Preview
-
-**This project is under active development. APIs, tool schemas, and behavior may change without notice. Not recommended for production use.**
-
 A [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server for managing [Google Cloud NetApp Volumes](https://cloud.google.com/netapp/volumes/docs) (GCNV) resources through AI assistants such as Gemini CLI, Cursor, and other MCP-compatible clients.
 
 ## Supported Resources
@@ -118,7 +114,7 @@ HTTP endpoint: `http://localhost:<port>/message`
 - `serviceLevel` is accepted case-insensitively (e.g. `flex` or `FLEX`).
 - FLEX pools in a region-level location require both `zone` and `replicaZone`; zone-level locations satisfy this automatically.
 - `storagePoolType` accepts `FILE` or `UNIFIED`; `UNIFIED` is only available for FLEX.
-- `scaleType`: only set to `SCALE_TYPE_SCALEOUT` when creating a large capacity FLEX `UNIFIED` pool. Omit for all other pools (defaults to standard capacity).
+- `scaleType`: only set to `SCALE_TYPE_SCALEOUT` when creating a large capacity FLEX `UNIFIED` pool. Omit for all other pools (defaults to `SCALE_TYPE_DEFAULT`).
 
 ### Volume Tools
 
@@ -132,7 +128,16 @@ HTTP endpoint: `http://localhost:<port>/message`
 
 **iSCSI notes:** Protocols must be `["ISCSI"]` only (no mixing). Requires `hostGroup` or `hostGroups`. Optional `blockDevice` object with `identifier`, `osType` (`LINUX` / `WINDOWS` / `ESXI`), and `sizeGib`.
 
-**Large capacity volumes:** Set `largeCapacity: true` (Premium/Extreme only, minimum 15 TiB). Optional `multipleEndpoints: true`.
+**Large capacity volumes:** Some workloads require larger volumes and higher throughput, which can be achieved by using the large capacity volume option for these service levels. Large capacity volumes provide six storage endpoints (IP addresses) to load-balance client traffic to the volume and deliver higher performance.
+
+- **FLEX Unified:** Large capacity volumes can be sized between **4.8 TiB** and **2.48 PiB**, or up to **20 PiB** with auto-tiering, in increments of **1 GiB**, and deliver throughput performance of up to **22 GiBps**. The FLEX storage pool must be created with `scaleType: SCALE_TYPE_SCALEOUT`; non-scale-out FLEX pools cannot host large capacity volumes. When `largeCapacityConstituentCount` is **explicitly set**, the minimum drops to **2.4 TiB (2,400 GiB)** — FLEX Unified only. When `largeCapacityConstituentCount` is omitted, the **4.8 TiB (4,916 GiB)** floor applies.
+- **Premium and Extreme:** Large capacity volumes can be sized between **15 TiB** and **3 PiB** in increments of **1 GiB**, and deliver throughput performance of up to **30 GiBps**.
+
+A large capacity volume is internally composed of several **constituent volumes** (FlexVols) distributed across the pool's storage aggregates. On `gcnv_volume_create` you can optionally pass `largeCapacityConstituentCount` to control how many constituents the volume is built from:
+
+- **Minimum:** `2`.
+- **Default (when omitted):** chosen by the backend based on the active deployment layout.
+- The constituent count **must be chosen at create time** and cannot be changed later.
 
 **SMB attributes:** When `protocols` includes `SMB`, `gcnv_volume_create` accepts optional SMB feature flags that map to the `smbSettings` field on the volume:
 

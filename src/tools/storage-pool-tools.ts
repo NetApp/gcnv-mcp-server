@@ -98,7 +98,7 @@ export const createStoragePoolTool: ToolConfig = {
       .union([z.enum(['DEFAULT', 'ONTAP']), z.enum(['default', 'ontap'])])
       .optional()
       .describe(
-        'Mode of the storage pool. DEFAULT for standard pools, ONTAP for ONTAP expert mode pools. ONTAP mode requires storagePoolType UNIFIED and serviceLevel FLEX.'
+        'Mode of the storage pool. DEFAULT for regular pools, ONTAP for ONTAP expert mode pools. ONTAP mode requires storagePoolType UNIFIED and serviceLevel FLEX.'
       ),
   },
   outputSchema: {

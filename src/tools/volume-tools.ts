@@ -286,13 +286,21 @@ export const createVolumeTool: ToolConfig = {
       .boolean()
       .optional()
       .describe(
-        'Enable Large Capacity Volume mode (Premium/Extreme only). Requires capacityGib >= 15360 (15 TiB).'
+        'When true, creates the volume as a large-capacity volume. The handler reads the pool serviceLevel and sends either `largeCapacityConfig` (FLEX UNIFIED scale-out pools) or the legacy `largeCapacity: true` boolean (PREMIUM/EXTREME pools); the two are mutually exclusive on the wire. Required for volumes in Unified scale-out / large-capacity pools. Backend-enforced minimums: on FLEX UNIFIED scale-out pools, capacityGib >= 4916 when largeCapacityConstituentCount is omitted and >= 2400 when it is explicitly set; on PREMIUM/EXTREME pools, >= 15360 (15 TiB).'
       ),
     multipleEndpoints: z
       .boolean()
       .optional()
       .describe(
-        'Use multiple storage endpoints for Large Capacity Volumes (only valid when largeCapacity is true).'
+        'Use multiple storage endpoints for large-capacity volumes (requires largeCapacity to be true).'
+      ),
+    largeCapacityConstituentCount: z
+      .number()
+      .int()
+      .min(2)
+      .optional()
+      .describe(
+        'Number of constituent volumes inside the large-capacity volume (maps to `largeCapacityConfig.constituentCount`). Only valid when `largeCapacity` is true. Minimum 2; when omitted, the backend assigns a default based on the active deployment layout.'
       ),
     smbEncryptData: z
       .boolean()
