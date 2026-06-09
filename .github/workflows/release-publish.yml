@@ -30,13 +30,5 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Generate SBOM
-        run: npm sbom --sbom-format=spdx --omit dev > sbom.spdx.json
-
-      - name: Attach SBOM to release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${{ github.event.release.tag_name }}" sbom.spdx.json --clobber
-
       - name: Publish to npm
         run: npm publish --access public --provenance
