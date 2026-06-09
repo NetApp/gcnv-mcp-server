@@ -1,6 +1,6 @@
 {
   "name": "gcnv-mcp-server",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Google Cloud NetApp Volumes MCP Server - A Model Context Protocol server for managing GCNV Backup, StoragePool, Volume and Replication resources",
   "repository": {
     "type": "git",
