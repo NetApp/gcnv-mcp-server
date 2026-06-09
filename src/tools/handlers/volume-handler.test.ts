@@ -468,7 +468,7 @@ describe('volume-handler', () => {
 
     const { createVolumeHandler } = await import('./volume-handler.js');
     await createVolumeHandler({
-      projectId: 'netapp-gcnv-vsa-control-plane',
+      projectId: 'gcnv-test-project',
       location: 'us-east4-a',
       storagePoolId: 'pool-mcp-lv-ad',
       volumeId: 'volsmb3',
@@ -1183,7 +1183,7 @@ describe('volume-handler', () => {
       volumeId: 'vol1',
       capacityGib: 100,
     });
-    expect(result.structuredContent?.volume?.createTime).toBeInstanceOf(Date);
+    expect(result.structuredContent?.volume?.createTime).toMatch(/^\d{4}-/);
   });
 
   it('getVolumeHandler formats mountOptions when present', async () => {
@@ -1348,7 +1348,7 @@ describe('volume-handler', () => {
         peerClusterName: 'cluster-a',
       },
     });
-    expect(v.createTime).toBeInstanceOf(Date);
+    expect(v.createTime).toMatch(/^\d{4}-/);
     expect(v.mountOptions).toHaveLength(2);
     expect(v.mountOptions[1]).toEqual({ protocol: '', ipAddress: '', export: '', exportFull: '' });
   });

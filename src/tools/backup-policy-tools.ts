@@ -71,7 +71,7 @@ export const getBackupPolicyTool: ToolConfig = {
       .optional()
       .describe('Number of volumes assigned to this policy'),
     state: z.string().describe('The current state of the backup policy'),
-    createTime: z.date().describe('The creation time of the backup policy'),
+    createTime: z.string().optional().describe('The creation time of the backup policy'),
     labels: z.record(z.string()).optional().describe('Labels applied to the backup policy'),
   },
 };
@@ -120,7 +120,7 @@ export const listBackupPoliciesTool: ToolConfig = {
             .optional()
             .describe('Number of volumes assigned to this policy'),
           state: z.string().describe('The current state of the backup policy'),
-          createTime: z.date().optional().describe('The creation time of the backup policy'),
+          createTime: z.string().optional().describe('The creation time of the backup policy'),
           labels: z.record(z.string()).optional().describe('Labels applied to the backup policy'),
         })
       )

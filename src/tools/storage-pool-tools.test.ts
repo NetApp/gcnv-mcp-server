@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { createStoragePoolTool, updateStoragePoolTool } from './storage-pool-tools.js';
+import {
+  createStoragePoolTool,
+  getStoragePoolTool,
+  listStoragePoolsTool,
+  updateStoragePoolTool,
+} from './storage-pool-tools.js';
 
 describe('storage-pool-tools', () => {
   it('createStoragePoolTool accepts FLEX service level (case-insensitive)', () => {
@@ -13,6 +18,7 @@ describe('storage-pool-tools', () => {
         storagePoolId: 'sp1',
         capacityGib: 100,
         serviceLevel: 'FLEX',
+        mode: 'DEFAULT',
       })
     ).not.toThrow();
 
@@ -23,6 +29,7 @@ describe('storage-pool-tools', () => {
         storagePoolId: 'sp1',
         capacityGib: 100,
         serviceLevel: 'flex',
+        mode: 'ONTAP',
       })
     ).not.toThrow();
   });
@@ -38,6 +45,7 @@ describe('storage-pool-tools', () => {
         capacityGib: 100,
         serviceLevel: 'FLEX',
         totalThroughputMibps: 512,
+        mode: 'DEFAULT',
       })
     ).not.toThrow();
   });
@@ -53,6 +61,7 @@ describe('storage-pool-tools', () => {
         capacityGib: 100,
         serviceLevel: 'FLEX',
         storagePoolType: 'UNIFIED',
+        mode: 'ONTAP',
       })
     ).not.toThrow();
 
@@ -64,6 +73,7 @@ describe('storage-pool-tools', () => {
         capacityGib: 100,
         serviceLevel: 'standard',
         storagePoolType: 'FILE',
+        mode: 'DEFAULT',
       })
     ).not.toThrow();
 
@@ -147,5 +157,22 @@ describe('storage-pool-tools', () => {
         totalThroughputMibps: 512,
       })
     ).not.toThrow();
+  });
+
+  it('storage pool output schemas allow omitted createTime', () => {
+    const getSchema = z.object(getStoragePoolTool.outputSchema);
+    const listSchema = z.object(listStoragePoolsTool.outputSchema);
+    const pool = {
+      name: 'projects/p1/locations/us-central1/storagePools/sp1',
+      storagePoolId: 'sp1',
+      serviceLevel: 'FLEX',
+      capacityGib: 1024,
+      volumeCapacityGib: 0,
+      volumecount: 0,
+      state: 'READY',
+    };
+
+    expect(() => getSchema.parse(pool)).not.toThrow();
+    expect(() => listSchema.parse({ storagePools: [pool] })).not.toThrow();
   });
 });

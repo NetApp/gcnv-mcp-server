@@ -1,11 +1,11 @@
 import { z } from 'zod';
-import { ToolConfig } from '../types/tool.js';
+import { ToolConfig, NOT_FOR_ONTAP } from '../types/tool.js';
 
 // Create Volume Tool
 export const createVolumeTool: ToolConfig = {
   name: 'gcnv_volume_create',
   title: 'Create Volume',
-  description: 'Creates a new volume in the specified storage pool',
+  description: 'Creates a GCNV managed volume in the specified storage pool.' + NOT_FOR_ONTAP,
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
     location: z.string().describe('The location where the volume should be created'),
@@ -357,7 +357,7 @@ export const createVolumeTool: ToolConfig = {
 export const deleteVolumeTool: ToolConfig = {
   name: 'gcnv_volume_delete',
   title: 'Delete Volume',
-  description: 'Deletes a volume in the specified storage pool',
+  description: 'Deletes a GCNV managed volume in the specified storage pool.' + NOT_FOR_ONTAP,
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
     location: z.string().describe('The location of the volume'),
@@ -374,7 +374,7 @@ export const deleteVolumeTool: ToolConfig = {
 export const getVolumeTool: ToolConfig = {
   name: 'gcnv_volume_get',
   title: 'Get Volume',
-  description: 'Gets details of a specific volume',
+  description: 'Gets details of a GCNV managed volume by volume ID.' + NOT_FOR_ONTAP,
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
     location: z.string().describe('The location of the volume'),
@@ -390,7 +390,9 @@ export const getVolumeTool: ToolConfig = {
 export const listVolumesTool: ToolConfig = {
   name: 'gcnv_volume_list',
   title: 'List Volumes',
-  description: 'Lists all volumes in the specified storage pool (omit location for all locations)',
+  description:
+    'Lists GCNV managed volumes in the specified storage pool (omit location for all locations).' +
+    NOT_FOR_ONTAP,
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
     location: z
@@ -411,7 +413,7 @@ export const listVolumesTool: ToolConfig = {
 export const updateVolumeTool: ToolConfig = {
   name: 'gcnv_volume_update',
   title: 'Update Volume',
-  description: 'Updates a volume in the specified storage pool',
+  description: 'Updates a GCNV managed volume in the specified storage pool.' + NOT_FOR_ONTAP,
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
     location: z.string().describe('The location of the volume'),

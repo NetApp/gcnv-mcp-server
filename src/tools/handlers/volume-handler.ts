@@ -220,7 +220,7 @@ function formatVolumeData(volume: any): any {
 
   // Format timestamps if they exist
   if (volume.createTime) {
-    result.createTime = new Date(volume.createTime.seconds * 1000);
+    result.createTime = new Date(volume.createTime.seconds * 1000).toISOString();
   }
 
   // Copy optional properties

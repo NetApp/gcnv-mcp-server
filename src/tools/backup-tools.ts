@@ -72,7 +72,7 @@ export const getBackupTool: ToolConfig = {
     volumeUsagebytes: z.number().optional().describe('The size of the volume in bytes'),
     backupType: z.string().optional().describe('The type of the backup'),
     sourceVolume: z.string().describe('The name of the source volume'),
-    createTime: z.date().optional().describe('The creation time of the backup'),
+    createTime: z.string().optional().describe('The creation time of the backup'),
     chainStoragebytes: z.number().optional().describe('The size of the backup chain in bytes'),
     satisfiesPzs: z.boolean().optional().describe('Whether the backup satisfies PZS requirements'),
     satisfiesPzi: z.boolean().optional().describe('Whether the backup satisfies PZI requirements'),
@@ -118,7 +118,7 @@ export const listBackupsTool: ToolConfig = {
           volumeUsagebytes: z.number().optional().describe('The size of the volume in bytes'),
           backupType: z.string().optional().describe('The type of the backup'),
           sourceVolume: z.string().describe('The name of the source volume'),
-          createTime: z.date().optional().describe('The creation time of the backup'),
+          createTime: z.string().optional().describe('The creation time of the backup'),
           chainStoragebytes: z
             .number()
             .optional()

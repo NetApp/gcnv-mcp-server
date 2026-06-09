@@ -40,7 +40,7 @@ function formatBackupData(backup: any): any {
 
   // Format timestamps if they exist
   if (backup.createTime) {
-    result.createTime = new Date(backup.createTime.seconds * 1000);
+    result.createTime = new Date(backup.createTime.seconds * 1000).toISOString();
   }
 
   // Copy optional properties according to schema

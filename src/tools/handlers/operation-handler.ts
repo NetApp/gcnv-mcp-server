@@ -27,7 +27,10 @@ function parseOperationMetadata(operation: any): Record<string, any> {
       const metadata = operation.metadata;
 
       if (metadata.createTime) {
-        result.createTime = metadata.createTime;
+        result.createTime =
+          typeof metadata.createTime === 'string'
+            ? metadata.createTime
+            : new Date(Number(metadata.createTime.seconds ?? 0) * 1000).toISOString();
       }
 
       // These fields might be present depending on the operation type
@@ -68,7 +71,12 @@ function formatOperationForList(op: any): Record<string, any> {
     success: done,
   };
   if (op.metadata) {
-    if (op.metadata.createTime) result.createTime = op.metadata.createTime;
+    if (op.metadata.createTime) {
+      result.createTime =
+        typeof op.metadata.createTime === 'string'
+          ? op.metadata.createTime
+          : new Date(Number(op.metadata.createTime.seconds ?? 0) * 1000).toISOString();
+    }
     if (op.metadata.target) result.target = op.metadata.target;
     if (op.metadata.verb) result.verb = op.metadata.verb;
     if (op.metadata.statusMessage) result.statusMessage = op.metadata.statusMessage;

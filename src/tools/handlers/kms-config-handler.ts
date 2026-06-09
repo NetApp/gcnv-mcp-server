@@ -28,7 +28,7 @@ function formatKmsConfigData(config: any): any {
   if (config.serviceAccount) result.serviceAccount = config.serviceAccount;
 
   if (config.createTime) {
-    result.createTime = new Date(config.createTime.seconds * 1000);
+    result.createTime = new Date(config.createTime.seconds * 1000).toISOString();
   }
 
   if (config.description) result.description = config.description;

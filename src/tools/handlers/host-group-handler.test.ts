@@ -95,7 +95,7 @@ describe('host-group-handler', () => {
       description: 'd',
       labels: { k: 'v' },
     });
-    expect(result.structuredContent.createTime).toBeInstanceOf(Date);
+    expect(result.structuredContent.createTime).toMatch(/^\d{4}-/);
   });
 
   it('listHostGroupsHandler calls listHostGroups and returns nextPageToken', async () => {

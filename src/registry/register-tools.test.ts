@@ -14,7 +14,7 @@ describe('registerAllTools', () => {
     registerAllTools(fakeMcpServer);
 
     // Keep this count in sync with register-tools.ts
-    expect(calls.length).toBe(69);
+    expect(calls.length).toBe(85);
 
     // Each registration uses the tool's name as the key
     for (const c of calls) {

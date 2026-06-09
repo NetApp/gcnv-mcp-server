@@ -26,11 +26,11 @@ function formatBackupVaultData(backupVault: any): any {
 
   // Format timestamps if they exist
   if (backupVault.createTime) {
-    result.createTime = new Date(backupVault.createTime.seconds * 1000);
+    result.createTime = new Date(backupVault.createTime.seconds * 1000).toISOString();
   }
 
   if (backupVault.updateTime) {
-    result.updateTime = new Date(backupVault.updateTime.seconds * 1000);
+    result.updateTime = new Date(backupVault.updateTime.seconds * 1000).toISOString();
   }
 
   // Copy required properties according to the schema

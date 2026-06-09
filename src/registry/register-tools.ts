@@ -184,6 +184,44 @@ import {
   listHostGroupsHandler,
   updateHostGroupHandler,
 } from '../tools/handlers/host-group-handler.js';
+import {
+  ontapSvmListTool,
+  ontapVolumeCreateTool,
+  ontapVolumeListTool,
+  ontapVolumeGetTool,
+  ontapVolumeDeleteTool,
+  ontapJobGetTool,
+  ontapSnapshotCreateTool,
+  ontapSnapshotListTool,
+  ontapSnapshotDeleteTool,
+  ontapLunCreateTool,
+  ontapLunListTool,
+  ontapLunGetTool,
+  ontapLunDeleteTool,
+} from '../tools/ontap-tools.js';
+import {
+  ontapSvmListHandler,
+  ontapVolumeCreateHandler,
+  ontapVolumeListHandler,
+  ontapVolumeGetHandler,
+  ontapVolumeDeleteHandler,
+  ontapJobGetHandler,
+  ontapSnapshotCreateHandler,
+  ontapSnapshotListHandler,
+  ontapSnapshotDeleteHandler,
+  ontapLunCreateHandler,
+  ontapLunListHandler,
+  ontapLunGetHandler,
+  ontapLunDeleteHandler,
+} from '../tools/handlers/ontap-handler.js';
+import { ontapDiscoverTool } from '../tools/ontap-discover-tool.js';
+import { ontapDiscoverHandler } from '../tools/handlers/ontap-discover-handler.js';
+import { ontapExecuteTool } from '../tools/ontap-execute-tool.js';
+import { ontapExecuteHandler } from '../tools/handlers/ontap-execute-handler.js';
+import { ontapAuditLogTool } from '../tools/ontap-audit-log-tool.js';
+import { ontapAuditLogHandler } from '../tools/handlers/ontap-audit-log-handler.js';
+import { withAuditLog } from '../utils/ontap-audit-logger.js';
+import { ToolConfig, ToolHandler } from '../types/tool.js';
 
 /**
  * Register all tools and their handlers to the tool registry
@@ -377,4 +415,31 @@ export function registerAllTools(mcpServer: McpServer) {
   mcpServer.registerTool(getHostGroupTool.name, getHostGroupTool, getHostGroupHandler);
   mcpServer.registerTool(listHostGroupsTool.name, listHostGroupsTool, listHostGroupsHandler);
   mcpServer.registerTool(updateHostGroupTool.name, updateHostGroupTool, updateHostGroupHandler);
+
+  // Register ONTAP Expert Mode tools -- audit log control
+  mcpServer.registerTool(ontapAuditLogTool.name, ontapAuditLogTool, ontapAuditLogHandler);
+
+  // Register ONTAP Expert Mode tools
+  // withAuditLog wraps each handler to record calls when logging is enabled.
+  const ontapTools: { tool: ToolConfig; handler: ToolHandler }[] = [
+    { tool: ontapDiscoverTool, handler: ontapDiscoverHandler },
+    { tool: ontapExecuteTool, handler: ontapExecuteHandler },
+    { tool: ontapSvmListTool, handler: ontapSvmListHandler },
+    { tool: ontapVolumeCreateTool, handler: ontapVolumeCreateHandler },
+    { tool: ontapVolumeListTool, handler: ontapVolumeListHandler },
+    { tool: ontapVolumeGetTool, handler: ontapVolumeGetHandler },
+    { tool: ontapVolumeDeleteTool, handler: ontapVolumeDeleteHandler },
+    { tool: ontapJobGetTool, handler: ontapJobGetHandler },
+    { tool: ontapSnapshotCreateTool, handler: ontapSnapshotCreateHandler },
+    { tool: ontapSnapshotListTool, handler: ontapSnapshotListHandler },
+    { tool: ontapSnapshotDeleteTool, handler: ontapSnapshotDeleteHandler },
+    { tool: ontapLunCreateTool, handler: ontapLunCreateHandler },
+    { tool: ontapLunListTool, handler: ontapLunListHandler },
+    { tool: ontapLunGetTool, handler: ontapLunGetHandler },
+    { tool: ontapLunDeleteTool, handler: ontapLunDeleteHandler },
+  ];
+
+  for (const { tool, handler } of ontapTools) {
+    mcpServer.registerTool(tool.name, tool, withAuditLog(handler, tool.name));
+  }
 }

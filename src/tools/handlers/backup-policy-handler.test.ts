@@ -28,7 +28,7 @@ describe('backup-policy-handler', () => {
       backupPolicy: { dailyBackupLimit: 1 },
     });
     expect(result.structuredContent).toEqual({
-      name: 'projects/p1/locations/us-central1/backupPolicy/bp1',
+      name: 'projects/p1/locations/us-central1/backupPolicies/bp1',
       operationId: 'op-create',
     });
   });
@@ -46,7 +46,7 @@ describe('backup-policy-handler', () => {
     });
 
     expect(result.structuredContent).toEqual({
-      name: 'projects/p1/locations/us-central1/backupPolicy/bp1',
+      name: 'projects/p1/locations/us-central1/backupPolicies/bp1',
       operationId: '',
     });
   });
@@ -136,7 +136,7 @@ describe('backup-policy-handler', () => {
       dailyBackupLimit: 1,
       enabled: true,
     });
-    expect((result.structuredContent as any).createTime).toBeInstanceOf(Date);
+    expect((result.structuredContent as any).createTime).toMatch(/^\d{4}-/);
   });
 
   it('getBackupPolicyHandler preserves string state values', async () => {
@@ -158,7 +158,7 @@ describe('backup-policy-handler', () => {
     expect(result.structuredContent).toMatchObject({ state: 'READY' });
   });
 
-  it('getBackupPolicyHandler uses createTime fallback when missing', async () => {
+  it('getBackupPolicyHandler omits createTime when missing instead of fabricating one', async () => {
     const getBackupPolicy = vi.fn().mockResolvedValue([
       {
         name: 'projects/p1/locations/us-central1/backupPolicies/bp1',
@@ -176,7 +176,7 @@ describe('backup-policy-handler', () => {
       backupPolicyId: 'bp1',
     });
 
-    expect((result.structuredContent as any).createTime).toBeInstanceOf(Date);
+    expect((result.structuredContent as any).createTime).toBeUndefined();
   });
 
   it('getBackupPolicyHandler handles missing name and createTime.seconds (covers optional chaining/|| branches)', async () => {
@@ -203,8 +203,8 @@ describe('backup-policy-handler', () => {
       enabled: false,
       state: 'UNKNOWN',
     });
-    expect((result.structuredContent as any).createTime).toBeInstanceOf(Date);
-    expect((result.structuredContent as any).createTime.getTime()).toBe(0);
+    expect((result.structuredContent as any).createTime).toMatch(/^\d{4}-/);
+    expect((result.structuredContent as any).createTime).toBe('1970-01-01T00:00:00.000Z');
   });
 
   it('listBackupPoliciesHandler handles array response', async () => {
@@ -286,7 +286,7 @@ describe('backup-policy-handler', () => {
     const { listBackupPoliciesHandler } = await import('./backup-policy-handler.js');
     const result = await listBackupPoliciesHandler({ projectId: 'p1', location: 'us-central1' });
 
-    expect((result.structuredContent as any).backupPolicies[0].createTime).toBeInstanceOf(Date);
+    expect((result.structuredContent as any).backupPolicies[0].createTime).toMatch(/^\d{4}-/);
   });
 
   it('listBackupPoliciesHandler handles policies missing name and createTime.seconds (covers optional chaining/?? branches)', async () => {
@@ -308,8 +308,10 @@ describe('backup-policy-handler', () => {
       nextPageToken: '',
     });
     // createTime should be epoch if seconds is missing (?? 0)
-    expect((result.structuredContent as any).backupPolicies[0].createTime).toBeInstanceOf(Date);
-    expect((result.structuredContent as any).backupPolicies[0].createTime.getTime()).toBe(0);
+    expect((result.structuredContent as any).backupPolicies[0].createTime).toMatch(/^\d{4}-/);
+    expect((result.structuredContent as any).backupPolicies[0].createTime).toBe(
+      '1970-01-01T00:00:00.000Z'
+    );
   });
 
   it('updateBackupPolicyHandler calls updateBackupPolicy and uses metadata.target for name', async () => {
