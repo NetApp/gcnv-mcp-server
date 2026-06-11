@@ -72,6 +72,7 @@
     "vitest": "^3.2.6"
   },
   "dependencies": {
+    "@google-cloud/logging": "^11.2.0",
     "@google-cloud/netapp": "^0.18.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "google-auth-library": "^10.7.0",

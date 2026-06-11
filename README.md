@@ -18,6 +18,7 @@ A [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server for man
 | **Quota Rules**       | create, get, list, update, delete                                                           |
 | **Host Groups**       | create, get, list, update, delete                                                           |
 | **Operations**        | get, list, cancel                                                                           |
+| **Logs / Events**     | list logs, list errors, list events, summarize (Cloud Logging, read-only)                   |
 | **ONTAP Expert Mode** | discover and execute supported ONTAP REST operations for ONTAP-mode pools                   |
 
 ## Prerequisites
@@ -263,6 +264,19 @@ Replication is supported between specific region pairs (Standard/Premium/Extreme
 | `gcnv_operation_list`   | List operations with filtering and pagination |
 | `gcnv_operation_cancel` | Cancel an in-progress operation               |
 
+### Logs, Errors & Events Tools
+
+These read-only tools query [Google Cloud Logging](https://cloud.google.com/netapp/volumes/docs/monitor/cloud-logging) scoped to the NetApp service (`protoPayload.serviceName="netapp.googleapis.com"`). They build the Cloud Logging filter internally from high-level arguments, so callers do not need to know the filter DSL. All accept `projectId` (required) plus optional `location`, `resourceType`, `resourceName`, `startTime`/`endTime` (RFC3339, default last 24h), `pageSize` (default 50, max 200), `pageToken`, and `orderBy`.
+
+| Tool               | Description                                                                                         |
+| ------------------ | --------------------------------------------------------------------------------------------------- |
+| `gcnv_logs_list`   | List log entries; optional `severity` (minimum) and `freeTextFilter` (validated raw filter clause)  |
+| `gcnv_errors_list` | List failures (`severity>=ERROR` or non-zero operation status); optional `minSeverity` override     |
+| `gcnv_events_list` | List lifecycle/admin-activity events; optional `eventType` and `methodName` (supports `*` wildcard) |
+| `gcnv_log_summary` | Scan a window and return aggregated counts by severity, method, and resource, plus a failure count  |
+
+**Authentication:** these tools reuse the same Google Cloud credentials as the rest of the server (ADC / `GOOGLE_APPLICATION_CREDENTIALS`). The principal needs `roles/logging.viewer` (`logging.logEntries.list`). Admin Activity audit logs are always available; [Data Access audit logs](https://cloud.google.com/logging/docs/audit/configure-data-access) must be explicitly enabled to see read-type entries.
+
 ### ONTAP Expert Mode Tools
 
 ONTAP Expert Mode is available for storage pools created with `mode: ONTAP`. It exposes supported ONTAP REST operations through the MCP server while still using Google Cloud authentication and the GCNV control plane proxy. No separate ONTAP credentials or direct ONTAP endpoint configuration are required.
@@ -310,6 +324,8 @@ src/
     tool.ts                         # Shared TypeScript interfaces
   utils/
     netapp-client-factory.ts        # NetApp client factory with caching
+    logging-client-factory.ts       # @google-cloud/logging client factory (logs/errors/events)
+    logging-filter.ts               # Builds Cloud Logging filters scoped to GCNV
     ontap-http-client.ts            # ONTAP REST client (auth, body envelope, response unwrapping)
     ontap-index-loader.ts           # Loads and indexes the ONTAP API catalog
     ontap-preflight-validator.ts    # Pre-execution validation (index allowlist, CLI block, required body)

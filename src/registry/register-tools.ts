@@ -220,6 +220,18 @@ import { ontapExecuteTool } from '../tools/ontap-execute-tool.js';
 import { ontapExecuteHandler } from '../tools/handlers/ontap-execute-handler.js';
 import { ontapAuditLogTool } from '../tools/ontap-audit-log-tool.js';
 import { ontapAuditLogHandler } from '../tools/handlers/ontap-audit-log-handler.js';
+import {
+  listGcnvLogsTool,
+  listGcnvErrorsTool,
+  listGcnvEventsTool,
+  gcnvLogSummaryTool,
+} from '../tools/logs-tools.js';
+import {
+  listGcnvLogsHandler,
+  listGcnvErrorsHandler,
+  listGcnvEventsHandler,
+  gcnvLogSummaryHandler,
+} from '../tools/handlers/logs-handler.js';
 import { withAuditLog } from '../utils/ontap-audit-logger.js';
 import { ToolConfig, ToolHandler } from '../types/tool.js';
 
@@ -415,6 +427,12 @@ export function registerAllTools(mcpServer: McpServer) {
   mcpServer.registerTool(getHostGroupTool.name, getHostGroupTool, getHostGroupHandler);
   mcpServer.registerTool(listHostGroupsTool.name, listHostGroupsTool, listHostGroupsHandler);
   mcpServer.registerTool(updateHostGroupTool.name, updateHostGroupTool, updateHostGroupHandler);
+
+  // Register logs / errors / events tools (Cloud Logging backed)
+  mcpServer.registerTool(listGcnvLogsTool.name, listGcnvLogsTool, listGcnvLogsHandler);
+  mcpServer.registerTool(listGcnvErrorsTool.name, listGcnvErrorsTool, listGcnvErrorsHandler);
+  mcpServer.registerTool(listGcnvEventsTool.name, listGcnvEventsTool, listGcnvEventsHandler);
+  mcpServer.registerTool(gcnvLogSummaryTool.name, gcnvLogSummaryTool, gcnvLogSummaryHandler);
 
   // Register ONTAP Expert Mode tools -- audit log control
   mcpServer.registerTool(ontapAuditLogTool.name, ontapAuditLogTool, ontapAuditLogHandler);
