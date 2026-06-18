@@ -1,5 +1,6 @@
 import { ToolHandler } from '../../types/tool.js';
 import { loadIndex, _resetIndexCache, IndexEndpoint } from '../../utils/ontap-index-loader.js';
+import { discoverViaKg } from '../../utils/ontap-kg-client.js';
 import { logger } from '../../logger.js';
 
 const log = logger.child({ module: 'ontap-discover-handler' });
@@ -261,6 +262,13 @@ function projectEndpointForDiscover(
   return out;
 }
 
+function successResult(result: Record<string, unknown>) {
+  return {
+    content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+    structuredContent: { result },
+  };
+}
+
 /**
  * Puts the top-scoring endpoint from each resource at the head (sorted by
  * score), then the rest in score order. Keeps top-N breadth-first without
@@ -375,23 +383,55 @@ function expandSynonyms(
 
 export const ontapDiscoverHandler: ToolHandler = async (args) => {
   try {
-    const index = await loadIndex();
     const { resource, search } = args;
+    const kgKind = !resource && !search ? 'categories' : resource ? 'resource' : 'search';
+    const remote = await discoverViaKg({
+      schemaVersion: 'ontap-kg/1',
+      kind: kgKind,
+      ...(resource ? { resource: String(resource).toLowerCase() } : {}),
+      ...(search ? { search: String(search) } : {}),
+      ...(typeof args.maxResults === 'number' ? { max_results: args.maxResults } : {}),
+      ...(typeof args.userIntent === 'string'
+        ? {
+            context: {
+              user_intent: args.userIntent,
+              client: { name: 'gcnv-mcp', version: '1.1.0' },
+            },
+          }
+        : {}),
+    });
+
+    if (remote) {
+      if (kgKind === 'categories') {
+        return successResult({ categories: remote.categories ?? [] });
+      }
+      if (kgKind === 'resource') {
+        return successResult({
+          resource: String(resource).toLowerCase(),
+          endpoints: (remote.endpoints ?? []).map((ep) => {
+            const clone = { ...ep };
+            delete (clone as Record<string, unknown>).resource;
+            return clone;
+          }),
+          ...(typeof remote.suggestion === 'string' ? { suggestion: remote.suggestion } : {}),
+        });
+      }
+      return successResult({
+        search,
+        endpoints: remote.endpoints ?? [],
+        ...(typeof remote.note === 'string' ? { note: remote.note } : {}),
+        ...(typeof remote.suggestion === 'string' ? { suggestion: remote.suggestion } : {}),
+      });
+    }
+
+    const index = await loadIndex();
 
     // Mode 1: no params -> list all categories.
     if (!resource && !search) {
       const result = {
         categories: index.categories.map(({ resource, count }) => ({ resource, count })),
       };
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify(result, null, 2),
-          },
-        ],
-        structuredContent: { result },
-      };
+      return successResult(result);
     }
 
     // Mode 2: exact resource match (takes precedence over search).
@@ -405,10 +445,7 @@ export const ontapDiscoverHandler: ToolHandler = async (args) => {
           endpoints: [],
           suggestion: `No resource category '${lowerResource}' found. Available categories: ${allResources}.`,
         };
-        return {
-          content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
-          structuredContent: { result },
-        };
+        return successResult(result);
       }
 
       const projected = endpoints.map((ep) =>
@@ -418,10 +455,7 @@ export const ontapDiscoverHandler: ToolHandler = async (args) => {
         resource: lowerResource,
         endpoints: projected,
       };
-      return {
-        content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
-        structuredContent: { result },
-      };
+      return successResult(result);
     }
 
     // Mode 3: BM25 keyword search with synonym expansion.
@@ -456,10 +490,7 @@ export const ontapDiscoverHandler: ToolHandler = async (args) => {
         endpoints: [],
         suggestion: `No endpoints found for '${search}'. Try broader terms or run with no arguments to see all available resource categories.`,
       };
-      return {
-        content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
-        structuredContent: { result },
-      };
+      return successResult(result);
     }
 
     const DEFAULT_MAX_RESULTS = 10;
@@ -500,10 +531,7 @@ export const ontapDiscoverHandler: ToolHandler = async (args) => {
       result.note = note;
     }
 
-    return {
-      content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
-      structuredContent: { result },
-    };
+    return successResult(result);
   } catch (err: any) {
     log.error({ err }, 'Error in ontap_discover');
     return {

@@ -3,6 +3,10 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { registerAllTools } from './registry/register-tools.js';
+import {
+  accessTokenFromHttpHeaders,
+  runWithRequestAccessToken,
+} from './auth/access-token-context.js';
 import { logger } from './logger.js';
 
 const log = logger.child({});
@@ -110,7 +114,10 @@ async function startHttpTransport(mcpServerTemplate: McpServer, port: number = 3
           void (async () => {
             try {
               const parsedBody = body ? JSON.parse(body) : undefined;
-              await transport.handlePostMessage(req, res, parsedBody);
+              const requestToken = accessTokenFromHttpHeaders(req.headers);
+              await runWithRequestAccessToken(requestToken, async () => {
+                await transport.handlePostMessage(req, res, parsedBody);
+              });
             } catch (error) {
               log.error({ err: error }, 'Error handling POST message');
               if (!res.headersSent) {

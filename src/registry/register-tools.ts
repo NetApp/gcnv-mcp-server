@@ -222,53 +222,65 @@ import { ontapAuditLogTool } from '../tools/ontap-audit-log-tool.js';
 import { ontapAuditLogHandler } from '../tools/handlers/ontap-audit-log-handler.js';
 import { withAuditLog } from '../utils/ontap-audit-logger.js';
 import { ToolConfig, ToolHandler } from '../types/tool.js';
+import { runWithRequestAccessToken } from '../auth/access-token-context.js';
+import { z } from 'zod';
+
+const DELEGATED_ACCESS_TOKEN_ARG = '_delegated_google_access_token';
+
+function withDelegatedAccessToken(handler: ToolHandler): ToolHandler {
+  return async (args: { [key: string]: any }) => {
+    const tokenRaw = args?.[DELEGATED_ACCESS_TOKEN_ARG];
+    const token = typeof tokenRaw === 'string' && tokenRaw.trim() ? tokenRaw.trim() : undefined;
+    const forwardedArgs = { ...(args || {}) };
+    delete forwardedArgs[DELEGATED_ACCESS_TOKEN_ARG];
+    return runWithRequestAccessToken(token, () => handler(forwardedArgs));
+  };
+}
+
+function withDelegatedTokenInputSchema(tool: ToolConfig): ToolConfig {
+  return {
+    ...tool,
+    inputSchema: {
+      ...tool.inputSchema,
+      [DELEGATED_ACCESS_TOKEN_ARG]: z
+        .string()
+        .optional()
+        .describe('Internal delegated auth token; injected by resource-manager runtime.'),
+    },
+  };
+}
 
 /**
  * Register all tools and their handlers to the tool registry
  */
 export function registerAllTools(mcpServer: McpServer) {
+  const registerTool = (tool: ToolConfig, handler: ToolHandler) => {
+    const internalTool = withDelegatedTokenInputSchema(tool);
+    mcpServer.registerTool(internalTool.name, internalTool, withDelegatedAccessToken(handler));
+  };
+
   // Register storage pool tools
-  mcpServer.registerTool(
-    createStoragePoolTool.name,
-    createStoragePoolTool,
-    createStoragePoolHandler
-  );
-  mcpServer.registerTool(
-    deleteStoragePoolTool.name,
-    deleteStoragePoolTool,
-    deleteStoragePoolHandler
-  );
-  mcpServer.registerTool(getStoragePoolTool.name, getStoragePoolTool, getStoragePoolHandler);
-  mcpServer.registerTool(listStoragePoolsTool.name, listStoragePoolsTool, listStoragePoolsHandler);
-  mcpServer.registerTool(
-    updateStoragePoolTool.name,
-    updateStoragePoolTool,
-    updateStoragePoolHandler
-  );
-  mcpServer.registerTool(
-    validateDirectoryServiceTool.name,
-    validateDirectoryServiceTool,
-    validateDirectoryServiceHandler
-  );
+  registerTool(createStoragePoolTool, createStoragePoolHandler);
+  registerTool(deleteStoragePoolTool, deleteStoragePoolHandler);
+  registerTool(getStoragePoolTool, getStoragePoolHandler);
+  registerTool(listStoragePoolsTool, listStoragePoolsHandler);
+  registerTool(updateStoragePoolTool, updateStoragePoolHandler);
+  registerTool(validateDirectoryServiceTool, validateDirectoryServiceHandler);
 
   // Register volume tools
-  mcpServer.registerTool(createVolumeTool.name, createVolumeTool, createVolumeHandler);
-  mcpServer.registerTool(deleteVolumeTool.name, deleteVolumeTool, deleteVolumeHandler);
-  mcpServer.registerTool(getVolumeTool.name, getVolumeTool, getVolumeHandler);
-  mcpServer.registerTool(listVolumesTool.name, listVolumesTool, listVolumesHandler);
-  mcpServer.registerTool(updateVolumeTool.name, updateVolumeTool, updateVolumeHandler);
+  registerTool(createVolumeTool, createVolumeHandler);
+  registerTool(deleteVolumeTool, deleteVolumeHandler);
+  registerTool(getVolumeTool, getVolumeHandler);
+  registerTool(listVolumesTool, listVolumesHandler);
+  registerTool(updateVolumeTool, updateVolumeHandler);
 
   // Register snapshot tools
-  mcpServer.registerTool(createSnapshotTool.name, createSnapshotTool, createSnapshotHandler);
-  mcpServer.registerTool(deleteSnapshotTool.name, deleteSnapshotTool, deleteSnapshotHandler);
-  mcpServer.registerTool(getSnapshotTool.name, getSnapshotTool, getSnapshotHandler);
-  mcpServer.registerTool(listSnapshotsTool.name, listSnapshotsTool, listSnapshotsHandler);
-  mcpServer.registerTool(
-    revertVolumeToSnapshotTool.name,
-    revertVolumeToSnapshotTool,
-    revertVolumeToSnapshotHandler
-  );
-  mcpServer.registerTool(updateSnapshotTool.name, updateSnapshotTool, updateSnapshotHandler);
+  registerTool(createSnapshotTool, createSnapshotHandler);
+  registerTool(deleteSnapshotTool, deleteSnapshotHandler);
+  registerTool(getSnapshotTool, getSnapshotHandler);
+  registerTool(listSnapshotsTool, listSnapshotsHandler);
+  registerTool(revertVolumeToSnapshotTool, revertVolumeToSnapshotHandler);
+  registerTool(updateSnapshotTool, updateSnapshotHandler);
 
   // Register backup vault tools
   mcpServer.registerTool(
@@ -440,6 +452,6 @@ export function registerAllTools(mcpServer: McpServer) {
   ];
 
   for (const { tool, handler } of ontapTools) {
-    mcpServer.registerTool(tool.name, tool, withAuditLog(handler, tool.name));
+    registerTool(tool, withAuditLog(handler, tool.name));
   }
 }

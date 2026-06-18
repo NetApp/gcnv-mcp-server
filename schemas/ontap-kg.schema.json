@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://netapp.github.io/gcnv-mcp-server/schemas/ontap-kg.schema.json",
+  "title": "ONTAP KG Discover Envelope",
+  "type": "object",
+  "required": ["schemaVersion", "kind"],
+  "properties": {
+    "schemaVersion": {
+      "const": "ontap-kg/1"
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["categories", "resource", "search", "index"]
+    },
+    "search": {
+      "type": "string"
+    },
+    "resource": {
+      "type": "string"
+    },
+    "max_results": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["resource", "count"],
+        "properties": {
+          "resource": { "type": "string" },
+          "count": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": true
+      }
+    },
+    "endpoints": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/endpoint" }
+    },
+    "synonyms": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "source": { "type": "string" },
+        "generatedAt": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "user_intent": { "type": "string" },
+        "client": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "version": { "type": "string" }
+          },
+          "additionalProperties": true
+        },
+        "session_id": { "type": "string" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "endpoint": {
+      "type": "object",
+      "required": [
+        "resource",
+        "method",
+        "path",
+        "pathParams",
+        "description",
+        "hint",
+        "keywords",
+        "body"
+      ],
+      "properties": {
+        "resource": { "type": "string" },
+        "method": { "type": "string" },
+        "path": { "type": "string" },
+        "pathParams": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "description": { "type": "string" },
+        "hint": {
+          "type": ["string", "null"]
+        },
+        "keywords": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "body": {},
+        "requiredBody": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "operationId": { "type": "string" },
+        "score": { "type": "number" },
+        "examples": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "summary": { "type": "string" },
+              "curl": { "type": "string" }
+            },
+            "additionalProperties": true
+          }
+        },
+        "related": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "relationship": {
+                "type": "string",
+                "enum": ["requires", "polling", "sibling", "lifecycle"]
+              },
+              "operationId": { "type": "string" },
+              "why": { "type": "string" }
+            },
+            "additionalProperties": true
+          }
+        },
+        "extensions": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
