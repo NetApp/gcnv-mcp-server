@@ -78,6 +78,26 @@ export function shouldDefaultMaxRecordsForGet(ontapApiPath: string): boolean {
   return true;
 }
 
+/**
+ * Normalize query params for the GCNV ONTAP proxy.
+ * The proxy renames ontap_fields → fields before forwarding to ONTAP; callers
+ * must use ontap_fields. Raw `fields` is interpreted as a Google API field mask.
+ */
+export function normalizeOntapQueryParams(
+  queryParams?: Record<string, string>
+): Record<string, string> | undefined {
+  if (!queryParams) return undefined;
+  if (!Object.prototype.hasOwnProperty.call(queryParams, 'fields')) {
+    return queryParams;
+  }
+  const normalized = { ...queryParams };
+  if (!normalized['ontap_fields']) {
+    normalized['ontap_fields'] = normalized['fields'];
+  }
+  delete normalized['fields'];
+  return normalized;
+}
+
 export const ontapExecuteHandler: ToolHandler = async (args) => {
   const { projectId, locationId, storagePoolId, method, ontapApiPath, confirmDelete } = args;
   const confirmedResourceName =
@@ -90,7 +110,9 @@ export const ontapExecuteHandler: ToolHandler = async (args) => {
   let parsedQueryParams: Record<string, string> | undefined;
   try {
     parsedBody = parseJsonParam<Record<string, unknown>>(args.body, 'body');
-    parsedQueryParams = parseJsonParam<Record<string, string>>(args.queryParams, 'queryParams');
+    parsedQueryParams = normalizeOntapQueryParams(
+      parseJsonParam<Record<string, string>>(args.queryParams, 'queryParams')
+    );
   } catch (err: any) {
     return {
       isError: true,

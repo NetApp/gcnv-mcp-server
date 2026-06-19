@@ -153,6 +153,8 @@ A large capacity volume is internally composed of several **constituent volumes*
 
 These flags require `protocols` to include `SMB`. `CONTINUOUSLY_AVAILABLE` is **not supported on `FLEX` storage pools** — the request is rejected before reaching the API. Use `STANDARD`, `PREMIUM`, or `EXTREME` for CA shares.
 
+**FlexCache:** On default-mode pools, use `gcnv_volume_create` with `cacheParameters` to create a cache volume (origin cluster, SVM, volume, and intercluster LIF IPs). Use `gcnv_volume_update` with `cacheParameters.cacheConfig` to change cache settings. On ONTAP-mode pools, use [ONTAP Expert Mode Tools](#ontap-expert-mode-tools) instead.
+
 ### Snapshot Tools
 
 | Tool                   | Description                           |
