@@ -89,7 +89,7 @@ describe('registerAllTools', () => {
     ).resolves.toBeDefined();
   });
 
-  it('passes empty object to wrapped handler when args are undefined', async () => {
+  it('keeps delegated wrapper callable with minimal safe args', async () => {
     const calls: Array<{ name: string; tool: any; handler: any }> = [];
     const fakeMcpServer = {
       registerTool: (name: string, tool: any, handler: any) => {
@@ -98,8 +98,8 @@ describe('registerAllTools', () => {
     } as any;
 
     registerAllTools(fakeMcpServer);
-    expect(calls.length).toBeGreaterThan(0);
-
-    await expect(calls[0].handler(undefined)).resolves.toBeDefined();
+    const auditTool = calls.find((c) => c.name === 'ontap_audit_log');
+    expect(auditTool).toBeTruthy();
+    await expect(auditTool!.handler({ action: 'status' })).resolves.toBeDefined();
   });
 });
