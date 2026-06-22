@@ -128,7 +128,7 @@ describe('ontapAuditLogHandler', () => {
   it('enable uses unknown error fallback when thrown error has no message', async () => {
     const auditLogger = await import('../../utils/ontap-audit-logger.js');
     const spy = vi.spyOn(auditLogger, 'enableAuditLog').mockImplementation(() => {
-      throw {};
+      throw new Error();
     });
     try {
       const result = await ontapAuditLogHandler({ action: 'enable', outputDir: '/nope' });
@@ -159,7 +159,7 @@ describe('ontapAuditLogHandler', () => {
   it('disable uses unknown error fallback when thrown error has no message', async () => {
     const auditLogger = await import('../../utils/ontap-audit-logger.js');
     const spy = vi.spyOn(auditLogger, 'disableAuditLog').mockImplementation(() => {
-      throw {};
+      throw new Error();
     });
     try {
       const result = await ontapAuditLogHandler({ action: 'disable' });
