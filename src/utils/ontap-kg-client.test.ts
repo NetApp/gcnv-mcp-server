@@ -20,18 +20,16 @@ describe('ontap-kg-client discoverViaKg', () => {
   it('posts discover request and returns validated categories payload', async () => {
     process.env.ONTAP_KG_URL = 'https://kg.example';
     process.env.ONTAP_KG_AUTH_TOKEN = 'tok';
-    const fetchMock = vi
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          schemaVersion: 'ontap-kg/1',
-          kind: 'categories',
-          categories: [{ resource: 'volume', count: 2 }],
-          suggestion: 'next',
-        }),
-      } as any);
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        schemaVersion: 'ontap-kg/1',
+        kind: 'categories',
+        categories: [{ resource: 'volume', count: 2 }],
+        suggestion: 'next',
+      }),
+    } as any);
 
     const { discoverViaKg } = await import('./ontap-kg-client.js');
     const result = await discoverViaKg({

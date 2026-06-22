@@ -22,7 +22,9 @@ describe('ontap-response-utils', () => {
   it('formats ONTAP error from JSON body', () => {
     const formatted = formatOntapError(
       400,
-      JSON.stringify({ error: { code: 262179, message: 'Unexpected argument', target: 'type.name' } }),
+      JSON.stringify({
+        error: { code: 262179, message: 'Unexpected argument', target: 'type.name' },
+      }),
       '/api/foo'
     );
     expect(formatted).toEqual({
