@@ -125,6 +125,20 @@ describe('ontapAuditLogHandler', () => {
     }
   });
 
+  it('enable uses unknown error fallback when thrown error has no message', async () => {
+    const auditLogger = await import('../../utils/ontap-audit-logger.js');
+    const spy = vi.spyOn(auditLogger, 'enableAuditLog').mockImplementation(() => {
+      throw {};
+    });
+    try {
+      const result = await ontapAuditLogHandler({ action: 'enable', outputDir: '/nope' });
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('unknown error');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it('disable returns structured isError when underlying call throws', async () => {
     await ontapAuditLogHandler({ action: 'enable', outputDir: testDir });
     const auditLogger = await import('../../utils/ontap-audit-logger.js');
@@ -139,6 +153,41 @@ describe('ontapAuditLogHandler', () => {
       expect(result.content[0].text).toContain('retryable: false');
     } finally {
       spy.mockRestore();
+    }
+  });
+
+  it('disable uses unknown error fallback when thrown error has no message', async () => {
+    const auditLogger = await import('../../utils/ontap-audit-logger.js');
+    const spy = vi.spyOn(auditLogger, 'disableAuditLog').mockImplementation(() => {
+      throw {};
+    });
+    try {
+      const result = await ontapAuditLogHandler({ action: 'disable' });
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('unknown error');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('disable reports multi-file summary message when log spans multiple files', async () => {
+    const auditLogger = await import('../../utils/ontap-audit-logger.js');
+    const getAllSpy = vi
+      .spyOn(auditLogger, 'getAllAuditLogPaths')
+      .mockReturnValue(['/tmp/a.jsonl', '/tmp/b.jsonl']);
+    const disableSpy = vi
+      .spyOn(auditLogger, 'disableAuditLog')
+      .mockReturnValue('/tmp/session-summary.jsonl');
+
+    try {
+      const result = await ontapAuditLogHandler({ action: 'disable' });
+      const data = JSON.parse(result.content[0].text);
+      expect(data.enabled).toBe(false);
+      expect(data.logFiles).toHaveLength(2);
+      expect(data.message).toContain('Log spans 2 files');
+    } finally {
+      getAllSpy.mockRestore();
+      disableSpy.mockRestore();
     }
   });
 });

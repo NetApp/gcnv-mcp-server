@@ -148,4 +148,22 @@ describe('resolveDeleteTargetName', () => {
     const name = await resolveDeleteTargetName(client, '/api/cluster/peers/peer-uuid');
     expect(name).toBe('peer-uuid');
   });
+
+  it('falls back to the last path segment when GET throws', async () => {
+    const client = {
+      get: async () => {
+        throw new Error('boom');
+      },
+    };
+    const name = await resolveDeleteTargetName(client, '/api/storage/luns/lun-123');
+    expect(name).toBe('lun-123');
+  });
+
+  it('returns original path when there is no non-empty segment', async () => {
+    const client = {
+      get: async () => ({}),
+    };
+    const name = await resolveDeleteTargetName(client, '/');
+    expect(name).toBe('/');
+  });
 });

@@ -27,4 +27,79 @@ describe('registerAllTools', () => {
     const uniqueNames = new Set(calls.map((c) => c.name));
     expect(uniqueNames.size).toBe(calls.length);
   });
+
+  it('forwards delegated token and strips internal arg before handler call', async () => {
+    const calls: Array<{ name: string; tool: any; handler: any }> = [];
+    const fakeMcpServer = {
+      registerTool: (name: string, tool: any, handler: any) => {
+        calls.push({ name, tool, handler });
+      },
+    } as any;
+
+    registerAllTools(fakeMcpServer);
+    const auditTool = calls.find((c) => c.name === 'ontap_audit_log');
+    expect(auditTool).toBeTruthy();
+
+    const result = await auditTool!.handler({
+      action: 'status',
+      _delegated_google_access_token: 'token-from-rm',
+    });
+    expect(result.structuredContent?.result).toBeDefined();
+    expect(JSON.stringify(result)).not.toContain('_delegated_google_access_token');
+  });
+
+  it('handles blank delegated token args without throwing', async () => {
+    const calls: Array<{ name: string; tool: any; handler: any }> = [];
+    const fakeMcpServer = {
+      registerTool: (name: string, tool: any, handler: any) => {
+        calls.push({ name, tool, handler });
+      },
+    } as any;
+
+    registerAllTools(fakeMcpServer);
+    const auditTool = calls.find((c) => c.name === 'ontap_audit_log');
+    expect(auditTool).toBeTruthy();
+
+    await expect(
+      auditTool!.handler({
+        action: 'status',
+        _delegated_google_access_token: '   ',
+      })
+    ).resolves.toBeDefined();
+  });
+
+  it('adds delegated token to each tool schema and accepts non-string token inputs', async () => {
+    const calls: Array<{ name: string; tool: any; handler: any }> = [];
+    const fakeMcpServer = {
+      registerTool: (name: string, tool: any, handler: any) => {
+        calls.push({ name, tool, handler });
+      },
+    } as any;
+
+    registerAllTools(fakeMcpServer);
+    const auditTool = calls.find((c) => c.name === 'ontap_audit_log');
+    expect(auditTool).toBeTruthy();
+    expect(auditTool!.tool.inputSchema).toBeDefined();
+
+    await expect(
+      auditTool!.handler({
+        action: 'status',
+        _delegated_google_access_token: 12345,
+      })
+    ).resolves.toBeDefined();
+  });
+
+  it('passes empty object to wrapped handler when args are undefined', async () => {
+    const calls: Array<{ name: string; tool: any; handler: any }> = [];
+    const fakeMcpServer = {
+      registerTool: (name: string, tool: any, handler: any) => {
+        calls.push({ name, tool, handler });
+      },
+    } as any;
+
+    registerAllTools(fakeMcpServer);
+    expect(calls.length).toBeGreaterThan(0);
+
+    await expect(calls[0].handler(undefined)).resolves.toBeDefined();
+  });
 });
