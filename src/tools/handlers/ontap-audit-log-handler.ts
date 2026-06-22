@@ -40,9 +40,10 @@ export const ontapAuditLogHandler: ToolHandler = (args, extra) => {
         logFilePath = enableAuditLog(outputDir as string | undefined, sessionId);
       } catch (err: any) {
         log.error({ err, outputDir }, 'Failed to enable audit logging');
+        const reason = typeof err?.message === 'string' && err.message.trim() ? err.message : 'unknown error';
         return Promise.resolve(
           toolError(
-            `Failed to enable audit logging: ${err?.message ?? 'unknown error'}. ` +
+            `Failed to enable audit logging: ${reason}. ` +
               'Check that outputDir exists and is writable, then retry. retryable: false'
           )
         );
@@ -66,9 +67,10 @@ export const ontapAuditLogHandler: ToolHandler = (args, extra) => {
         logFilePath = disableAuditLog(sessionId);
       } catch (err: any) {
         log.error({ err }, 'Failed to disable audit logging');
+        const reason = typeof err?.message === 'string' && err.message.trim() ? err.message : 'unknown error';
         return Promise.resolve(
           toolError(
-            `Failed to disable audit logging: ${err?.message ?? 'unknown error'}. ` +
+            `Failed to disable audit logging: ${reason}. ` +
               'The session summary may not have been written. retryable: false'
           )
         );
