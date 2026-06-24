@@ -1613,6 +1613,162 @@ describe('volume-handler', () => {
     });
   });
 
+  it('createVolumeHandler passes cacheParameters for FlexCache cache volumes (cross-mode: default cache + ONTAP origin)', async () => {
+    const createVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-cache-1' }]);
+    createClientMock.mockReturnValue({ createVolume });
+
+    const { createVolumeHandler } = await import('./volume-handler.js');
+    await createVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'default-mode-pool',
+      volumeId: 'fc_cache',
+      capacityGib: 100,
+      protocols: ['NFSV3'],
+      cacheParameters: {
+        peerVolumeName: 'fc_vol_1',
+        peerClusterName: 'gcnv-a42aa3b9c661f88',
+        peerSvmName: 'gcnv-a42aa3b9c661f88-svm-01',
+        peerIpAddresses: ['10.181.128.18', '10.181.128.19'],
+        enableGlobalFileLock: false,
+        cacheConfig: {
+          writebackEnabled: false,
+          atimeScrubEnabled: true,
+          atimeScrubDays: 30,
+          cifsChangeNotifyEnabled: false,
+          cachePrePopulate: {
+            pathList: ['/dir1'],
+            excludePathList: ['/dir2'],
+            recursion: true,
+          },
+        },
+      },
+    });
+
+    expect(createVolume).toHaveBeenCalledTimes(1);
+    expect(createVolume.mock.calls[0]?.[0]?.volume?.cacheParameters).toEqual({
+      peerVolumeName: 'fc_vol_1',
+      peerClusterName: 'gcnv-a42aa3b9c661f88',
+      peerSvmName: 'gcnv-a42aa3b9c661f88-svm-01',
+      peerIpAddresses: ['10.181.128.18', '10.181.128.19'],
+      enableGlobalFileLock: false,
+      cacheConfig: {
+        writebackEnabled: false,
+        atimeScrubEnabled: true,
+        atimeScrubDays: 30,
+        cifsChangeNotifyEnabled: false,
+        cachePrePopulate: {
+          pathList: ['/dir1'],
+          excludePathList: ['/dir2'],
+          recursion: true,
+        },
+      },
+    });
+  });
+
+  it('createVolumeHandler omits cacheParameters from request body when not provided', async () => {
+    const createVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-no-cache' }]);
+    createClientMock.mockReturnValue({ createVolume });
+
+    const { createVolumeHandler } = await import('./volume-handler.js');
+    await createVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      volumeId: 'plain-vol',
+      capacityGib: 10,
+      protocols: ['NFSV3'],
+    });
+
+    expect(createVolume).toHaveBeenCalledTimes(1);
+    const sentVolume = createVolume.mock.calls[0]?.[0]?.volume ?? {};
+    expect(Object.prototype.hasOwnProperty.call(sentVolume, 'cacheParameters')).toBe(false);
+  });
+
+  it('updateVolumeHandler supports patching cacheParameters and emits the snake_case updateMask', async () => {
+    const updateVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-upd-cache' }]);
+    createClientMock.mockReturnValue({ updateVolume });
+
+    const { updateVolumeHandler } = await import('./volume-handler.js');
+    await updateVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'fc_cache',
+      cacheParameters: {
+        cacheConfig: {
+          writebackEnabled: true,
+          atimeScrubEnabled: true,
+          atimeScrubDays: 14,
+        },
+      },
+    });
+
+    expect(updateVolume.mock.calls[0]?.[0]).toMatchObject({
+      volume: {
+        name: 'projects/p1/locations/us-central1/volumes/fc_cache',
+        cacheParameters: {
+          cacheConfig: {
+            writebackEnabled: true,
+            atimeScrubEnabled: true,
+            atimeScrubDays: 14,
+          },
+        },
+      },
+      updateMask: {
+        paths: expect.arrayContaining([
+          'cache_parameters.cache_config.writeback_enabled',
+          'cache_parameters.cache_config.atime_scrub_enabled',
+          'cache_parameters.cache_config.atime_scrub_days',
+        ]),
+      },
+    });
+    expect(updateVolume.mock.calls[0]?.[0]?.updateMask.paths).toHaveLength(3);
+  });
+
+  it('updateVolumeHandler adds nested cache_parameters updateMask paths for cachePrePopulate fields', async () => {
+    const updateVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-upd-cache-prepop' }]);
+    createClientMock.mockReturnValue({ updateVolume });
+
+    const { updateVolumeHandler } = await import('./volume-handler.js');
+    await updateVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'fc_cache',
+      cacheParameters: {
+        cacheConfig: {
+          cachePrePopulate: {
+            pathList: ['/dir1'],
+            excludePathList: ['/dir1/exclude'],
+            recursion: true,
+          },
+        },
+      },
+    });
+
+    expect(updateVolume.mock.calls[0]?.[0]?.updateMask.paths).toEqual(
+      expect.arrayContaining([
+        'cache_parameters.cache_config.cache_pre_populate.path_list',
+        'cache_parameters.cache_config.cache_pre_populate.exclude_path_list',
+        'cache_parameters.cache_config.cache_pre_populate.recursion',
+      ])
+    );
+  });
+
+  it('updateVolumeHandler does not add cache_parameters updateMask paths when cacheParameters is empty object', async () => {
+    const updateVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-upd-cache-empty' }]);
+    createClientMock.mockReturnValue({ updateVolume });
+
+    const { updateVolumeHandler } = await import('./volume-handler.js');
+    await updateVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'fc_cache',
+      cacheParameters: {},
+    });
+
+    expect(updateVolume.mock.calls[0]?.[0]?.updateMask.paths).toEqual([]);
+  });
+
   it('updateVolumeHandler adds nested backup_config updateMask paths when backupConfig fields are present', async () => {
     const updateVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-upd2' }]);
     createClientMock.mockReturnValue({ updateVolume });

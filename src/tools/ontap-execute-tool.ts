@@ -40,7 +40,7 @@ export const ontapExecuteTool: ToolConfig = {
       .union([z.string(), z.record(z.string())])
       .optional()
       .describe(
-        'Query parameters, either as a JSON string or an object with string values. Example: {"max_records":"50","ontap_fields":"name,uuid,state"}. ' +
+        'Query parameters, either as a JSON string or an object with string values. Example: {"max_records":"50","ontap_fields":"name,uuid"}. ' +
           'IMPORTANT: ONTAP collection GETs return only uuid+name by default. To avoid N+1 per-UUID ' +
           'follow-up fetches, prefer a single list call with ontap_fields=<comma-list of fields from ' +
           "the endpoint's response schema or the discover hint>. " +

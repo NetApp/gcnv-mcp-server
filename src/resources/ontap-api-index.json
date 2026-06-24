@@ -18,6 +18,7 @@
     "fc": ["lun", "igroup"],
     "host mapping": ["igroup"],
     "lun map": ["igroup"],
+    "initiator group": ["igroup"],
     "peer": ["cluster_peer", "svm_peer", "svm_peer_permission"],
     "peering": ["cluster_peer", "svm_peer"],
     "svm peer": ["svm_peer", "svm_peer_permission"],
@@ -2550,7 +2551,7 @@
       "path": "/api/cluster/peers",
       "pathParams": [],
       "description": "List all cluster peer relationships.",
-      "hint": null,
+      "hint": "Pass ontap_fields=name,uuid,remote,status to limit row size.",
       "body": null
     },
     {
@@ -2589,8 +2590,8 @@
       "method": "DELETE",
       "path": "/api/cluster/peers/{uuid}",
       "pathParams": ["uuid"],
-      "description": "Delete a cluster peer relationship.",
-      "hint": null,
+      "description": "Delete a cluster peer relationship after dependent SVM peer and SnapMirror relationships are removed.",
+      "hint": "Delete the cluster peer relationship after dependent SVM peers/SnapMirror relationships are removed.",
       "body": null
     },
     {
@@ -2609,9 +2610,13 @@
       "method": "PATCH",
       "path": "/api/cluster/peers/{uuid}",
       "pathParams": ["uuid"],
-      "description": "Update a cluster peer relationship.",
-      "hint": null,
-      "body": {}
+      "description": "Update a cluster peer relationship, such as authentication/passphrase settings.",
+      "hint": "Update cluster peer authentication/passphrase. Run on the applicable cluster peer endpoint.",
+      "body": {
+        "authentication": {
+          "passphrase": "<new-shared-passphrase>"
+        }
+      }
     },
     {
       "resource": "schedule",
@@ -3475,7 +3480,7 @@
       "path": "/api/name-services/dns/{uuid}",
       "pathParams": ["uuid"],
       "description": "Delete DNS configuration for an SVM.",
-      "hint": null,
+      "hint": "Delete DNS configuration for the SVM.",
       "body": null
     },
     {
@@ -3509,8 +3514,11 @@
       "path": "/api/name-services/dns/{uuid}",
       "pathParams": ["uuid"],
       "description": "Update DNS configuration for an SVM.",
-      "hint": null,
-      "body": {}
+      "hint": "Update DNS domains and servers for the SVM DNS object.",
+      "body": {
+        "domains": ["example.com"],
+        "servers": ["10.0.0.1", "10.0.0.2"]
+      }
     },
     {
       "resource": "name_services_host_record",
@@ -3734,7 +3742,7 @@
       "path": "/api/name-services/ldap/{svm.uuid}",
       "pathParams": ["svm.uuid"],
       "description": "Delete LDAP configuration for an SVM.",
-      "hint": null,
+      "hint": "Delete LDAP client configuration for the SVM.",
       "body": null
     },
     {
@@ -3768,8 +3776,11 @@
       "path": "/api/name-services/ldap/{svm.uuid}",
       "pathParams": ["svm.uuid"],
       "description": "Update LDAP configuration for an SVM.",
-      "hint": null,
-      "body": {}
+      "hint": "Update LDAP servers, base_dn, schema, or bind settings for the SVM.",
+      "body": {
+        "servers": ["10.0.0.1"],
+        "base_dn": "dc=example,dc=com"
+      }
     },
     {
       "resource": "name_services_local_hosts",
@@ -3824,7 +3835,7 @@
       "path": "/api/name-services/local-hosts/{owner.uuid}/{address}",
       "pathParams": ["owner.uuid", "address"],
       "description": "Delete a local host entry.",
-      "hint": null,
+      "hint": "Delete one local hosts entry by owner UUID and address.",
       "body": null
     },
     {
@@ -3844,8 +3855,10 @@
       "path": "/api/name-services/local-hosts/{owner.uuid}/{address}",
       "pathParams": ["owner.uuid", "address"],
       "description": "Update a local host entry.",
-      "hint": null,
-      "body": {}
+      "hint": "Update the hostname for a local host entry.",
+      "body": {
+        "hostname": "host1.example.com"
+      }
     },
     {
       "resource": "name_services_name_mappings",
@@ -3932,7 +3945,7 @@
       "path": "/api/name-services/name-mappings/{svm.uuid}/{direction}/{index}",
       "pathParams": ["svm.uuid", "direction", "index"],
       "description": "Delete a name mapping rule.",
-      "hint": null,
+      "hint": "Delete one name mapping by SVM UUID, direction, and index.",
       "body": null
     },
     {
@@ -3964,8 +3977,11 @@
       "path": "/api/name-services/name-mappings/{svm.uuid}/{direction}/{index}",
       "pathParams": ["svm.uuid", "direction", "index"],
       "description": "Update a name mapping rule.",
-      "hint": null,
-      "body": {}
+      "hint": "Update name mapping pattern/replacement. Direction is win_unix or unix_win.",
+      "body": {
+        "pattern": "DOMAIN\\\\(.+)",
+        "replacement": "\\1"
+      }
     },
     {
       "resource": "name_services_netgroup_files",
@@ -4052,7 +4068,7 @@
       "path": "/api/name-services/nis/{svm.uuid}",
       "pathParams": ["svm.uuid"],
       "description": "Delete NIS configuration for an SVM.",
-      "hint": null,
+      "hint": "Delete NIS configuration for the SVM.",
       "body": null
     },
     {
@@ -4072,8 +4088,11 @@
       "path": "/api/name-services/nis/{svm.uuid}",
       "pathParams": ["svm.uuid"],
       "description": "Update NIS configuration for an SVM.",
-      "hint": null,
-      "body": {}
+      "hint": "Update NIS domain or servers for the SVM.",
+      "body": {
+        "domain": "example.com",
+        "servers": ["10.0.0.1"]
+      }
     },
     {
       "resource": "name_services_unix_groups",
@@ -4128,7 +4147,7 @@
       "path": "/api/name-services/unix-groups/{svm.uuid}/{name}",
       "pathParams": ["svm.uuid", "name"],
       "description": "Delete a local UNIX group.",
-      "hint": null,
+      "hint": "Delete one local UNIX group by SVM UUID and name.",
       "body": null
     },
     {
@@ -4148,8 +4167,10 @@
       "path": "/api/name-services/unix-groups/{svm.uuid}/{name}",
       "pathParams": ["svm.uuid", "name"],
       "description": "Update a local UNIX group.",
-      "hint": null,
-      "body": {}
+      "hint": "Update local UNIX group fields such as id.",
+      "body": {
+        "id": 1001
+      }
     },
     {
       "resource": "name_services_unix_groups",
@@ -4178,8 +4199,14 @@
       "path": "/api/name-services/unix-groups/{svm.uuid}/{unix_group.name}/users",
       "pathParams": ["svm.uuid", "unix_group.name"],
       "description": "Adds users to the specified UNIX group and SVM.",
-      "hint": null,
-      "body": {}
+      "hint": "Add users with records[].name to the specified local UNIX group.",
+      "body": {
+        "records": [
+          {
+            "name": "user1"
+          }
+        ]
+      }
     },
     {
       "resource": "name_services_unix_groups",
@@ -4254,7 +4281,7 @@
       "path": "/api/name-services/unix-users/{svm.uuid}/{name}",
       "pathParams": ["svm.uuid", "name"],
       "description": "Delete a local UNIX user.",
-      "hint": null,
+      "hint": "Delete one local UNIX user by SVM UUID and name.",
       "body": null
     },
     {
@@ -4274,8 +4301,10 @@
       "path": "/api/name-services/unix-users/{svm.uuid}/{name}",
       "pathParams": ["svm.uuid", "name"],
       "description": "Update a local UNIX user.",
-      "hint": null,
-      "body": {}
+      "hint": "Update local UNIX user fields such as id, full_name, or group_id.",
+      "body": {
+        "id": 1001
+      }
     },
     {
       "resource": "network_ethernet_broadcast_domains",
@@ -5449,7 +5478,7 @@
       "path": "/api/network/ip/interfaces",
       "pathParams": [],
       "description": "List all IP interfaces (LIFs).",
-      "hint": "List responses default to uuid+name only. Pass fields=ip,services,scope,service_policy,svm,ipspace for full rows. Filter intercluster LIFs with services=intercluster_core.",
+      "hint": "List responses default to uuid+name only. Pass ontap_fields=ip,services,scope,service_policy,ipspace for full rows. Filter intercluster LIFs with service_policy.name=default-intercluster.",
       "body": null
     },
     {
@@ -7684,7 +7713,7 @@
       "path": "/api/protocols/cifs/services/{svm.uuid}",
       "pathParams": ["svm.uuid"],
       "description": "Delete a CIFS service.",
-      "hint": null,
+      "hint": "Delete the CIFS service for the SVM; existing SMB shares/sessions may be affected.",
       "body": null
     },
     {
@@ -7724,8 +7753,10 @@
       "path": "/api/protocols/cifs/services/{svm.uuid}",
       "pathParams": ["svm.uuid"],
       "description": "Update a CIFS service.",
-      "hint": null,
-      "body": {}
+      "hint": "Update CIFS service fields such as enabled, comment, or domain settings.",
+      "body": {
+        "enabled": true
+      }
     },
     {
       "resource": "protocols_cifs_session",
@@ -8111,7 +8142,7 @@
       "path": "/api/protocols/cifs/shares/{svm.uuid}/{name}",
       "pathParams": ["svm.uuid", "name"],
       "description": "Delete a CIFS share.",
-      "hint": null,
+      "hint": "Delete a CIFS share by SVM UUID and share name.",
       "body": null
     },
     {
@@ -8153,8 +8184,10 @@
       "path": "/api/protocols/cifs/shares/{svm.uuid}/{name}",
       "pathParams": ["svm.uuid", "name"],
       "description": "Update a CIFS share.",
-      "hint": null,
-      "body": {}
+      "hint": "Update share fields such as path, comment, access_based_enumeration, or oplocks.",
+      "body": {
+        "path": "/<vol>"
+      }
     },
     {
       "resource": "cifs_share",
@@ -9925,7 +9958,7 @@
       "path": "/api/protocols/nfs/export-policies/{id}",
       "pathParams": ["id"],
       "description": "Delete an export policy.",
-      "hint": null,
+      "hint": "Delete only after no volume is using this export policy.",
       "body": null
     },
     {
@@ -9973,8 +10006,10 @@
       "path": "/api/protocols/nfs/export-policies/{id}",
       "pathParams": ["id"],
       "description": "Update an export policy.",
-      "hint": null,
-      "body": {}
+      "hint": "Update export policy fields such as name.",
+      "body": {
+        "name": "<new-export-policy-name>"
+      }
     },
     {
       "resource": "export_policy",
@@ -10102,7 +10137,7 @@
       "path": "/api/protocols/nfs/export-policies/{policy.id}/rules/{index}",
       "pathParams": ["policy.id", "index"],
       "description": "Delete an export policy rule.",
-      "hint": null,
+      "hint": "Delete one export rule by policy ID and rule index.",
       "body": null
     },
     {
@@ -10150,8 +10185,17 @@
       "path": "/api/protocols/nfs/export-policies/{policy.id}/rules/{index}",
       "pathParams": ["policy.id", "index"],
       "description": "Update an export policy rule.",
-      "hint": null,
-      "body": {}
+      "hint": "Client field is clients[].match. ro_rule, rw_rule, and superuser are arrays.",
+      "body": {
+        "clients": [
+          {
+            "match": "0.0.0.0/0"
+          }
+        ],
+        "ro_rule": ["sys"],
+        "rw_rule": ["sys"],
+        "superuser": ["sys"]
+      }
     },
     {
       "resource": "export_policy",
@@ -12571,7 +12615,7 @@
       "path": "/api/protocols/san/igroups/{uuid}",
       "pathParams": ["uuid"],
       "description": "Delete an igroup.",
-      "hint": null,
+      "hint": "Delete only after dependent LUN maps are removed.",
       "body": null
     },
     {
@@ -12609,8 +12653,10 @@
       "path": "/api/protocols/san/igroups/{uuid}",
       "pathParams": ["uuid"],
       "description": "Update an igroup.",
-      "hint": null,
-      "body": {}
+      "hint": "Update igroup metadata or initiator-related fields; initiators[].name is IQN or WWPN.",
+      "body": {
+        "comment": "updated igroup"
+      }
     },
     {
       "resource": "protocols_san_initiators",
@@ -17066,8 +17112,8 @@
       "method": "DELETE",
       "path": "/api/snapmirror/policies/{uuid}",
       "pathParams": ["uuid"],
-      "description": "Delete a SnapMirror policy.",
-      "hint": null,
+      "description": "Delete a SnapMirror policy that is no longer used by relationships.",
+      "hint": "Delete only after no SnapMirror relationships depend on this policy.",
       "body": null
     },
     {
@@ -17100,9 +17146,16 @@
       "method": "PATCH",
       "path": "/api/snapmirror/policies/{uuid}",
       "pathParams": ["uuid"],
-      "description": "Update a SnapMirror policy.",
-      "hint": null,
-      "body": {}
+      "description": "Update a SnapMirror policy, including retention entries.",
+      "hint": "Update retention entries with the 'retention' array (NOT 'rules').",
+      "body": {
+        "retention": [
+          {
+            "label": "daily",
+            "count": 14
+          }
+        ]
+      }
     },
     {
       "resource": "snapmirror",
@@ -17285,8 +17338,8 @@
       "method": "POST",
       "path": "/api/snapmirror/relationships/{relationship.uuid}/transfers",
       "pathParams": ["relationship.uuid"],
-      "description": "Starts a SnapMirror transfer operation.",
-      "hint": null,
+      "description": "Start an on-demand SnapMirror transfer.",
+      "hint": "Starts an on-demand SnapMirror transfer. Optional body can specify source_snapshot. Returns async job; poll with ontap_job_get.",
       "body": {}
     },
     {
@@ -17335,9 +17388,11 @@
       "method": "PATCH",
       "path": "/api/snapmirror/relationships/{relationship.uuid}/transfers/{uuid}",
       "pathParams": ["relationship.uuid", "uuid"],
-      "description": "Aborts an ongoing SnapMirror transfer.",
-      "hint": null,
-      "body": {}
+      "description": "Abort an in-progress SnapMirror transfer.",
+      "hint": "Abort an in-progress transfer with { \"state\": \"aborted\" }.",
+      "body": {
+        "state": "aborted"
+      }
     },
     {
       "resource": "snapmirror",
@@ -17360,8 +17415,8 @@
       "method": "DELETE",
       "path": "/api/snapmirror/relationships/{uuid}",
       "pathParams": ["uuid"],
-      "description": "Delete a SnapMirror relationship.",
-      "hint": null,
+      "description": "Delete a SnapMirror relationship; destination/source cleanup behavior is controlled by query flags.",
+      "hint": "Delete on destination by default. Use destination_only/source_only/source_info_only query flags only for that specific cleanup mode.",
       "body": null
     },
     {
@@ -17410,9 +17465,13 @@
       "method": "PATCH",
       "path": "/api/snapmirror/relationships/{uuid}",
       "pathParams": ["uuid"],
-      "description": "Update a SnapMirror relationship.",
-      "hint": null,
-      "body": {}
+      "description": "Update a SnapMirror relationship policy, schedule, throttle, or state.",
+      "hint": "Update policy, schedule, throttle, or relationship state. Returns async job; poll with ontap_job_get.",
+      "body": {
+        "policy": {
+          "name": "<snapmirror-policy-name>"
+        }
+      }
     },
     {
       "resource": "snapmirror",
@@ -17435,9 +17494,16 @@
       "method": "POST",
       "path": "/api/snapmirror/relationships/{uuid}/restore",
       "pathParams": ["uuid"],
-      "description": "Cross cluster POST to create SnapMirror restore relationship.",
-      "hint": null,
-      "body": {}
+      "description": "Create a SnapMirror restore relationship.",
+      "hint": "Creates a SnapMirror restore relationship. Body requires source.path and destination.path.",
+      "body": {
+        "source": {
+          "path": "<source-svm>:<source-vol>"
+        },
+        "destination": {
+          "path": "<dest-svm>:<dest-vol>"
+        }
+      }
     },
     {
       "resource": "storage_aggregates",
@@ -17838,7 +17904,7 @@
       "path": "/api/storage/flexcache/flexcaches",
       "pathParams": [],
       "description": "List FlexCache volumes.",
-      "hint": null,
+      "hint": "List responses can be large. Pass ontap_fields=name,uuid,svm,origins,size,state to keep rows small.",
       "body": null
     },
     {
@@ -17848,7 +17914,7 @@
       "path": "/api/storage/flexcache/flexcaches",
       "pathParams": [],
       "description": "Create a FlexCache volume. Body requires name, svm, origins (array of { volume: { name }, svm: { name } }), and optionally size.",
-      "hint": "Origins is an array of { volume: { name }, svm: { name } }. Returns async job. Poll with ontap_job_get.",
+      "hint": "Requires cluster peering between origin and cache clusters. Origins is an array of { volume: { name }, svm: { name } }. Returns async job; poll with ontap_job_get.",
       "body": {
         "name": "cache1",
         "svm": {
@@ -17874,7 +17940,7 @@
       "path": "/api/storage/flexcache/flexcaches/{uuid}",
       "pathParams": ["uuid"],
       "description": "Delete a FlexCache volume.",
-      "hint": null,
+      "hint": "Returns async job. Poll with ontap_job_get.",
       "body": null
     },
     {
@@ -17884,7 +17950,7 @@
       "path": "/api/storage/flexcache/flexcaches/{uuid}",
       "pathParams": ["uuid"],
       "description": "Get a FlexCache volume by UUID.",
-      "hint": null,
+      "hint": "Pass ontap_fields to fetch only needed FlexCache attributes.",
       "body": null
     },
     {
@@ -17893,52 +17959,55 @@
       "method": "PATCH",
       "path": "/api/storage/flexcache/flexcaches/{uuid}",
       "pathParams": ["uuid"],
-      "description": "Update a FlexCache volume.",
-      "hint": null,
-      "body": {}
-    },
-    {
-      "resource": "storage_flexcache_origins",
-      "keywords": ["storage", "origins"],
-      "method": "GET",
-      "path": "/api/storage/flexcache/origins",
-      "pathParams": [],
-      "description": "Retrieves origin of FlexCache in the cluster.",
-      "hint": null,
-      "body": null
-    },
-    {
-      "resource": "storage_flexcache_origins",
-      "keywords": ["storage", "origins"],
-      "method": "PATCH",
-      "path": "/api/storage/flexcache/origins",
-      "pathParams": [],
-      "description": "PATCH /api/storage/flexcache/origins.",
-      "hint": null,
-      "body": {}
-    },
-    {
-      "resource": "storage_flexcache_origins",
-      "keywords": ["storage", "origins"],
-      "method": "GET",
-      "path": "/api/storage/flexcache/origins/{uuid}",
-      "pathParams": ["uuid"],
-      "description": "Retrieves attributes of the origin of a FlexCache in the cluster.",
-      "hint": null,
-      "body": null
-    },
-    {
-      "resource": "storage_flexcache_origins",
-      "keywords": ["storage", "origins"],
-      "method": "PATCH",
-      "path": "/api/storage/flexcache/origins/{uuid}",
-      "pathParams": ["uuid"],
-      "description": "Modifies origin options for a origin volume in the cluster.",
-      "hint": "Required body fields from ONTAP swagger: block_level_invalidation.",
+      "description": "Update a FlexCache volume, including prepopulate, writeback, relative_size, or atime_scrub settings.",
+      "hint": "Modifiable: prepopulate, writeback.enabled, relative_size, atime_scrub. Returns async job. Poll with ontap_job_get.",
       "body": {
-        "block_level_invalidation": "<block_level_invalidation>"
-      },
-      "requiredBody": [["block_level_invalidation"]]
+        "prepopulate": {
+          "dir_paths": ["/dir1"]
+        }
+      }
+    },
+    {
+      "resource": "storage_flexcache_origins",
+      "keywords": ["storage", "origins"],
+      "method": "GET",
+      "path": "/api/storage/flexcache/origins",
+      "pathParams": [],
+      "description": "List origin volumes that back FlexCache volumes.",
+      "hint": "Pass ontap_fields=name,uuid,svm,volume to limit origin rows.",
+      "body": null
+    },
+    {
+      "resource": "storage_flexcache_origins",
+      "keywords": ["storage", "origins"],
+      "method": "PATCH",
+      "path": "/api/storage/flexcache/origins",
+      "pathParams": [],
+      "description": "Bulk-update FlexCache origin settings on the collection endpoint.",
+      "hint": null,
+      "body": {}
+    },
+    {
+      "resource": "storage_flexcache_origins",
+      "keywords": ["storage", "origins"],
+      "method": "GET",
+      "path": "/api/storage/flexcache/origins/{uuid}",
+      "pathParams": ["uuid"],
+      "description": "Get FlexCache origin details by origin volume UUID.",
+      "hint": "Pass ontap_fields to limit origin detail fields.",
+      "body": null
+    },
+    {
+      "resource": "storage_flexcache_origins",
+      "keywords": ["storage", "origins"],
+      "method": "PATCH",
+      "path": "/api/storage/flexcache/origins/{uuid}",
+      "pathParams": ["uuid"],
+      "description": "Update FlexCache origin options such as block-level invalidation.",
+      "hint": "Set block_level_invalidation true|false on the origin volume. Returns async job. Poll with ontap_job_get.",
+      "body": {
+        "block_level_invalidation": true
+      }
     },
     {
       "resource": "lun",
@@ -18916,8 +18985,8 @@
       "method": "DELETE",
       "path": "/api/storage/quota/rules/{uuid}",
       "pathParams": ["uuid"],
-      "description": "Delete a quota rule.",
-      "hint": null,
+      "description": "Delete a quota rule; quota resize may be needed before limits stop being enforced.",
+      "hint": "Returns async job. Quota resize may still be needed before limits stop being enforced.",
       "body": null
     },
     {
@@ -18956,9 +19025,13 @@
       "method": "PATCH",
       "path": "/api/storage/quota/rules/{uuid}",
       "pathParams": ["uuid"],
-      "description": "Update a quota rule.",
-      "hint": null,
-      "body": {}
+      "description": "Update quota rule limits and trigger quota resize behavior when quotas are enabled.",
+      "hint": "Update quota limits such as space.hard_limit/soft_limit or files.hard_limit/soft_limit. Returns async job; poll with ontap_job_get.",
+      "body": {
+        "space": {
+          "hard_limit": "20GB"
+        }
+      }
     },
     {
       "resource": "storage_shelves",
@@ -19191,8 +19264,8 @@
       "method": "DELETE",
       "path": "/api/storage/snaplock/event-retention/operations/{id}",
       "pathParams": ["id"],
-      "description": "Abort an EBR operation.",
-      "hint": null,
+      "description": "Abort an in-progress EBR operation.",
+      "hint": "Abort an in-progress EBR operation by operation ID.",
       "body": null
     },
     {
@@ -19260,8 +19333,8 @@
       "method": "DELETE",
       "path": "/api/storage/snaplock/event-retention/policies/{policy.name}",
       "pathParams": ["policy.name"],
-      "description": "Delete an EBR policy.",
-      "hint": null,
+      "description": "Delete an EBR policy that is no longer used by EBR operations.",
+      "hint": "Delete only after no EBR operation depends on this policy.",
       "body": null
     },
     {
@@ -19294,9 +19367,11 @@
       "method": "PATCH",
       "path": "/api/storage/snaplock/event-retention/policies/{policy.name}",
       "pathParams": ["policy.name"],
-      "description": "Update an EBR policy.",
-      "hint": null,
-      "body": {}
+      "description": "Update the retention period of an EBR policy.",
+      "hint": "Update retention_period using ISO-8601 duration, e.g. P20Y.",
+      "body": {
+        "retention_period": "P20Y"
+      }
     },
     {
       "resource": "snaplock",
@@ -19387,8 +19462,8 @@
       "method": "DELETE",
       "path": "/api/storage/snaplock/file/{volume.uuid}/{path}",
       "pathParams": ["volume.uuid", "path"],
-      "description": "Privileged delete of an unexpired WORM file.",
-      "hint": null,
+      "description": "Privileged delete of an unexpired WORM file on a SnapLock Enterprise volume.",
+      "hint": "Privileged delete of an unexpired WORM file; requires SnapLock privileges and audit-log setup.",
       "body": null
     },
     {
@@ -19429,9 +19504,11 @@
       "method": "PATCH",
       "path": "/api/storage/snaplock/file/{volume.uuid}/{path}",
       "pathParams": ["volume.uuid", "path"],
-      "description": "Updates the SnapLock retention time of a file or extends the retention time of a WORM file.",
-      "hint": null,
-      "body": {}
+      "description": "Update SnapLock file retention using either expiry_time or retention_period.",
+      "hint": "Set either expiry_time or retention_period, not both. Path must be URL-encoded.",
+      "body": {
+        "retention_period": "P1M"
+      }
     },
     {
       "resource": "litigation",
@@ -19511,8 +19588,8 @@
       "method": "DELETE",
       "path": "/api/storage/snaplock/litigations/{id}",
       "pathParams": ["id"],
-      "description": "End a litigation (remove legal hold).",
-      "hint": null,
+      "description": "End a SnapLock litigation and remove the legal hold.",
+      "hint": "End a litigation/legal hold by litigation ID.",
       "body": null
     },
     {
@@ -19590,8 +19667,8 @@
       "method": "DELETE",
       "path": "/api/storage/snaplock/litigations/{litigation.id}/operations/{id}",
       "pathParams": ["litigation.id", "id"],
-      "description": "Abort a litigation operation.",
-      "hint": null,
+      "description": "Abort an in-progress SnapLock litigation operation.",
+      "hint": "Abort an in-progress litigation operation.",
       "body": null
     },
     {
@@ -19791,7 +19868,7 @@
       "path": "/api/storage/snapshot-policies/{snapshot_policy.uuid}/schedules/{schedule.uuid}",
       "pathParams": ["snapshot_policy.uuid", "schedule.uuid"],
       "description": "Deletes a schedule from a snapshot policy.",
-      "hint": null,
+      "hint": "Remove a schedule from a snapshot policy; at least one schedule may be required.",
       "body": null
     },
     {
@@ -19826,9 +19903,11 @@
       "method": "PATCH",
       "path": "/api/storage/snapshot-policies/{snapshot_policy.uuid}/schedules/{schedule.uuid}",
       "pathParams": ["snapshot_policy.uuid", "schedule.uuid"],
-      "description": "Updates a snapshot policy schedule.",
-      "hint": null,
-      "body": {}
+      "description": "Update a schedule entry in a snapshot policy.",
+      "hint": "Update schedule attributes such as count, prefix, snapmirror_label, or retention_period.",
+      "body": {
+        "count": 14
+      }
     },
     {
       "resource": "snapshot_policy",
@@ -19844,8 +19923,8 @@
       "method": "DELETE",
       "path": "/api/storage/snapshot-policies/{uuid}",
       "pathParams": ["uuid"],
-      "description": "Delete a snapshot policy.",
-      "hint": null,
+      "description": "Delete a snapshot policy that is no longer assigned to SVMs or volumes.",
+      "hint": "Delete only after no SVM or volume uses this snapshot policy.",
       "body": null
     },
     {
@@ -19880,9 +19959,18 @@
       "method": "PATCH",
       "path": "/api/storage/snapshot-policies/{uuid}",
       "pathParams": ["uuid"],
-      "description": "Update a snapshot policy.",
-      "hint": null,
-      "body": {}
+      "description": "Update a snapshot policy and its copies schedule entries.",
+      "hint": "Body uses 'copies' (not 'schedules'); schedule entries use schedule.name or schedule.uuid and count.",
+      "body": {
+        "copies": [
+          {
+            "count": 14,
+            "schedule": {
+              "name": "daily"
+            }
+          }
+        ]
+      }
     },
     {
       "resource": "storage_switches",
@@ -20068,7 +20156,7 @@
       "path": "/api/storage/volumes",
       "pathParams": [],
       "description": "List all volumes.",
-      "hint": null,
+      "hint": "Default list is sparse. Use style=flexvol to exclude FlexCache volumes, or style=flexcache to list only FlexCache volumes.",
       "body": null
     },
     {
@@ -20095,7 +20183,7 @@
       "path": "/api/storage/volumes",
       "pathParams": [],
       "description": "Create a volume. Returns async job.",
-      "hint": "Returns async job. Poll with ontap_job_get. Get SVM/aggregate from ontap_svm_list first.",
+      "hint": "Create a FlexVol only. For FlexCache use POST /api/storage/flexcache/flexcaches instead. Returns async job; poll with ontap_job_get. Get SVM/aggregate from ontap_svm_list first.",
       "body": {
         "name": "vol1",
         "svm": {
@@ -20163,7 +20251,7 @@
       "path": "/api/storage/volumes/{uuid}",
       "pathParams": ["uuid"],
       "description": "Get a volume by UUID.",
-      "hint": null,
+      "hint": "Pass ontap_fields to limit response size on large volumes.",
       "body": null
     },
     {
@@ -20191,7 +20279,9 @@
       "pathParams": ["uuid"],
       "description": "Update a volume.",
       "hint": "Returns async job. Poll with ontap_job_get.",
-      "body": {}
+      "body": {
+        "size": "4GB"
+      }
     },
     {
       "resource": "volume",
@@ -20472,9 +20562,11 @@
       "method": "PATCH",
       "path": "/api/storage/volumes/{volume.uuid}/snapshots/{uuid}",
       "pathParams": ["volume.uuid", "uuid"],
-      "description": "Updates a Volume snapshot.",
-      "hint": null,
-      "body": {}
+      "description": "Rename or update a volume snapshot.",
+      "hint": "Rename or update a snapshot. Returns async job; poll with ontap_job_get.",
+      "body": {
+        "name": "<new-snapshot-name>"
+      }
     },
     {
       "resource": "support_autosupport",
@@ -21618,8 +21710,8 @@
       "method": "DELETE",
       "path": "/api/svm/peer-permissions/{cluster_peer.uuid}/{svm.uuid}",
       "pathParams": ["cluster_peer.uuid", "svm.uuid"],
-      "description": "Delete an SVM peer permission.",
-      "hint": null,
+      "description": "Delete an SVM peer permission for a remote cluster and local SVM.",
+      "hint": "Deletes the permission that allows a remote cluster to peer with a local SVM.",
       "body": null
     },
     {
@@ -21638,9 +21730,11 @@
       "method": "PATCH",
       "path": "/api/svm/peer-permissions/{cluster_peer.uuid}/{svm.uuid}",
       "pathParams": ["cluster_peer.uuid", "svm.uuid"],
-      "description": "Update an SVM peer permission.",
-      "hint": null,
-      "body": {}
+      "description": "Update allowed applications for an SVM peer permission.",
+      "hint": "Update allowed applications, typically [\"snapmirror\"].",
+      "body": {
+        "applications": ["snapmirror"]
+      }
     },
     {
       "resource": "svm_peer",
