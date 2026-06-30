@@ -27,4 +27,42 @@ describe('registerAllTools', () => {
     const uniqueNames = new Set(calls.map((c) => c.name));
     expect(uniqueNames.size).toBe(calls.length);
   });
+
+  it('does not expose delegated token in public tool schemas', () => {
+    const calls: Array<{ name: string; tool: any; handler: any }> = [];
+
+    const fakeMcpServer = {
+      registerTool: (name: string, tool: any, handler: any) => {
+        calls.push({ name, tool, handler });
+      },
+    } as any;
+
+    registerAllTools(fakeMcpServer);
+
+    for (const c of calls) {
+      expect(c.tool.inputSchema).not.toHaveProperty('_delegated_google_access_token');
+    }
+  });
+
+  it('allows internal delegated token args without exposing them in results', async () => {
+    const calls: Array<{ name: string; tool: any; handler: any }> = [];
+
+    const fakeMcpServer = {
+      registerTool: (name: string, tool: any, handler: any) => {
+        calls.push({ name, tool, handler });
+      },
+    } as any;
+
+    registerAllTools(fakeMcpServer);
+
+    const auditTool = calls.find((c) => c.name === 'ontap_audit_log');
+    expect(auditTool).toBeTruthy();
+
+    const result = await auditTool!.handler({
+      action: 'status',
+      _delegated_google_access_token: 'token-from-rm',
+    });
+    expect(result.structuredContent?.result).toBeDefined();
+    expect(JSON.stringify(result)).not.toContain('_delegated_google_access_token');
+  });
 });
