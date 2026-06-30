@@ -66,6 +66,36 @@ gcloud auth application-default login
 export GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json
 ```
 
+- **Per-request bearer token forwarding (HTTP/SSE transport)**
+
+Forward a bearer token header with each request to override ADC for that request. By default the server reads `Authorization: Bearer <token>`. You can customize the header name with `GCNV_AUTH_HEADER`.
+
+Example:
+
+```bash
+export GCNV_AUTH_HEADER="X-Google-Access-Token"
+```
+
+Then send requests with:
+
+```http
+X-Google-Access-Token: Bearer <token>
+```
+
+## ONTAP KG Discover (Query-Only, Optional)
+
+To externalize ONTAP discover ranking, set a knowledge endpoint and the server will call it per query.
+
+| Variable              | Purpose                                                                |
+| --------------------- | ---------------------------------------------------------------------- |
+| `ONTAP_KG_URL`        | Base URL of the KG service (MCP calls `POST ${ONTAP_KG_URL}/discover`) |
+| `ONTAP_KG_AUTH_TOKEN` | Optional bearer token used to authenticate to the KG service           |
+| `ONTAP_KG_TIMEOUT_MS` | Optional timeout for KG discover requests (default `5000`)             |
+
+Request/response contract is documented in [`docs/ontap-kg-protocol.md`](docs/ontap-kg-protocol.md) and schema in [`schemas/ontap-kg.schema.json`](schemas/ontap-kg.schema.json).
+
+When the KG request fails or returns invalid payload, discover falls back to the bundled `ontap-api-index.json`.
+
 ## Transport Modes
 
 The server supports **stdio** (default) and **HTTP/SSE** transports.

@@ -18,6 +18,8 @@ export const ontapDiscoverTool: ToolConfig = {
     '"file share", "nfs exports", "throughput"). Capped by maxResults (default 10).\n\n' +
     'If a call returns a scope_denied envelope, treat it as terminal: do not retry, ' +
     'do not reformulate.\n\n' +
+    'Results may include an optional extensions object with site-specific advisory context; ' +
+    'use it when relevant and ignore it when not applicable.\n\n' +
     'Available resource categories: cluster, cluster_peer, svm, svm_peer, ' +
     'svm_peer_permission, volume, lun, qtree, snapshot, qos_policy, snapshot_policy, ' +
     'flexcache, quota_rule, snaplock, ebr_policy, ebr_operation, litigation (legal hold), ' +
