@@ -1,9 +1,16 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ontapDiscoverHandler, _resetIndexCache } from './ontap-discover-handler.js';
 
 describe('ontapDiscoverHandler', () => {
   beforeEach(() => {
     _resetIndexCache();
+    delete process.env.ONTAP_KG_URL;
+    delete process.env.ONTAP_KG_TIMEOUT_MS;
+    delete process.env.ONTAP_KG_AUTH_TOKEN;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   // -------------------------------------------------------------------
@@ -422,6 +429,24 @@ describe('ontapDiscoverHandler', () => {
     }
   });
 
+  it('rejects non-positive maxResults before KG discover when ONTAP_KG_URL is set', async () => {
+    process.env.ONTAP_KG_URL = 'https://kg.example.internal';
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        schemaVersion: 'ontap-kg/1',
+        kind: 'search',
+        endpoints: [{ resource: 'volume', method: 'GET', path: '/api/storage/volumes' }],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await ontapDiscoverHandler({ search: 'storage', maxResults: 0 });
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toContain('positive integer');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('maxResults overrides the default cap', async () => {
     const res = await ontapDiscoverHandler({ search: 'storage', maxResults: 3 });
     const data = (res.structuredContent as any).result;
@@ -513,5 +538,55 @@ describe('ontapDiscoverHandler', () => {
     const res = await ontapDiscoverHandler({ search: 'zzzznonexistent' });
     const data = (res.structuredContent as any).result;
     expect(data).not.toHaveProperty('scopeBoundaryNote');
+  });
+
+  it('uses KG query endpoint when configured', async () => {
+    process.env.ONTAP_KG_URL = 'https://kg.example.internal';
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        schemaVersion: 'ontap-kg/1',
+        kind: 'search',
+        endpoints: [
+          {
+            resource: 'litigation',
+            method: 'POST',
+            path: '/api/storage/litigations',
+            pathParams: [],
+            description: 'Apply legal hold',
+            hint: 'Need uuid',
+            keywords: ['legal', 'hold'],
+            body: { operation: 'begin' },
+            requiredBody: [['operation']],
+            operationId: 'litigation_create',
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await ontapDiscoverHandler({
+      search: 'legal hold',
+      userIntent: 'help me hold files',
+    });
+    const data = (res.structuredContent as any).result;
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, request] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://kg.example.internal/discover');
+    expect(request.method).toBe('POST');
+    expect(data.search).toBe('legal hold');
+    expect(data.endpoints[0].operationId).toBe('litigation_create');
+  });
+
+  it('falls back to bundled index when KG query fails', async () => {
+    process.env.ONTAP_KG_URL = 'https://kg.example.internal';
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network')));
+
+    const res = await ontapDiscoverHandler({ search: 'legal hold' });
+    const data = (res.structuredContent as any).result;
+
+    expect(data.endpoints.length).toBeGreaterThan(0);
+    expect(data.endpoints.some((e: any) => e.resource === 'litigation')).toBe(true);
   });
 });
