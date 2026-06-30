@@ -417,9 +417,9 @@ export const ontapDiscoverHandler: ToolHandler = async (args) => {
     const remote = await discoverViaKg({
       schemaVersion: 'ontap-kg/1',
       kind: kgKind,
+      max_results: limit,
       ...(resource ? { resource: String(resource).toLowerCase() } : {}),
       ...(search ? { search: String(search) } : {}),
-      ...(args.maxResults !== undefined && args.maxResults !== null ? { max_results: limit } : {}),
       ...(typeof args.userIntent === 'string'
         ? {
             context: {
