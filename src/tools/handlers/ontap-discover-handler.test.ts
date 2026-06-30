@@ -11,6 +11,7 @@ describe('ontapDiscoverHandler', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   // -------------------------------------------------------------------

@@ -136,6 +136,43 @@ describe('ontap-kg-client discoverViaKg', () => {
     expect(second).toBeNull();
   });
 
+  it('returns null when categories or endpoints contain malformed entries', async () => {
+    process.env.ONTAP_KG_URL = 'https://kg.example/';
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          schemaVersion: 'ontap-kg/1',
+          kind: 'categories',
+          categories: [{ resource: 'volume', count: 1 }, null],
+        }),
+      } as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          schemaVersion: 'ontap-kg/1',
+          kind: 'search',
+          endpoints: [{ path: '/api/storage/volumes' }, null],
+        }),
+      } as any);
+
+    const { discoverViaKg } = await import('./ontap-kg-client.js');
+    const categories = await discoverViaKg({
+      schemaVersion: 'ontap-kg/1',
+      kind: 'categories',
+    });
+    const endpoints = await discoverViaKg({
+      schemaVersion: 'ontap-kg/1',
+      kind: 'search',
+      search: 'volumes',
+    });
+
+    expect(categories).toBeNull();
+    expect(endpoints).toBeNull();
+  });
+
   it('returns null for non-object payload and kind mismatch payload', async () => {
     process.env.ONTAP_KG_URL = 'https://kg.example/';
     vi.spyOn(globalThis, 'fetch')

@@ -1,3 +1,7 @@
+import { mkdtempSync } from 'node:fs';
+import { rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { registerAllTools } from './register-tools.js';
 
@@ -87,6 +91,57 @@ describe('registerAllTools', () => {
         _delegated_google_access_token: 12345,
       })
     ).resolves.toBeDefined();
+  });
+
+  it('adds delegated token to every registered tool schema', () => {
+    const calls: Array<{ name: string; tool: any; handler: any }> = [];
+    const fakeMcpServer = {
+      registerTool: (name: string, tool: any, handler: any) => {
+        calls.push({ name, tool, handler });
+      },
+    } as any;
+
+    registerAllTools(fakeMcpServer);
+
+    for (const call of calls) {
+      expect(call.tool.inputSchema).toHaveProperty('_delegated_google_access_token');
+    }
+  });
+
+  it('forwards extra to registered handlers', async () => {
+    const calls: Array<{ name: string; tool: any; handler: any }> = [];
+    const fakeMcpServer = {
+      registerTool: (name: string, tool: any, handler: any) => {
+        calls.push({ name, tool, handler });
+      },
+    } as any;
+
+    registerAllTools(fakeMcpServer);
+    const auditTool = calls.find((c) => c.name === 'ontap_audit_log');
+    expect(auditTool).toBeTruthy();
+
+    const outputDir = mkdtempSync(join(tmpdir(), 'register-tools-'));
+
+    try {
+      await auditTool!.handler({ action: 'enable', outputDir }, { sessionId: 'session-a' });
+
+      await expect(
+        auditTool!.handler({ action: 'status' }, { sessionId: 'session-a' })
+      ).resolves.toMatchObject({
+        structuredContent: {
+          result: expect.objectContaining({ enabled: true }),
+        },
+      });
+
+      await expect(auditTool!.handler({ action: 'status' })).resolves.toMatchObject({
+        structuredContent: {
+          result: expect.objectContaining({ enabled: false }),
+        },
+      });
+    } finally {
+      await auditTool!.handler({ action: 'disable' }, { sessionId: 'session-a' });
+      rmSync(outputDir, { recursive: true, force: true });
+    }
   });
 
   it('keeps delegated wrapper callable with minimal safe args', async () => {
