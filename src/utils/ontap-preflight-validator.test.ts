@@ -265,6 +265,86 @@ describe('preflightValidate', () => {
       expect(result.valid).toBe(true);
     });
 
+    it('accepts PATCH whose body has none of the template keys (template is illustrative only)', () => {
+      const patchIndex: ApiIndex = {
+        ...testIndex,
+        endpoints: [
+          ...testIndex.endpoints,
+          {
+            resource: 'svm_peer',
+            keywords: ['svm peer'],
+            method: 'PATCH',
+            path: '/api/svm/peers/{uuid}',
+            pathParams: ['uuid'],
+            description: 'Update SVM peer',
+            hint: null,
+            body: { state: '<peered|rejected>' },
+          },
+        ],
+      };
+
+      const result = preflightValidate(
+        'PATCH',
+        '/api/svm/peers/d3930832-6661-11f1-9756-6b6176be7ffb',
+        { applications: ['snapmirror', 'flexcache'] },
+        patchIndex
+      );
+      expect(result.valid).toBe(true);
+    });
+
+    it('still rejects PATCH with empty body when template is non-empty', () => {
+      const patchIndex: ApiIndex = {
+        ...testIndex,
+        endpoints: [
+          ...testIndex.endpoints,
+          {
+            resource: 'svm_peer',
+            keywords: ['svm peer'],
+            method: 'PATCH',
+            path: '/api/svm/peers/{uuid}',
+            pathParams: ['uuid'],
+            description: 'Update SVM peer',
+            hint: null,
+            body: { state: '<peered|rejected>' },
+          },
+        ],
+      };
+
+      const result = preflightValidate(
+        'PATCH',
+        '/api/svm/peers/d3930832-6661-11f1-9756-6b6176be7ffb',
+        {},
+        patchIndex
+      );
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('requires a request body');
+    });
+
+    it('still enforces requiredBody for PATCH', () => {
+      const patchIndex: ApiIndex = {
+        ...testIndex,
+        endpoints: [
+          ...testIndex.endpoints,
+          {
+            resource: 'thing',
+            keywords: ['thing'],
+            method: 'PATCH',
+            path: '/api/things/{uuid}',
+            pathParams: ['uuid'],
+            description: 'Update thing',
+            hint: null,
+            body: { foo: '<foo>' },
+            requiredBody: [['name']],
+          },
+        ],
+      };
+
+      const result = preflightValidate('PATCH', '/api/things/abc-123', { foo: 'x' }, patchIndex);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('missing required field');
+      expect(result.error).toContain('name');
+    });
+
     it('does not check body for GET requests', () => {
       const result = preflightValidate('GET', '/api/storage/volumes', undefined, testIndex);
       expect(result.valid).toBe(true);

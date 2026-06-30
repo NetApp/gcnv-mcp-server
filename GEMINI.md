@@ -142,6 +142,17 @@ When any tool returns an error:
 
 Do not inspect the MCP server implementation to debug tool errors. The error messages are self-contained and actionable. If the message does not help, escalate to the user.
 
+### Official GCNV documentation
+
+When the user references a URL under `docs.cloud.google.com/netapp/volumes` or `cloud.google.com/netapp/volumes`:
+
+1. Treat that doc as authoritative for **what GCNV supports** — do **not** tell the user a documented feature is unsupported.
+2. Map the workflow in the doc to the matching MCP tool and parameter (see "Tool Overview" below) **before** trying unrelated APIs.
+3. Do **not** use web search to contradict the official doc or to guess alternative APIs.
+4. If the doc describes a field that no MCP tool exposes for the user's pool mode, say which tool or field is missing and stop — do **not** substitute a different feature or API.
+5. For **ONTAP-mode pools**, workflows documented at the ONTAP REST level map to `ontap_discover` + `ontap_execute` — that is the intended path, not a workaround.
+6. If a tool call fails, report the API error and ask the user — do **not** conclude "not supported" unless the API or tool response explicitly says so.
+
 ### Operation safety (mandatory)
 
 These rules prevent autonomous actions that could cause unintended cost, data loss, or configuration changes.
@@ -188,7 +199,7 @@ Exception: if a tool's design **always** creates a prerequisite (e.g. SVM/aggreg
 
 #### Multi-step workflow guardrail
 
-For complex workflows (SnapMirror setup, FlexCache creation, CIFS share setup, etc.) that involve multiple tool calls:
+For complex workflows (SnapMirror setup, FlexCache peering prep on ONTAP-mode pools, CIFS share setup, etc.) that involve multiple tool calls:
 
 1. **Outline the plan first**: Before executing, list all the steps you intend to perform and ask the user to confirm.
 2. **Pause on failure**: If any step fails, report the failure and current state to the user before deciding on next steps. Do not auto-recover by deleting and recreating resources.
@@ -304,7 +315,12 @@ Notes:
 - Auto-tiering is a two-step enablement:
   - Pool: set `allowAutoTiering: true` when creating the storage pool.
   - Volume: set `tieringPolicy` on the volume (for example `tierAction: ENABLED`, optional `coolingThresholdDays`, optional `hotTierBypassModeEnabled`).
-- Hybrid replication: set `hybridReplicationParameters` on the volume (for example `replicationSchedule: HOURLY` and `hybridReplicationType: CONTINUOUS_REPLICATION`) along with peer details (cluster/SVM/IPs).
+- Hybrid replication (SnapMirror cross-cloud / on-prem): set `hybridReplicationParameters` (e.g. `replicationSchedule: HOURLY`, `hybridReplicationType: CONTINUOUS_REPLICATION`, peer cluster/SVM/IPs). **Not for FlexCache** — use `cacheParameters` instead.
+- **FlexCache (cache ONTAP volumes):**
+  - **Cache in a default-mode pool** (origin may be ONTAP-mode or default-mode): `gcnv_volume_create` on the **destination** pool with `cacheParameters` — `peerVolumeName`, `peerClusterName`, `peerSvmName`, `peerIpAddresses` (origin intercluster LIFs), optional `cacheConfig` / `enableGlobalFileLock`. Cross-mode (default cache + ONTAP origin) **is supported**. Monitor with `gcnv_operation_get`; volume `cacheState` progresses through peering states to `PEERED`.
+  - **Cache in an ONTAP-mode pool:** `ontap_discover` (`resource="flexcache"`) → `ontap_execute` `POST /api/storage/flexcache/flexcaches`. Do **not** use `gcnv_volume_create` on ONTAP-mode pools.
+  - **Update cache settings** (writeback, atime scrub, prepopulate): `gcnv_volume_update` with `cacheParameters.cacheConfig` on default-mode cache volumes; on ONTAP-mode pools use `ontap_execute` against the FlexCache endpoints from `ontap_discover`.
+  - **Do not** use `hybridReplicationParameters` for FlexCache — similar field names, different feature.
 - Large capacity volumes: eligibility is driven by the pool's **`serviceLevel`** — FLEX, PREMIUM, and EXTREME support large-capacity volumes; STANDARD does not. On `gcnv_volume_create`, set `largeCapacity: true`; the server resolves the pool's service level and handles the correct API field automatically. For PREMIUM/EXTREME pools, `storagePoolType: FILE` and `scaleType: SCALE_TYPE_UNSPECIFIED` are the expected shape and do **not** disqualify the pool — **always refer to pool eligibility by `serviceLevel`, not by `storagePoolType` or `scaleType`.**
 
   Pool eligibility and minimum capacity:
@@ -543,11 +559,11 @@ For POST/PATCH calls, include every required field from the discover result's `r
 
 GET requests default to `max_records=20`. Pass a higher value in `queryParams` to retrieve more: `queryParams: '{"max_records":"100"}'`.
 
-**Prefer projection over N+1 fetches:** ONTAP collection GETs return only `uuid` and `name` by default. To retrieve richer per-record data, use the `fields` query parameter on the list call instead of looping a per-UUID GET on each record.
+**Prefer projection over N+1 fetches:** ONTAP collection GETs return only `uuid` and `name` by default. Use `ontap_fields` on the list call — not `fields` (GCNV treats `fields` as a Google API field mask).
 
 ```text
 GET /api/<collection-path>
-queryParams: '{"fields":"<field1>,<field2>,<field3>"}'
+queryParams: '{"ontap_fields":"<field1>,<field2>,<field3>"}'
 ```
 
 This is cheaper, faster, and easier to audit than N follow-up `GET /api/<collection-path>/{uuid}` calls. Use field names you have already observed in a prior response or that appear in the discover hint; do not invent dotted paths like `type.name` as filter or field keys.

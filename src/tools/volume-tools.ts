@@ -1,6 +1,49 @@
 import { z } from 'zod';
 import { ToolConfig, NOT_FOR_ONTAP } from '../types/tool.js';
 
+// GCNV FlexCache cacheParameters — shared by gcnv_volume_create and gcnv_volume_update.
+const cacheParametersSchema = z
+  .object({
+    peerVolumeName: z.string().optional().describe('Origin volume name'),
+    peerClusterName: z.string().optional().describe('Origin cluster name'),
+    peerSvmName: z.string().optional().describe('Origin SVM name'),
+    peerIpAddresses: z
+      .array(z.string())
+      .optional()
+      .describe('Origin intercluster LIF IP addresses'),
+    enableGlobalFileLock: z.boolean().optional().describe('Whether global file lock is enabled'),
+    cacheConfig: z
+      .object({
+        writebackEnabled: z.boolean().optional().describe('Whether writeback is enabled'),
+        atimeScrubEnabled: z.boolean().optional().describe('Whether atime scrub is enabled'),
+        atimeScrubDays: z
+          .number()
+          .int()
+          .min(1)
+          .max(1000)
+          .optional()
+          .describe('Atime scrub duration in days (1-1000)'),
+        cifsChangeNotifyEnabled: z
+          .boolean()
+          .optional()
+          .describe('Whether CIFS change notification is enabled'),
+        cachePrePopulate: z
+          .object({
+            pathList: z.array(z.string()).optional().describe('Paths to pre-populate from origin'),
+            excludePathList: z
+              .array(z.string())
+              .optional()
+              .describe('Paths to exclude from pre-population'),
+            recursion: z.boolean().optional().describe('Whether to pre-populate recursively'),
+          })
+          .optional()
+          .describe('Cache pre-population settings'),
+      })
+      .optional()
+      .describe('FlexCache volume configuration'),
+  })
+  .describe('FlexCache cache-volume parameters (not hybridReplicationParameters)');
+
 // Create Volume Tool
 export const createVolumeTool: ToolConfig = {
   name: 'gcnv_volume_create',
@@ -223,7 +266,8 @@ export const createVolumeTool: ToolConfig = {
           .describe('Large volume constituent count'),
       })
       .optional()
-      .describe('Hybrid replication parameters for the volume'),
+      .describe('Hybrid replication parameters for the volume (not FlexCache)'),
+    cacheParameters: cacheParametersSchema.optional(),
     exportPolicy: z
       .object({
         rules: z
@@ -487,7 +531,8 @@ export const updateVolumeTool: ToolConfig = {
           .describe('Large volume constituent count'),
       })
       .optional()
-      .describe('Hybrid replication parameters for the volume'),
+      .describe('Hybrid replication parameters for the volume (not FlexCache)'),
+    cacheParameters: cacheParametersSchema.optional(),
     exportPolicy: z
       .object({
         rules: z

@@ -279,6 +279,7 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
       snapshotPolicy,
       tieringPolicy,
       hybridReplicationParameters,
+      cacheParameters,
       exportPolicy,
       shareName,
       throughputMibps,
@@ -556,6 +557,7 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
         snapshotPolicy,
         tieringPolicy,
         hybridReplicationParameters,
+        ...(cacheParameters !== undefined ? { cacheParameters } : {}),
         ...(effectiveShareName !== undefined ? { shareName: effectiveShareName } : {}),
         exportPolicy,
         ...(blockDevicesPayload ? { blockDevices: blockDevicesPayload } : {}),
@@ -779,6 +781,7 @@ export const updateVolumeHandler: ToolHandler = async (args: { [key: string]: an
       backupConfig,
       tieringPolicy,
       hybridReplicationParameters,
+      cacheParameters,
       exportPolicy,
       throughputMibps,
     } = args;
@@ -828,6 +831,40 @@ export const updateVolumeHandler: ToolHandler = async (args: { [key: string]: an
     if (hybridReplicationParameters !== undefined) {
       volume.hybridReplicationParameters = hybridReplicationParameters;
       updateMask.push('hybrid_replication_parameters');
+    }
+
+    if (cacheParameters !== undefined) {
+      volume.cacheParameters = cacheParameters;
+      if (cacheParameters.peerVolumeName !== undefined)
+        updateMask.push('cache_parameters.peer_volume_name');
+      if (cacheParameters.peerClusterName !== undefined)
+        updateMask.push('cache_parameters.peer_cluster_name');
+      if (cacheParameters.peerSvmName !== undefined)
+        updateMask.push('cache_parameters.peer_svm_name');
+      if (cacheParameters.peerIpAddresses !== undefined)
+        updateMask.push('cache_parameters.peer_ip_addresses');
+      if (cacheParameters.enableGlobalFileLock !== undefined)
+        updateMask.push('cache_parameters.enable_global_file_lock');
+      if (cacheParameters.cacheConfig !== undefined) {
+        const { cacheConfig } = cacheParameters;
+        if (cacheConfig.writebackEnabled !== undefined)
+          updateMask.push('cache_parameters.cache_config.writeback_enabled');
+        if (cacheConfig.atimeScrubEnabled !== undefined)
+          updateMask.push('cache_parameters.cache_config.atime_scrub_enabled');
+        if (cacheConfig.atimeScrubDays !== undefined)
+          updateMask.push('cache_parameters.cache_config.atime_scrub_days');
+        if (cacheConfig.cifsChangeNotifyEnabled !== undefined)
+          updateMask.push('cache_parameters.cache_config.cifs_change_notify_enabled');
+        if (cacheConfig.cachePrePopulate !== undefined) {
+          const { cachePrePopulate } = cacheConfig;
+          if (cachePrePopulate.pathList !== undefined)
+            updateMask.push('cache_parameters.cache_config.cache_pre_populate.path_list');
+          if (cachePrePopulate.excludePathList !== undefined)
+            updateMask.push('cache_parameters.cache_config.cache_pre_populate.exclude_path_list');
+          if (cachePrePopulate.recursion !== undefined)
+            updateMask.push('cache_parameters.cache_config.cache_pre_populate.recursion');
+        }
+      }
     }
 
     if (throughputMibps !== undefined) {

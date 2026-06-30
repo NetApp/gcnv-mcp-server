@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ontapExecuteHandler } from './ontap-execute-handler.js';
+import { ontapExecuteHandler, normalizeOntapQueryParams } from './ontap-execute-handler.js';
 import { _resetIndexCache } from '../../utils/ontap-index-loader.js';
 import { clearDeletePreviewStore } from '../../utils/ontap-delete-preview.js';
 
@@ -158,6 +158,49 @@ describe('ontapExecuteHandler', () => {
       '/api/storage/volumes',
       expect.objectContaining({ ontap_fields: 'name,uuid' })
     );
+  });
+
+  it('GET renames fields to ontap_fields when ontap_fields is absent', async () => {
+    mockClient.get.mockResolvedValue({ records: [] });
+    await ontapExecuteHandler({
+      ...baseArgs,
+      method: 'GET',
+      ontapApiPath: '/api/network/ip/interfaces',
+      queryParams: { fields: 'ip,services,scope' },
+    });
+    expect(mockClient.get).toHaveBeenCalledWith(
+      '/api/network/ip/interfaces',
+      expect.objectContaining({
+        ontap_fields: 'ip,services,scope',
+        max_records: '20',
+      })
+    );
+    expect(mockClient.get.mock.calls[0][1]).not.toHaveProperty('fields');
+  });
+
+  it('GET prefers ontap_fields when both fields and ontap_fields are sent', async () => {
+    mockClient.get.mockResolvedValue({ records: [] });
+    await ontapExecuteHandler({
+      ...baseArgs,
+      method: 'GET',
+      ontapApiPath: '/api/storage/volumes',
+      queryParams: { fields: 'name', ontap_fields: 'uuid' },
+    });
+    expect(mockClient.get).toHaveBeenCalledWith(
+      '/api/storage/volumes',
+      expect.objectContaining({ ontap_fields: 'uuid' })
+    );
+    expect(mockClient.get.mock.calls[0][1]).not.toHaveProperty('fields');
+  });
+
+  describe('normalizeOntapQueryParams', () => {
+    it('returns undefined for undefined input', () => {
+      expect(normalizeOntapQueryParams(undefined)).toBeUndefined();
+    });
+
+    it('passes through params without fields unchanged', () => {
+      expect(normalizeOntapQueryParams({ max_records: '10' })).toEqual({ max_records: '10' });
+    });
   });
 
   it('POST calls client.post with path and body (string)', async () => {

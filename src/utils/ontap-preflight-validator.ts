@@ -141,17 +141,19 @@ export function preflightValidate(
         };
       }
 
-      // Lenient: reject only when ALL expected keys are missing. Partial matches pass.
-      const expectedKeys = Object.keys(expectedBody as Record<string, unknown>);
-      const providedKeys = Object.keys(body);
-      const missingKeys = expectedKeys.filter((k) => !providedKeys.includes(k));
-      if (missingKeys.length > 0 && missingKeys.length === expectedKeys.length) {
-        return {
-          valid: false,
-          error: `${method} ${ontapApiPath} body is missing all expected fields: ${missingKeys.join(', ')}.`,
-          suggestion: `The body should contain at least: ${expectedKeys.join(', ')}. See the expected body template.`,
-          expectedBody,
-        };
+      // Index body templates are enforced for POST only; PATCH templates are illustrative.
+      if (method === 'POST') {
+        const expectedKeys = Object.keys(expectedBody as Record<string, unknown>);
+        const providedKeys = Object.keys(body);
+        const missingKeys = expectedKeys.filter((k) => !providedKeys.includes(k));
+        if (missingKeys.length > 0 && missingKeys.length === expectedKeys.length) {
+          return {
+            valid: false,
+            error: `${method} ${ontapApiPath} body is missing all expected fields: ${missingKeys.join(', ')}.`,
+            suggestion: `The body should contain at least: ${expectedKeys.join(', ')}. See the expected body template.`,
+            expectedBody,
+          };
+        }
       }
     }
 
