@@ -46,10 +46,14 @@ function validateKgResponse(value: unknown, requestKind: DiscoverKind): KgDiscov
   if (requestKind === 'categories') {
     const categories = value.categories;
     if (!Array.isArray(categories)) return null;
+    if (!categories.every((c) => isObject(c) && typeof c.resource === 'string' && typeof c.count === 'number')) {
+      return null;
+    }
     response.categories = categories as Array<{ resource: string; count: number }>;
   } else {
     const endpoints = value.endpoints;
     if (!Array.isArray(endpoints)) return null;
+    if (!endpoints.every(isObject)) return null;
     response.endpoints = endpoints as Array<Record<string, unknown>>;
   }
 
