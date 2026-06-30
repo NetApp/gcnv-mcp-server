@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { registerAllTools } from './register-tools.js';
+import * as accessTokenContext from '../auth/access-token-context.js';
 
 describe('registerAllTools', () => {
   it('registers all tools with name, definition, and handler', async () => {
@@ -40,7 +41,9 @@ describe('registerAllTools', () => {
     registerAllTools(fakeMcpServer);
 
     for (const c of calls) {
-      expect(c.tool.inputSchema).not.toHaveProperty('_delegated_google_access_token');
+      expect(
+        Object.prototype.hasOwnProperty.call(c.tool.inputSchema, '_delegated_google_access_token')
+      ).toBe(false);
     }
   });
 
@@ -57,6 +60,12 @@ describe('registerAllTools', () => {
 
     const auditTool = calls.find((c) => c.name === 'ontap_audit_log');
     expect(auditTool).toBeTruthy();
+    const runWithRequestAccessTokenSpy = vi
+      .spyOn(accessTokenContext, 'runWithRequestAccessToken')
+      .mockImplementation((token, fn) => {
+        expect(token).toBe('token-from-rm');
+        return fn();
+      });
 
     const result = await auditTool!.handler({
       action: 'status',
@@ -64,5 +73,6 @@ describe('registerAllTools', () => {
     });
     expect(result.structuredContent?.result).toBeDefined();
     expect(JSON.stringify(result)).not.toContain('_delegated_google_access_token');
+    expect(runWithRequestAccessTokenSpy).toHaveBeenCalledOnce();
   });
 });
