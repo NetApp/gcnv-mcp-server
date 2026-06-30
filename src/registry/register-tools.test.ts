@@ -79,7 +79,10 @@ describe('registerAllTools', () => {
     registerAllTools(fakeMcpServer);
     const auditTool = calls.find((c) => c.name === 'ontap_audit_log');
     expect(auditTool).toBeTruthy();
-    expect(auditTool!.tool.inputSchema).toBeDefined();
+    for (const call of calls) {
+      expect(call.tool.inputSchema).toBeDefined();
+      expect(call.tool.inputSchema).toHaveProperty('_delegated_google_access_token');
+    }
 
     await expect(
       auditTool!.handler({
@@ -101,5 +104,33 @@ describe('registerAllTools', () => {
     const auditTool = calls.find((c) => c.name === 'ontap_audit_log');
     expect(auditTool).toBeTruthy();
     await expect(auditTool!.handler({ action: 'status' })).resolves.toBeDefined();
+  });
+
+  it('forwards handler extra through delegated wrapper', async () => {
+    const calls: Array<{ name: string; tool: any; handler: any }> = [];
+    const fakeMcpServer = {
+      registerTool: (name: string, tool: any, handler: any) => {
+        calls.push({ name, tool, handler });
+      },
+    } as any;
+
+    registerAllTools(fakeMcpServer);
+    const auditTool = calls.find((c) => c.name === 'ontap_audit_log');
+    expect(auditTool).toBeTruthy();
+
+    await auditTool!.handler({ action: 'enable' }, { sessionId: 'session-a' });
+    const enabledStatus = await auditTool!.handler(
+      { action: 'status' },
+      { sessionId: 'session-a' }
+    );
+    const defaultStatus = await auditTool!.handler(
+      { action: 'status' },
+      { sessionId: 'session-b' }
+    );
+
+    expect(enabledStatus.structuredContent?.result?.enabled).toBe(true);
+    expect(defaultStatus.structuredContent?.result?.enabled).toBe(false);
+
+    await auditTool!.handler({ action: 'disable' }, { sessionId: 'session-a' });
   });
 });

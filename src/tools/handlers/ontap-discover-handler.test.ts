@@ -11,6 +11,7 @@ describe('ontapDiscoverHandler', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   // -------------------------------------------------------------------
@@ -429,6 +430,17 @@ describe('ontapDiscoverHandler', () => {
     }
   });
 
+  it('rejects invalid maxResults before attempting KG discovery', async () => {
+    process.env.ONTAP_KG_URL = 'https://kg.example';
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await ontapDiscoverHandler({ search: 'storage', maxResults: 0 });
+
+    expect(res.isError).toBe(true);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('maxResults overrides the default cap', async () => {
     const res = await ontapDiscoverHandler({ search: 'storage', maxResults: 3 });
     const data = (res.structuredContent as any).result;
@@ -559,6 +571,32 @@ describe('ontapDiscoverHandler', () => {
     expect(request.method).toBe('POST');
     expect(data.search).toBe('legal hold');
     expect(data.endpoints[0].operationId).toBe('litigation_create');
+  });
+
+  it('sends the current package version in KG client context', async () => {
+    process.env.ONTAP_KG_URL = 'https://kg.example.internal';
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        schemaVersion: 'ontap-kg/1',
+        kind: 'search',
+        endpoints: [],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await ontapDiscoverHandler({ search: 'volume', userIntent: 'Find volume APIs' });
+
+    const [, request] = fetchMock.mock.calls[0];
+    expect(JSON.parse(request.body)).toMatchObject({
+      context: {
+        user_intent: 'Find volume APIs',
+        client: {
+          name: 'gcnv-mcp',
+          version: '1.1.0',
+        },
+      },
+    });
   });
 
   it('falls back to bundled index when KG query fails', async () => {

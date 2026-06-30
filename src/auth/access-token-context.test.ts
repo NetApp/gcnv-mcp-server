@@ -55,6 +55,14 @@ describe('access-token-context', () => {
     expect(token).toBe('first-token');
   });
 
+  it('trims configured header names before lookup', () => {
+    process.env.GCNV_AUTH_HEADER = '  X-Auth  ';
+    const token = accessTokenFromHttpHeaders({
+      'x-auth': ['Bearer', 'trimmed-header-token'].join(' '),
+    });
+    expect(token).toBe('trimmed-header-token');
+  });
+
   it('returns undefined for blank bearer value after prefix', () => {
     process.env.GCNV_AUTH_HEADER = 'Authorization';
     const token = accessTokenFromHttpHeaders({

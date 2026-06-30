@@ -33,6 +33,16 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
+function isCategory(value: unknown): value is { resource: string; count: number } {
+  return (
+    isObject(value) &&
+    typeof value.resource === 'string' &&
+    typeof value.count === 'number' &&
+    Number.isInteger(value.count) &&
+    value.count >= 0
+  );
+}
+
 function validateKgResponse(value: unknown, requestKind: DiscoverKind): KgDiscoverResponse | null {
   if (!isObject(value)) return null;
   if (value.schemaVersion !== 'ontap-kg/1') return null;
@@ -45,12 +55,12 @@ function validateKgResponse(value: unknown, requestKind: DiscoverKind): KgDiscov
 
   if (requestKind === 'categories') {
     const categories = value.categories;
-    if (!Array.isArray(categories)) return null;
-    response.categories = categories as Array<{ resource: string; count: number }>;
+    if (!Array.isArray(categories) || !categories.every(isCategory)) return null;
+    response.categories = categories;
   } else {
     const endpoints = value.endpoints;
-    if (!Array.isArray(endpoints)) return null;
-    response.endpoints = endpoints as Array<Record<string, unknown>>;
+    if (!Array.isArray(endpoints) || !endpoints.every(isObject)) return null;
+    response.endpoints = endpoints;
   }
 
   if (typeof value.suggestion === 'string') response.suggestion = value.suggestion;

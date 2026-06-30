@@ -3,7 +3,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 const requestTokenStorage = new AsyncLocalStorage<string | undefined>();
 
 /**
- * Run `fn` with a per-request access token visible to {@link resolveAccessTokenSync}.
+ * Run `fn` with a per-request access token visible to {@link currentRequestAccessToken}.
  * Used by the HTTP/SSE transport when forwarding Authorization (or GCNV_AUTH_HEADER).
  */
 export function runWithRequestAccessToken<T>(
@@ -30,7 +30,7 @@ function parseBearerHeader(headerValue: string | undefined): string | undefined 
 export function accessTokenFromHttpHeaders(
   headers: Record<string, string | string[] | undefined>
 ): string | undefined {
-  const headerName = (process.env.GCNV_AUTH_HEADER || 'Authorization').toLowerCase();
+  const headerName = (process.env.GCNV_AUTH_HEADER || 'Authorization').trim().toLowerCase();
   const raw = headers[headerName];
   const value = Array.isArray(raw) ? raw[0] : raw;
   return parseBearerHeader(typeof value === 'string' ? value : undefined);

@@ -10,7 +10,7 @@
     },
     "kind": {
       "type": "string",
-      "enum": ["categories", "resource", "search", "index"]
+      "enum": ["categories", "resource", "search"]
     },
     "search": {
       "type": "string"

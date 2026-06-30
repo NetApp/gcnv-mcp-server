@@ -1,9 +1,15 @@
+import { createRequire } from 'node:module';
 import { ToolHandler } from '../../types/tool.js';
 import { loadIndex, _resetIndexCache, IndexEndpoint } from '../../utils/ontap-index-loader.js';
 import { discoverViaKg } from '../../utils/ontap-kg-client.js';
 import { logger } from '../../logger.js';
 
 const log = logger.child({ module: 'ontap-discover-handler' });
+const require = createRequire(import.meta.url);
+const { version: packageVersion } = require('../../../package.json') as { version?: string };
+const CLIENT_VERSION =
+  typeof packageVersion === 'string' && packageVersion.trim() ? packageVersion : 'unknown';
+const DEFAULT_MAX_RESULTS = 10;
 
 export { _resetIndexCache };
 
@@ -385,17 +391,35 @@ export const ontapDiscoverHandler: ToolHandler = async (args) => {
   try {
     const { resource, search } = args;
     const kgKind = !resource && !search ? 'categories' : resource ? 'resource' : 'search';
+    let searchLimit = DEFAULT_MAX_RESULTS;
+    if (kgKind === 'search') {
+      const maxResults = args.maxResults;
+      if (maxResults !== undefined && maxResults !== null) {
+        if (typeof maxResults !== 'number' || !Number.isInteger(maxResults) || maxResults < 1) {
+          return {
+            isError: true,
+            content: [
+              {
+                type: 'text' as const,
+                text: 'maxResults must be a positive integer. retryable: false',
+              },
+            ],
+          };
+        }
+        searchLimit = maxResults;
+      }
+    }
     const remote = await discoverViaKg({
       schemaVersion: 'ontap-kg/1',
       kind: kgKind,
       ...(resource ? { resource: String(resource).toLowerCase() } : {}),
       ...(search ? { search: String(search) } : {}),
-      ...(typeof args.maxResults === 'number' ? { max_results: args.maxResults } : {}),
+      ...(kgKind === 'search' ? { max_results: searchLimit } : {}),
       ...(typeof args.userIntent === 'string'
         ? {
             context: {
               user_intent: args.userIntent,
-              client: { name: 'gcnv-mcp', version: '1.1.0' },
+              client: { name: 'gcnv-mcp', version: CLIENT_VERSION },
             },
           }
         : {}),
@@ -493,23 +517,7 @@ export const ontapDiscoverHandler: ToolHandler = async (args) => {
       return successResult(result);
     }
 
-    const DEFAULT_MAX_RESULTS = 10;
-    const maxResults = args.maxResults;
-    let limit = DEFAULT_MAX_RESULTS;
-    if (maxResults !== undefined && maxResults !== null) {
-      if (typeof maxResults !== 'number' || !Number.isInteger(maxResults) || maxResults < 1) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: 'text' as const,
-              text: 'maxResults must be a positive integer. retryable: false',
-            },
-          ],
-        };
-      }
-      limit = maxResults;
-    }
+    const limit = searchLimit;
     const totalMatches = diversified.length;
     const capped = diversified.slice(0, limit);
 
