@@ -33,9 +33,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
-function isCategory(
-  value: unknown
-): value is {
+function isCategory(value: unknown): value is {
   resource: string;
   count: number;
 } {
@@ -59,13 +57,11 @@ function validateKgResponse(value: unknown, requestKind: DiscoverKind): KgDiscov
 
   if (requestKind === 'categories') {
     const categories = value.categories;
-    if (!Array.isArray(categories)) return null;
-    if (!categories.every(isCategory)) return null;
+    if (!Array.isArray(categories) || !categories.every(isCategory)) return null;
     response.categories = categories;
   } else {
     const endpoints = value.endpoints;
-    if (!Array.isArray(endpoints)) return null;
-    if (!endpoints.every(isObject)) return null;
+    if (!Array.isArray(endpoints) || !endpoints.every(isObject)) return null;
     response.endpoints = endpoints;
   }
 

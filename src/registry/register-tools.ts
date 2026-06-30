@@ -231,7 +231,7 @@ function withDelegatedAccessToken(handler: ToolHandler): ToolHandler {
   return async (args: { [key: string]: any }, extra) => {
     const tokenRaw = args?.[DELEGATED_ACCESS_TOKEN_ARG];
     const token = typeof tokenRaw === 'string' && tokenRaw.trim() ? tokenRaw.trim() : undefined;
-    const forwardedArgs = { ...(args || {}) };
+    const forwardedArgs = { ...args };
     delete forwardedArgs[DELEGATED_ACCESS_TOKEN_ARG];
     if (!token) return handler(forwardedArgs, extra);
     return runWithRequestAccessToken(token, () => handler(forwardedArgs, extra));

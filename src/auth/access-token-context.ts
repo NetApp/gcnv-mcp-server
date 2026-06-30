@@ -13,7 +13,7 @@ export function runWithRequestAccessToken<T>(
   return requestTokenStorage.run(token, fn);
 }
 
-/** Token extracted from the inbound MCP HTTP request, if any. */
+/** Token extracted from HTTP/SSE transport headers on the inbound MCP request, if any. */
 export function currentRequestAccessToken(): string | undefined {
   return requestTokenStorage.getStore();
 }
