@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
+import { runWithRequestAccessToken } from '../auth/access-token-context.js';
 
 const NetAppClientCtor = vi.fn();
 
@@ -61,7 +62,7 @@ describe('NetAppClientFactory', () => {
     const client = NetAppClientFactory.createClient();
 
     expect(NetAppClientCtor).toHaveBeenCalledTimes(1);
-    expect((client as any).__opts).toBeUndefined();
+    expect((client as any).__opts).toEqual({});
   });
 
   it('merges options even when defaultConfig is unset (covers spread fallback branch)', async () => {
@@ -100,5 +101,23 @@ describe('NetAppClientFactory', () => {
     const client = NetAppClientFactory.createClient({ timeout: 123 } as any);
     expect((client as any).__opts).not.toHaveProperty('apiEndpoint');
     expect((client as any).__opts).toMatchObject({ timeout: 123 });
+  });
+
+  it('uses request access token as authClient and skips cache reuse', async () => {
+    const { NetAppClientFactory } = await import('./netapp-client-factory.js');
+
+    let c1: unknown;
+    let c2: unknown;
+    void runWithRequestAccessToken('token-1', () => {
+      c1 = NetAppClientFactory.createClient(undefined, 'k3');
+    });
+    void runWithRequestAccessToken('token-2', () => {
+      c2 = NetAppClientFactory.createClient(undefined, 'k3');
+    });
+
+    expect(c1).not.toBe(c2);
+    expect(NetAppClientCtor).toHaveBeenCalledTimes(2);
+    expect((c1 as any).__opts.authClient).toBeDefined();
+    expect((c2 as any).__opts.authClient).toBeDefined();
   });
 });

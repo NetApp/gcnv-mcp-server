@@ -9,6 +9,7 @@ import {
   logOperation,
   isAuditEnabled,
   getAuditLogPath,
+  getAllAuditLogPaths,
   withAuditLog,
   _resetAuditState,
 } from './ontap-audit-logger.js';
@@ -558,6 +559,25 @@ describe('ontap-audit-logger', () => {
       expect(content).toContain('### 2. ontap_volume_list');
       expect(content).toContain('### 3. ontap_job_get');
     });
+
+    it('continues logging when rotate size check fails (statSync error)', () => {
+      enableAuditLog(testDir);
+      const currentPath = getAuditLogPath();
+      expect(currentPath).toBeTruthy();
+      rmSync(currentPath!, { force: true });
+
+      expect(() =>
+        logOperation(
+          'ontap_volume_list',
+          { storagePoolId: 'pool1', locationId: 'us-east1' },
+          { content: [{ type: 'text', text: '{}' }] },
+          100
+        )
+      ).not.toThrow();
+
+      const content = readLog();
+      expect(content).toContain('ontap_volume_list');
+    });
   });
 
   describe('session summary', () => {
@@ -598,6 +618,58 @@ describe('ontap-audit-logger', () => {
       expect(content).toContain('Failed Operations');
       expect(content).toContain('ontap_execute');
       expect(content).toContain('Pools used**: us-east1/pool1');
+    });
+
+    it('finalizes and disables enabled sessions on beforeExit hook', () => {
+      const sessionA = 'hook-a';
+      const sessionB = 'hook-b';
+      enableAuditLog(testDir, sessionA);
+      enableAuditLog(testDir, sessionB);
+
+      logOperation(
+        'ontap_volume_list',
+        { storagePoolId: 'pool-a', locationId: 'us-east1' },
+        { content: [{ type: 'text', text: '{}' }] },
+        50,
+        sessionA
+      );
+      logOperation(
+        'ontap_volume_list',
+        { storagePoolId: 'pool-b', locationId: 'us-east1' },
+        { content: [{ type: 'text', text: '{}' }] },
+        50,
+        sessionB
+      );
+
+      process.emit('beforeExit', 0);
+
+      expect(isAuditEnabled(sessionA)).toBe(false);
+      expect(isAuditEnabled(sessionB)).toBe(false);
+      expect(readLog(sessionA)).toContain('Session Summary');
+      expect(readLog(sessionB)).toContain('Session Summary');
+    });
+
+    it('lists all rotated log files in session summary', async () => {
+      enableAuditLog(testDir);
+      const largePayload = `{"result":"${'x'.repeat(25000)}"}`;
+      // Write enough entries to exceed the 5MB/file rotation threshold.
+      for (let i = 0; i < 280; i++) {
+        logOperation(
+          'ontap_volume_list',
+          { storagePoolId: 'pool1', locationId: 'us-east1', userIntent: `bulk-${i}` },
+          { content: [{ type: 'text', text: largePayload }] },
+          100
+        );
+      }
+
+      const files = getAllAuditLogPaths();
+      expect(files.length).toBeGreaterThan(1);
+
+      disableAuditLog();
+      const content = readLog();
+      expect(content).toContain(`**Log files** (${files.length} parts):`);
+      expect(content).toContain(`- ${files[0]}`);
+      expect(content).toContain(`- ${files[1]}`);
     });
   });
 
@@ -688,6 +760,21 @@ describe('ontap-audit-logger', () => {
       } finally {
         chmodSync(logPath!, 0o644);
       }
+    });
+
+    it('truncates oversized response text in audit log details', async () => {
+      enableAuditLog(testDir);
+      const huge = `{"result":"${'x'.repeat(25000)}"}`;
+      const handler = vi.fn().mockResolvedValue({
+        content: [{ type: 'text', text: huge }],
+      });
+
+      const wrapped = withAuditLog(handler, 'ontap_execute');
+      await wrapped({ method: 'GET', ontapApiPath: '/api/storage/volumes' });
+
+      const content = readLog();
+      expect(content).toContain('(truncated,');
+      expect(content).toContain('chars total');
     });
   });
 });

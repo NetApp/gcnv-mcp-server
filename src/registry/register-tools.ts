@@ -221,203 +221,143 @@ import { ontapExecuteHandler } from '../tools/handlers/ontap-execute-handler.js'
 import { ontapAuditLogTool } from '../tools/ontap-audit-log-tool.js';
 import { ontapAuditLogHandler } from '../tools/handlers/ontap-audit-log-handler.js';
 import { withAuditLog } from '../utils/ontap-audit-logger.js';
-import { ToolConfig, ToolHandler } from '../types/tool.js';
+import { ToolConfig, ToolHandler, ToolHandlerExtra } from '../types/tool.js';
+import { runWithRequestAccessToken } from '../auth/access-token-context.js';
+import { z } from 'zod';
+
+const DELEGATED_ACCESS_TOKEN_ARG = '_delegated_google_access_token';
+
+function withDelegatedAccessToken(handler: ToolHandler): ToolHandler {
+  return async (args: { [key: string]: any }, extra?: ToolHandlerExtra) => {
+    const tokenRaw = args?.[DELEGATED_ACCESS_TOKEN_ARG];
+    const token = typeof tokenRaw === 'string' && tokenRaw.trim() ? tokenRaw.trim() : undefined;
+    const forwardedArgs = { ...(args || {}) };
+    delete forwardedArgs[DELEGATED_ACCESS_TOKEN_ARG];
+    // Preserve any token already set by the HTTP/SSE transport when no delegated token is provided.
+    if (token === undefined) {
+      return handler(forwardedArgs, extra);
+    }
+    return runWithRequestAccessToken(token, () => handler(forwardedArgs, extra));
+  };
+}
+
+function withDelegatedTokenInputSchema(tool: ToolConfig): ToolConfig {
+  return {
+    ...tool,
+    inputSchema: {
+      ...tool.inputSchema,
+      [DELEGATED_ACCESS_TOKEN_ARG]: z
+        .string()
+        .optional()
+        .describe('Internal delegated auth token; injected by resource-manager runtime.'),
+    },
+  };
+}
 
 /**
  * Register all tools and their handlers to the tool registry
  */
 export function registerAllTools(mcpServer: McpServer) {
+  const registerTool = (tool: ToolConfig, handler: ToolHandler) => {
+    const internalTool = withDelegatedTokenInputSchema(tool);
+    mcpServer.registerTool(internalTool.name, internalTool, withDelegatedAccessToken(handler));
+  };
+
   // Register storage pool tools
-  mcpServer.registerTool(
-    createStoragePoolTool.name,
-    createStoragePoolTool,
-    createStoragePoolHandler
-  );
-  mcpServer.registerTool(
-    deleteStoragePoolTool.name,
-    deleteStoragePoolTool,
-    deleteStoragePoolHandler
-  );
-  mcpServer.registerTool(getStoragePoolTool.name, getStoragePoolTool, getStoragePoolHandler);
-  mcpServer.registerTool(listStoragePoolsTool.name, listStoragePoolsTool, listStoragePoolsHandler);
-  mcpServer.registerTool(
-    updateStoragePoolTool.name,
-    updateStoragePoolTool,
-    updateStoragePoolHandler
-  );
-  mcpServer.registerTool(
-    validateDirectoryServiceTool.name,
-    validateDirectoryServiceTool,
-    validateDirectoryServiceHandler
-  );
+  registerTool(createStoragePoolTool, createStoragePoolHandler);
+  registerTool(deleteStoragePoolTool, deleteStoragePoolHandler);
+  registerTool(getStoragePoolTool, getStoragePoolHandler);
+  registerTool(listStoragePoolsTool, listStoragePoolsHandler);
+  registerTool(updateStoragePoolTool, updateStoragePoolHandler);
+  registerTool(validateDirectoryServiceTool, validateDirectoryServiceHandler);
 
   // Register volume tools
-  mcpServer.registerTool(createVolumeTool.name, createVolumeTool, createVolumeHandler);
-  mcpServer.registerTool(deleteVolumeTool.name, deleteVolumeTool, deleteVolumeHandler);
-  mcpServer.registerTool(getVolumeTool.name, getVolumeTool, getVolumeHandler);
-  mcpServer.registerTool(listVolumesTool.name, listVolumesTool, listVolumesHandler);
-  mcpServer.registerTool(updateVolumeTool.name, updateVolumeTool, updateVolumeHandler);
+  registerTool(createVolumeTool, createVolumeHandler);
+  registerTool(deleteVolumeTool, deleteVolumeHandler);
+  registerTool(getVolumeTool, getVolumeHandler);
+  registerTool(listVolumesTool, listVolumesHandler);
+  registerTool(updateVolumeTool, updateVolumeHandler);
 
   // Register snapshot tools
-  mcpServer.registerTool(createSnapshotTool.name, createSnapshotTool, createSnapshotHandler);
-  mcpServer.registerTool(deleteSnapshotTool.name, deleteSnapshotTool, deleteSnapshotHandler);
-  mcpServer.registerTool(getSnapshotTool.name, getSnapshotTool, getSnapshotHandler);
-  mcpServer.registerTool(listSnapshotsTool.name, listSnapshotsTool, listSnapshotsHandler);
-  mcpServer.registerTool(
-    revertVolumeToSnapshotTool.name,
-    revertVolumeToSnapshotTool,
-    revertVolumeToSnapshotHandler
-  );
-  mcpServer.registerTool(updateSnapshotTool.name, updateSnapshotTool, updateSnapshotHandler);
+  registerTool(createSnapshotTool, createSnapshotHandler);
+  registerTool(deleteSnapshotTool, deleteSnapshotHandler);
+  registerTool(getSnapshotTool, getSnapshotHandler);
+  registerTool(listSnapshotsTool, listSnapshotsHandler);
+  registerTool(revertVolumeToSnapshotTool, revertVolumeToSnapshotHandler);
+  registerTool(updateSnapshotTool, updateSnapshotHandler);
 
   // Register backup vault tools
-  mcpServer.registerTool(
-    createBackupVaultTool.name,
-    createBackupVaultTool,
-    createBackupVaultHandler
-  );
-  mcpServer.registerTool(
-    deleteBackupVaultTool.name,
-    deleteBackupVaultTool,
-    deleteBackupVaultHandler
-  );
-  mcpServer.registerTool(getBackupVaultTool.name, getBackupVaultTool, getBackupVaultHandler);
-  mcpServer.registerTool(listBackupVaultsTool.name, listBackupVaultsTool, listBackupVaultsHandler);
-  mcpServer.registerTool(
-    updateBackupVaultTool.name,
-    updateBackupVaultTool,
-    updateBackupVaultHandler
-  );
+  registerTool(createBackupVaultTool, createBackupVaultHandler);
+  registerTool(deleteBackupVaultTool, deleteBackupVaultHandler);
+  registerTool(getBackupVaultTool, getBackupVaultHandler);
+  registerTool(listBackupVaultsTool, listBackupVaultsHandler);
+  registerTool(updateBackupVaultTool, updateBackupVaultHandler);
 
   // Register backup tools
-  mcpServer.registerTool(createBackupTool.name, createBackupTool, createBackupHandler);
-  mcpServer.registerTool(deleteBackupTool.name, deleteBackupTool, deleteBackupHandler);
-  mcpServer.registerTool(getBackupTool.name, getBackupTool, getBackupHandler);
-  mcpServer.registerTool(listBackupsTool.name, listBackupsTool, listBackupsHandler);
-  mcpServer.registerTool(restoreBackupTool.name, restoreBackupTool, restoreBackupHandler);
-  mcpServer.registerTool(
-    restoreBackupFilesTool.name,
-    restoreBackupFilesTool,
-    restoreBackupFilesHandler
-  );
-  mcpServer.registerTool(updateBackupTool.name, updateBackupTool, updateBackupHandler);
+  registerTool(createBackupTool, createBackupHandler);
+  registerTool(deleteBackupTool, deleteBackupHandler);
+  registerTool(getBackupTool, getBackupHandler);
+  registerTool(listBackupsTool, listBackupsHandler);
+  registerTool(restoreBackupTool, restoreBackupHandler);
+  registerTool(restoreBackupFilesTool, restoreBackupFilesHandler);
+  registerTool(updateBackupTool, updateBackupHandler);
 
   // Register operation tools
-  mcpServer.registerTool(getOperationTool.name, getOperationTool, getOperationHandler);
-  mcpServer.registerTool(cancelOperationTool.name, cancelOperationTool, cancelOperationHandler);
-  mcpServer.registerTool(listOperationsTool.name, listOperationsTool, listOperationsHandler);
+  registerTool(getOperationTool, getOperationHandler);
+  registerTool(cancelOperationTool, cancelOperationHandler);
+  registerTool(listOperationsTool, listOperationsHandler);
 
   // Register backup policy tools
-  mcpServer.registerTool(
-    createBackupPolicyTool.name,
-    createBackupPolicyTool,
-    backupPolicyHandlers[createBackupPolicyTool.name]
-  );
-  mcpServer.registerTool(
-    deleteBackupPolicyTool.name,
-    deleteBackupPolicyTool,
-    backupPolicyHandlers[deleteBackupPolicyTool.name]
-  );
-  mcpServer.registerTool(
-    getBackupPolicyTool.name,
-    getBackupPolicyTool,
-    backupPolicyHandlers[getBackupPolicyTool.name]
-  );
-  mcpServer.registerTool(
-    listBackupPoliciesTool.name,
-    listBackupPoliciesTool,
-    backupPolicyHandlers[listBackupPoliciesTool.name]
-  );
-  mcpServer.registerTool(
-    updateBackupPolicyTool.name,
-    updateBackupPolicyTool,
-    backupPolicyHandlers[updateBackupPolicyTool.name]
-  );
+  registerTool(createBackupPolicyTool, backupPolicyHandlers[createBackupPolicyTool.name]);
+  registerTool(deleteBackupPolicyTool, backupPolicyHandlers[deleteBackupPolicyTool.name]);
+  registerTool(getBackupPolicyTool, backupPolicyHandlers[getBackupPolicyTool.name]);
+  registerTool(listBackupPoliciesTool, backupPolicyHandlers[listBackupPoliciesTool.name]);
+  registerTool(updateBackupPolicyTool, backupPolicyHandlers[updateBackupPolicyTool.name]);
 
   // Register replication tools
-  mcpServer.registerTool(
-    createReplicationTool.name,
-    createReplicationTool,
-    createReplicationHandler
-  );
-  mcpServer.registerTool(
-    deleteReplicationTool.name,
-    deleteReplicationTool,
-    deleteReplicationHandler
-  );
-  mcpServer.registerTool(getReplicationTool.name, getReplicationTool, getReplicationHandler);
-  mcpServer.registerTool(listReplicationsTool.name, listReplicationsTool, listReplicationsHandler);
-  mcpServer.registerTool(
-    updateReplicationTool.name,
-    updateReplicationTool,
-    updateReplicationHandler
-  );
-  mcpServer.registerTool(
-    resumeReplicationTool.name,
-    resumeReplicationTool,
-    resumeReplicationHandler
-  );
-  mcpServer.registerTool(stopReplicationTool.name, stopReplicationTool, stopReplicationHandler);
-  mcpServer.registerTool(
-    reverseReplicationDirectionTool.name,
-    reverseReplicationDirectionTool,
-    reverseReplicationDirectionHandler
-  );
-  mcpServer.registerTool(establishPeeringTool.name, establishPeeringTool, establishPeeringHandler);
-  mcpServer.registerTool(syncReplicationTool.name, syncReplicationTool, syncReplicationHandler);
+  registerTool(createReplicationTool, createReplicationHandler);
+  registerTool(deleteReplicationTool, deleteReplicationHandler);
+  registerTool(getReplicationTool, getReplicationHandler);
+  registerTool(listReplicationsTool, listReplicationsHandler);
+  registerTool(updateReplicationTool, updateReplicationHandler);
+  registerTool(resumeReplicationTool, resumeReplicationHandler);
+  registerTool(stopReplicationTool, stopReplicationHandler);
+  registerTool(reverseReplicationDirectionTool, reverseReplicationDirectionHandler);
+  registerTool(establishPeeringTool, establishPeeringHandler);
+  registerTool(syncReplicationTool, syncReplicationHandler);
 
   // Register active directory tools
-  mcpServer.registerTool(
-    createActiveDirectoryTool.name,
-    createActiveDirectoryTool,
-    createActiveDirectoryHandler
-  );
-  mcpServer.registerTool(
-    deleteActiveDirectoryTool.name,
-    deleteActiveDirectoryTool,
-    deleteActiveDirectoryHandler
-  );
-  mcpServer.registerTool(
-    getActiveDirectoryTool.name,
-    getActiveDirectoryTool,
-    getActiveDirectoryHandler
-  );
-  mcpServer.registerTool(
-    listActiveDirectoriesTool.name,
-    listActiveDirectoriesTool,
-    listActiveDirectoriesHandler
-  );
-  mcpServer.registerTool(
-    updateActiveDirectoryTool.name,
-    updateActiveDirectoryTool,
-    updateActiveDirectoryHandler
-  );
+  registerTool(createActiveDirectoryTool, createActiveDirectoryHandler);
+  registerTool(deleteActiveDirectoryTool, deleteActiveDirectoryHandler);
+  registerTool(getActiveDirectoryTool, getActiveDirectoryHandler);
+  registerTool(listActiveDirectoriesTool, listActiveDirectoriesHandler);
+  registerTool(updateActiveDirectoryTool, updateActiveDirectoryHandler);
 
   // Register KMS config tools
-  mcpServer.registerTool(createKmsConfigTool.name, createKmsConfigTool, createKmsConfigHandler);
-  mcpServer.registerTool(deleteKmsConfigTool.name, deleteKmsConfigTool, deleteKmsConfigHandler);
-  mcpServer.registerTool(getKmsConfigTool.name, getKmsConfigTool, getKmsConfigHandler);
-  mcpServer.registerTool(listKmsConfigsTool.name, listKmsConfigsTool, listKmsConfigsHandler);
-  mcpServer.registerTool(updateKmsConfigTool.name, updateKmsConfigTool, updateKmsConfigHandler);
-  mcpServer.registerTool(verifyKmsConfigTool.name, verifyKmsConfigTool, verifyKmsConfigHandler);
-  mcpServer.registerTool(encryptVolumesTool.name, encryptVolumesTool, encryptVolumesHandler);
+  registerTool(createKmsConfigTool, createKmsConfigHandler);
+  registerTool(deleteKmsConfigTool, deleteKmsConfigHandler);
+  registerTool(getKmsConfigTool, getKmsConfigHandler);
+  registerTool(listKmsConfigsTool, listKmsConfigsHandler);
+  registerTool(updateKmsConfigTool, updateKmsConfigHandler);
+  registerTool(verifyKmsConfigTool, verifyKmsConfigHandler);
+  registerTool(encryptVolumesTool, encryptVolumesHandler);
 
   // Register quota rule tools
-  mcpServer.registerTool(createQuotaRuleTool.name, createQuotaRuleTool, createQuotaRuleHandler);
-  mcpServer.registerTool(deleteQuotaRuleTool.name, deleteQuotaRuleTool, deleteQuotaRuleHandler);
-  mcpServer.registerTool(getQuotaRuleTool.name, getQuotaRuleTool, getQuotaRuleHandler);
-  mcpServer.registerTool(listQuotaRulesTool.name, listQuotaRulesTool, listQuotaRulesHandler);
-  mcpServer.registerTool(updateQuotaRuleTool.name, updateQuotaRuleTool, updateQuotaRuleHandler);
+  registerTool(createQuotaRuleTool, createQuotaRuleHandler);
+  registerTool(deleteQuotaRuleTool, deleteQuotaRuleHandler);
+  registerTool(getQuotaRuleTool, getQuotaRuleHandler);
+  registerTool(listQuotaRulesTool, listQuotaRulesHandler);
+  registerTool(updateQuotaRuleTool, updateQuotaRuleHandler);
 
   // Register host group tools
-  mcpServer.registerTool(createHostGroupTool.name, createHostGroupTool, createHostGroupHandler);
-  mcpServer.registerTool(deleteHostGroupTool.name, deleteHostGroupTool, deleteHostGroupHandler);
-  mcpServer.registerTool(getHostGroupTool.name, getHostGroupTool, getHostGroupHandler);
-  mcpServer.registerTool(listHostGroupsTool.name, listHostGroupsTool, listHostGroupsHandler);
-  mcpServer.registerTool(updateHostGroupTool.name, updateHostGroupTool, updateHostGroupHandler);
+  registerTool(createHostGroupTool, createHostGroupHandler);
+  registerTool(deleteHostGroupTool, deleteHostGroupHandler);
+  registerTool(getHostGroupTool, getHostGroupHandler);
+  registerTool(listHostGroupsTool, listHostGroupsHandler);
+  registerTool(updateHostGroupTool, updateHostGroupHandler);
 
   // Register ONTAP Expert Mode tools -- audit log control
-  mcpServer.registerTool(ontapAuditLogTool.name, ontapAuditLogTool, ontapAuditLogHandler);
+  registerTool(ontapAuditLogTool, ontapAuditLogHandler);
 
   // Register ONTAP Expert Mode tools
   // withAuditLog wraps each handler to record calls when logging is enabled.
@@ -440,6 +380,6 @@ export function registerAllTools(mcpServer: McpServer) {
   ];
 
   for (const { tool, handler } of ontapTools) {
-    mcpServer.registerTool(tool.name, tool, withAuditLog(handler, tool.name));
+    registerTool(tool, withAuditLog(handler, tool.name));
   }
 }
