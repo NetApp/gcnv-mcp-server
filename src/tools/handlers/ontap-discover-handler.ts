@@ -418,8 +418,8 @@ export const ontapDiscoverHandler: ToolHandler = async (args) => {
       schemaVersion: 'ontap-kg/1',
       kind: kgKind,
       ...(resource ? { resource: String(resource).toLowerCase() } : {}),
-      ...(search ? { search: String(search) } : {}),
-      ...(args.maxResults !== undefined && args.maxResults !== null ? { max_results: limit } : {}),
+      ...(kgKind === 'search' && search ? { search: String(search) } : {}),
+      ...(kgKind !== 'categories' ? { max_results: limit } : {}),
       ...(typeof args.userIntent === 'string'
         ? {
             context: {
@@ -437,7 +437,7 @@ export const ontapDiscoverHandler: ToolHandler = async (args) => {
       if (kgKind === 'resource') {
         return successResult({
           resource: String(resource).toLowerCase(),
-          endpoints: (remote.endpoints ?? []).map((ep) => {
+          endpoints: (remote.endpoints ?? []).slice(0, limit).map((ep) => {
             const clone = { ...ep };
             delete (clone as Record<string, unknown>).resource;
             return clone;
@@ -447,7 +447,7 @@ export const ontapDiscoverHandler: ToolHandler = async (args) => {
       }
       return successResult({
         search,
-        endpoints: remote.endpoints ?? [],
+        endpoints: (remote.endpoints ?? []).slice(0, limit),
         ...(typeof remote.note === 'string' ? { note: remote.note } : {}),
         ...(typeof remote.suggestion === 'string' ? { suggestion: remote.suggestion } : {}),
       });
