@@ -1,6 +1,7 @@
 import { logger } from '../logger.js';
 
 const log = logger.child({ module: 'ontap-kg-client' });
+const DEFAULT_KG_TIMEOUT_MS = 5000;
 
 type DiscoverKind = 'categories' | 'resource' | 'search';
 
@@ -69,20 +70,28 @@ function validateKgResponse(value: unknown, requestKind: DiscoverKind): KgDiscov
   return response;
 }
 
+/**
+ * Attempts remote KG-backed discovery when ONTAP_KG_URL is configured.
+ * Returns null on transport or payload validation failure so callers can
+ * fall back to the bundled ONTAP index.
+ */
 export async function discoverViaKg(
   request: KgDiscoverRequest
 ): Promise<KgDiscoverResponse | null> {
   const kgBaseUrl = process.env.ONTAP_KG_URL?.trim();
   if (!kgBaseUrl) return null;
 
-  const timeoutMs = Number.parseInt(process.env.ONTAP_KG_TIMEOUT_MS || '5000', 10);
+  const timeoutMs = Number.parseInt(
+    process.env.ONTAP_KG_TIMEOUT_MS || `${DEFAULT_KG_TIMEOUT_MS}`,
+    10
+  );
   const endpoint = `${kgBaseUrl.replace(/\/+$/, '')}/discover`;
   const authToken = process.env.ONTAP_KG_AUTH_TOKEN?.trim();
 
   const controller = new AbortController();
   const timeout = setTimeout(
     () => controller.abort(),
-    Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 5000
+    Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : DEFAULT_KG_TIMEOUT_MS
   );
 
   try {

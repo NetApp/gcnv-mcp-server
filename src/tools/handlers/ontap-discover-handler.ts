@@ -8,7 +8,7 @@ const log = logger.child({ module: 'ontap-discover-handler' });
 const require = createRequire(import.meta.url);
 const { version: packageVersion } = require('../../../package.json') as { version?: string };
 const CLIENT_VERSION =
-  typeof packageVersion === 'string' && packageVersion.trim() ? packageVersion : 'unknown';
+  typeof packageVersion === 'string' && packageVersion.trim() ? packageVersion : '0.0.0';
 const DEFAULT_MAX_RESULTS = 10;
 
 export { _resetIndexCache };
