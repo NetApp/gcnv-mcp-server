@@ -228,12 +228,12 @@ import { z } from 'zod';
 const DELEGATED_ACCESS_TOKEN_ARG = '_delegated_google_access_token';
 
 function withDelegatedAccessToken(handler: ToolHandler): ToolHandler {
-  return async (args: { [key: string]: any }) => {
+  return async (args: { [key: string]: any }, extra?: any) => {
     const tokenRaw = args?.[DELEGATED_ACCESS_TOKEN_ARG];
     const token = typeof tokenRaw === 'string' && tokenRaw.trim() ? tokenRaw.trim() : undefined;
     const forwardedArgs = { ...(args || {}) };
     delete forwardedArgs[DELEGATED_ACCESS_TOKEN_ARG];
-    return runWithRequestAccessToken(token, () => handler(forwardedArgs));
+    return runWithRequestAccessToken(token, () => handler(forwardedArgs, extra));
   };
 }
 
