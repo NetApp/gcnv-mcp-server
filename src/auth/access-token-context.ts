@@ -3,7 +3,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 const requestTokenStorage = new AsyncLocalStorage<string | undefined>();
 
 /**
- * Run `fn` with a per-request access token visible to {@link resolveAccessTokenSync}.
+ * Run `fn` with a per-request access token visible to {@link currentRequestAccessToken}.
  * Used by the HTTP/SSE transport when forwarding Authorization (or GCNV_AUTH_HEADER).
  */
 export function runWithRequestAccessToken<T>(
