@@ -72,7 +72,7 @@ export async function discoverViaKg(
   const controller = new AbortController();
   const timeout = setTimeout(
     () => controller.abort(),
-    Number.isFinite(timeoutMs) ? timeoutMs : 5000
+    Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 5000
   );
 
   try {
