@@ -1,5 +1,6 @@
 import { appendFileSync, writeFileSync, mkdirSync, statSync, chmodSync } from 'fs';
 import { resolve } from 'path';
+import { STDIO_DELEGATED_ACCESS_TOKEN_ARG } from '../auth/delegated-access-token.js';
 import { ToolHandler, ToolHandlerExtra } from '../types/tool.js';
 import { logger } from '../logger.js';
 
@@ -77,7 +78,7 @@ function getAuditState(sessionId?: string): AuditState {
 let exitHookRegistered = false;
 
 /** Top-level arg keys dropped entirely from the logged parameter table. */
-const SANITIZED_KEYS = new Set(['projectId']);
+const SANITIZED_KEYS = new Set(['projectId', STDIO_DELEGATED_ACCESS_TOKEN_ARG]);
 
 /**
  * Keys (case-insensitive, matched anywhere in the key name) whose values are

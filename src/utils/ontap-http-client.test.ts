@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { OntapHttpClient } from './ontap-http-client.js';
+import { runWithRequestAccessToken } from '../auth/access-token-context.js';
 
 vi.mock('google-auth-library', () => ({
   GoogleAuth: class {
@@ -49,6 +50,17 @@ describe('OntapHttpClient', () => {
       '/v1beta1/projects/my-project/locations/us-east1/storagePools/pool1/ontap/api/storage/volumes'
     );
     expect(url).not.toContain('/pools/');
+  });
+
+  it('uses request token header when present', async () => {
+    mockFetch.mockResolvedValue(jsonResponse({ rawResponse: { records: [] } }));
+    const client = OntapHttpClient.create('my-project', 'us-east1', 'pool1');
+    await runWithRequestAccessToken('request-token', async () => {
+      await client.get('/api/storage/volumes');
+    });
+
+    const headers = mockFetch.mock.calls[0][1].headers as Record<string, string>;
+    expect(headers.Authorization).toBe('Bearer request-token');
   });
 
   it('returns cached client for same (project, location, pool)', () => {

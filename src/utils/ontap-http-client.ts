@@ -1,4 +1,5 @@
 import { GoogleAuth } from 'google-auth-library';
+import { currentRequestAccessToken } from '../auth/access-token-context.js';
 import { sleep } from './sleep.js';
 import { logger } from '../logger.js';
 
@@ -111,6 +112,9 @@ export class OntapHttpClient {
   }
 
   private async getAccessToken(): Promise<string> {
+    const explicit = currentRequestAccessToken();
+    if (explicit) return explicit;
+
     const token = await OntapHttpClient.getAuth().getAccessToken();
     if (!token) {
       throw new Error('Failed to obtain GCP access token for ONTAP proxy request.');

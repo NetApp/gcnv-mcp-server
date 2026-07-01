@@ -180,6 +180,23 @@ describe('operation-handler', () => {
     });
   });
 
+  it('getOperationHandler converts metadata.createTime seconds object to ISO string', async () => {
+    const getOperation = vi.fn().mockResolvedValue([
+      {
+        name: 'operations/op-seconds',
+        done: true,
+        metadata: {
+          createTime: { seconds: 1 },
+        },
+      },
+    ]);
+    createClientMock.mockReturnValue({ getOperation });
+
+    const { getOperationHandler } = await import('./operation-handler.js');
+    const result = await getOperationHandler({ operationName: 'operations/op-seconds' });
+    expect((result.structuredContent as any).createTime).toBe('1970-01-01T00:00:01.000Z');
+  });
+
   it('getOperationHandler handles exceptions while parsing operation.metadata', async () => {
     const badMetadata = {};
     Object.defineProperty(badMetadata, 'createTime', {
@@ -352,5 +369,25 @@ describe('operation-handler', () => {
     expect(listOperationsAsync).toHaveBeenCalledWith({
       name: 'projects/p1/locations/-/operations',
     });
+  });
+
+  it('listOperationsHandler formats metadata.createTime seconds objects to ISO string', async () => {
+    const listOperationsAsync = vi.fn().mockReturnValue(
+      asyncIterable([
+        {
+          name: 'operations/op-seconds',
+          done: true,
+          metadata: { createTime: { seconds: 1 } },
+        },
+      ])
+    );
+    createClientMock.mockReturnValue({ listOperationsAsync });
+
+    const { listOperationsHandler } = await import('./operation-handler.js');
+    const result = await listOperationsHandler({ projectId: 'p1', location: 'us-central1' });
+
+    expect((result.structuredContent as any).operations[0].createTime).toBe(
+      '1970-01-01T00:00:01.000Z'
+    );
   });
 });
