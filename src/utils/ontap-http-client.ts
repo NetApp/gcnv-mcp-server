@@ -233,8 +233,4 @@ export class OntapHttpClient {
   ): Promise<T> {
     return this.request<T>('PATCH', subPath, body, queryParams);
   }
-
-  async delete<T = unknown>(subPath: string, queryParams?: Record<string, string>): Promise<T> {
-    return this.request<T>('DELETE', subPath, undefined, queryParams);
-  }
 }

@@ -109,23 +109,6 @@ export const createStoragePoolTool: ToolConfig = {
   },
 };
 
-// Delete Storage Pool Tool
-export const deleteStoragePoolTool: ToolConfig = {
-  name: 'gcnv_storage_pool_delete',
-  title: 'Delete Storage Pool',
-  description: 'Deletes a storage pool in the specified project and location',
-  inputSchema: {
-    projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().describe('The location of the storage pool'),
-    storagePoolId: z.string().describe('The ID of the storage pool to delete'),
-    force: z.boolean().optional().describe('Force deletion even if the pool contains resources'),
-  },
-  outputSchema: {
-    success: z.boolean().describe('Whether the deletion was successful'),
-    operationId: z.string().optional().describe('The ID of the long-running operation'),
-  },
-};
-
 // Get Storage Pool Tool
 export const getStoragePoolTool: ToolConfig = {
   name: 'gcnv_storage_pool_get',

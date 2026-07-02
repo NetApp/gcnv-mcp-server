@@ -613,64 +613,6 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
   }
 };
 
-// Delete Volume Handler
-export const deleteVolumeHandler: ToolHandler = async (args: { [key: string]: any }) => {
-  try {
-    const { projectId, location, volumeId, force = false } = args;
-
-    // Create a new NetApp client using the factory
-    const netAppClient = NetAppClientFactory.createClient();
-
-    // Format the name for the volume
-    const name = `projects/${projectId}/locations/${location}/volumes/${volumeId}`;
-
-    // Call the API to delete the volume
-    const request: any = { name };
-    // Only add force if it's true to avoid API errors
-    if (force) {
-      request.force = true;
-    }
-
-    log.info({ request }, 'Delete Volume request');
-    const [operation] = await netAppClient.deleteVolume(request);
-    log.info({ operation }, 'Delete Volume operation');
-
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: JSON.stringify(
-            {
-              message: `Volume ${volumeId} deletion requested`,
-              operation: operation,
-            },
-            null,
-            2
-          ),
-        },
-      ],
-      structuredContent: {
-        success: true,
-        operationId: operation.name || '',
-      },
-    };
-  } catch (error: any) {
-    log.error({ err: error }, 'Error deleting volume');
-    return {
-      isError: true,
-      content: [
-        {
-          type: 'text' as const,
-          text: `Error deleting volume: ${error.message || 'Unknown error'}`,
-        },
-      ],
-      structuredContent: {
-        success: false,
-      },
-    };
-  }
-};
-
 // Get Volume Handler
 export const getVolumeHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {

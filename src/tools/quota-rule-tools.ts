@@ -49,23 +49,6 @@ export const createQuotaRuleTool: ToolConfig = {
   },
 };
 
-// Delete Quota Rule Tool
-export const deleteQuotaRuleTool: ToolConfig = {
-  name: 'gcnv_quota_rule_delete',
-  title: 'Delete Quota Rule',
-  description: 'Deletes a quota rule',
-  inputSchema: {
-    projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().describe('The location of the volume'),
-    volumeId: z.string().describe('The ID of the volume'),
-    quotaRuleId: z.string().describe('The ID of the quota rule to delete'),
-  },
-  outputSchema: {
-    success: z.boolean().describe('Whether the deletion was successful'),
-    operationId: z.string().optional().describe('The ID of the long-running operation'),
-  },
-};
-
 // Get Quota Rule Tool
 export const getQuotaRuleTool: ToolConfig = {
   name: 'gcnv_quota_rule_get',

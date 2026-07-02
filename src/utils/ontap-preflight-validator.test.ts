@@ -9,7 +9,7 @@ import {
 const testIndex: ApiIndex = {
   synonyms: {},
   categories: [
-    { resource: 'volume', count: 4 },
+    { resource: 'volume', count: 3 },
     { resource: 'qos_policy', count: 3 },
   ],
   endpoints: [
@@ -42,16 +42,6 @@ const testIndex: ApiIndex = {
       description: 'Create volume',
       hint: null,
       body: { name: 'vol1', svm: { name: 'vs0' }, size: '2GB' },
-    },
-    {
-      resource: 'volume',
-      keywords: ['vol'],
-      method: 'DELETE',
-      path: '/api/storage/volumes/{uuid}',
-      pathParams: ['uuid'],
-      description: 'Delete volume',
-      hint: null,
-      body: null,
     },
     {
       resource: 'qos_policy',
@@ -145,9 +135,9 @@ describe('preflightValidate', () => {
 
   describe('method check', () => {
     it('rejects invalid method for a known path', () => {
-      const result = preflightValidate('DELETE', '/api/storage/volumes', undefined, testIndex);
+      const result = preflightValidate('PATCH', '/api/storage/volumes', undefined, testIndex);
       expect(result.valid).toBe(false);
-      expect(result.error).toContain('Method DELETE is not valid');
+      expect(result.error).toContain('Method PATCH is not valid');
       expect(result.suggestion).toContain('GET, POST');
     });
 

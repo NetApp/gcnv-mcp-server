@@ -137,63 +137,6 @@ export const createBackupVaultHandler: ToolHandler = async (args: { [key: string
   }
 };
 
-// Delete Backup Vault Handler
-export const deleteBackupVaultHandler: ToolHandler = async (args: { [key: string]: any }) => {
-  try {
-    const { projectId, location, backupVaultId } = args;
-
-    // Create a new NetApp client using the factory
-    const netAppClient = NetAppClientFactory.createClient();
-
-    // Format the name for the backup vault
-    const name = `projects/${projectId}/locations/${location}/backupVaults/${backupVaultId}`;
-
-    // Delete the backup vault
-    const request = { name };
-    const [operation] = await netAppClient.deleteBackupVault(request);
-
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: `Backup vault deletion initiated. Operation ID: ${operation.name}`,
-        },
-      ],
-      structuredContent: {
-        success: true,
-        operationId: operation.name,
-      },
-    };
-  } catch (error: any) {
-    log.error({ err: error }, 'Error deleting backup vault');
-
-    let errorMessage = `Failed to delete backup vault: ${error.message}`;
-
-    // Handle specific error types
-    if (error.code === 5) {
-      // NOT_FOUND
-      errorMessage = `Backup vault not found: projects/${args.projectId}/locations/${args.location}/backupVaults/${args.backupVaultId}`;
-    } else if (error.code === 7) {
-      // PERMISSION_DENIED
-      errorMessage = 'Permission denied. Please check your credentials and access rights.';
-    } else if (error.code === 9) {
-      // FAILED_PRECONDITION
-      errorMessage =
-        'Failed precondition. The backup vault may have dependent backups that need to be deleted first.';
-    }
-
-    return {
-      isError: true,
-      content: [
-        {
-          type: 'text' as const,
-          text: errorMessage,
-        },
-      ],
-    };
-  }
-};
-
 // Get Backup Vault Handler
 export const getBackupVaultHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {

@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ontapExecuteHandler, normalizeOntapQueryParams } from './ontap-execute-handler.js';
 import { _resetIndexCache } from '../../utils/ontap-index-loader.js';
-import { clearDeletePreviewStore } from '../../utils/ontap-delete-preview.js';
 
 const mockClient = {
   get: vi.fn(),
@@ -27,7 +26,6 @@ const baseArgs = {
 describe('ontapExecuteHandler', () => {
   beforeEach(async () => {
     _resetIndexCache();
-    clearDeletePreviewStore();
     mockClient.get.mockReset();
     mockClient.post.mockReset();
     mockClient.patch.mockReset();
@@ -57,78 +55,17 @@ describe('ontapExecuteHandler', () => {
     expect(result.isError).toBeUndefined();
   });
 
-  // Delete confirmation -- preview-first pattern
-  it('returns delete preview (not error) when confirmDelete is not set', async () => {
-    mockClient.get.mockResolvedValue({ name: 'prod-vol' });
+  // DELETE is refused up-front by this server
+  it('refuses DELETE requests up-front without calling the proxy', async () => {
     const result = await ontapExecuteHandler({
       ...baseArgs,
       method: 'DELETE',
       ontapApiPath: '/api/storage/volumes/uuid1',
     });
-    expect(result.isError).toBeUndefined();
-    const preview = JSON.parse(result.content[0].text);
-    expect(preview.action).toBe('confirm_delete');
-    expect(preview.method).toBe('DELETE');
-    expect(preview.path).toBe('/api/storage/volumes/uuid1');
-    expect(preview.storagePoolId).toBe('pool1');
-    expect(preview.resourceName).toBe('prod-vol');
-    expect(preview.instruction).toContain('explicit YES');
-    expect(preview.instruction).toContain('Do NOT set confirmDelete=true on your own');
-    expect(result.structuredContent).toEqual({ result: preview });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('DELETE operations are not supported by this server.');
     expect(mockClient.delete).not.toHaveBeenCalled();
-  });
-
-  it('executes DELETE when confirmDelete=true and confirmedResourceName matches preview', async () => {
-    mockClient.get.mockResolvedValue({ name: 'prod-vol' });
-    mockClient.delete.mockResolvedValue({});
-    await ontapExecuteHandler({
-      ...baseArgs,
-      method: 'DELETE',
-      ontapApiPath: '/api/storage/volumes/uuid1',
-    });
-    const result = await ontapExecuteHandler({
-      ...baseArgs,
-      method: 'DELETE',
-      ontapApiPath: '/api/storage/volumes/uuid1',
-      confirmDelete: true,
-      confirmedResourceName: 'prod-vol',
-    });
-    expect(result.isError).toBeUndefined();
-    expect(mockClient.delete).toHaveBeenCalledWith('/api/storage/volumes/uuid1', undefined);
-  });
-
-  it('rejects DELETE when confirmedResourceName does not match previewed resource', async () => {
-    mockClient.get.mockResolvedValue({ name: 'prod-vol' });
-    await ontapExecuteHandler({
-      ...baseArgs,
-      method: 'DELETE',
-      ontapApiPath: '/api/storage/volumes/uuid1',
-    });
-    const result = await ontapExecuteHandler({
-      ...baseArgs,
-      method: 'DELETE',
-      ontapApiPath: '/api/storage/volumes/uuid1',
-      confirmDelete: true,
-      confirmedResourceName: 'staging-vol',
-    });
-    const payload = JSON.parse(result.content[0].text);
-    expect(payload.action).toBe('delete_confirmation_failed');
-    expect(mockClient.delete).not.toHaveBeenCalled();
-  });
-
-  it('delete preview resolves the resource name via GET but does not DELETE', async () => {
-    mockClient.get.mockResolvedValue({ name: 'peer-one' });
-    await ontapExecuteHandler({
-      ...baseArgs,
-      method: 'DELETE',
-      ontapApiPath: '/api/cluster/peers/peer-uuid',
-    });
-    expect(mockClient.delete).not.toHaveBeenCalled();
-    expect(mockClient.get).toHaveBeenCalledWith('/api/cluster/peers/peer-uuid', {
-      ontap_fields: 'name',
-    });
-    expect(mockClient.post).not.toHaveBeenCalled();
-    expect(mockClient.patch).not.toHaveBeenCalled();
+    expect(mockClient.get).not.toHaveBeenCalled();
   });
 
   // HTTP method dispatch (accepts body/queryParams as JSON strings or objects)
@@ -670,29 +607,6 @@ describe('ontapExecuteHandler', () => {
         spy.mockRestore();
         _resetIndexCache();
       }
-    });
-
-    it('normalizes 405 Method Not Allowed into a scope_denied envelope (source=proxy)', async () => {
-      mockClient.delete.mockRejectedValue(
-        new Error('ONTAP proxy returned 405: Method not allowed')
-      );
-      mockClient.get.mockResolvedValue({ name: 'prod-vol' });
-      await ontapExecuteHandler({
-        ...baseArgs,
-        method: 'DELETE',
-        ontapApiPath: '/api/storage/volumes/abc-123',
-      });
-      const result = await ontapExecuteHandler({
-        ...baseArgs,
-        method: 'DELETE',
-        ontapApiPath: '/api/storage/volumes/abc-123',
-        confirmDelete: true,
-        confirmedResourceName: 'prod-vol',
-      });
-      expect(result.isError).toBe(true);
-      const parsed = JSON.parse(result.content[0].text);
-      expect(parsed.error).toBe('scope_denied');
-      expect(parsed.source).toBe('proxy');
     });
 
     it('keeps non-denial 4xx errors in the legacy formatted-error shape', async () => {

@@ -99,15 +99,6 @@ describe('OntapHttpClient', () => {
     expect(call[1].body).toBeUndefined();
   });
 
-  it('does not wrap DELETE requests with body envelope', async () => {
-    mockFetch.mockResolvedValue(jsonResponse({ rawResponse: {} }));
-    const client = OntapHttpClient.create('123', 'us-east1', 'pool1');
-    await client.delete('/api/storage/volumes/uuid1');
-
-    const call = mockFetch.mock.calls[0];
-    expect(call[1].body).toBeUndefined();
-  });
-
   it('unwraps rawResponse from proxy response', async () => {
     mockFetch.mockResolvedValue(jsonResponse({ rawResponse: { name: 'vol1', uuid: 'abc' } }));
     const client = OntapHttpClient.create('123', 'us-east1', 'pool1');

@@ -20,22 +20,6 @@ export const createKmsConfigTool: ToolConfig = {
   },
 };
 
-// Delete KMS Config Tool
-export const deleteKmsConfigTool: ToolConfig = {
-  name: 'gcnv_kms_config_delete',
-  title: 'Delete KMS Config',
-  description: 'Deletes a KMS configuration',
-  inputSchema: {
-    projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().describe('The location of the KMS config'),
-    kmsConfigId: z.string().describe('The ID of the KMS config to delete'),
-  },
-  outputSchema: {
-    success: z.boolean().describe('Whether the deletion was successful'),
-    operationId: z.string().optional().describe('The ID of the long-running operation'),
-  },
-};
-
 // Get KMS Config Tool
 export const getKmsConfigTool: ToolConfig = {
   name: 'gcnv_kms_config_get',

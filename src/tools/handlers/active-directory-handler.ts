@@ -127,49 +127,6 @@ export const createActiveDirectoryHandler: ToolHandler = async (args: { [key: st
   }
 };
 
-// Delete Active Directory Handler
-export const deleteActiveDirectoryHandler: ToolHandler = async (args: { [key: string]: any }) => {
-  try {
-    const { projectId, location, activeDirectoryId } = args;
-
-    const netAppClient = NetAppClientFactory.createClient();
-    const name = `projects/${projectId}/locations/${location}/activeDirectories/${activeDirectoryId}`;
-
-    const [operation] = await netAppClient.deleteActiveDirectory({ name });
-
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: JSON.stringify(
-            {
-              message: `Active directory ${activeDirectoryId} deletion requested`,
-              operation: operation,
-            },
-            null,
-            2
-          ),
-        },
-      ],
-      structuredContent: {
-        success: true,
-        operationId: operation.name || '',
-      },
-    };
-  } catch (error: any) {
-    log.error({ err: error }, 'Error deleting active directory');
-    return {
-      isError: true,
-      content: [
-        {
-          type: 'text' as const,
-          text: `Error deleting active directory: ${error.message || 'Unknown error'}`,
-        },
-      ],
-    };
-  }
-};
-
 // Get Active Directory Handler
 export const getActiveDirectoryHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {

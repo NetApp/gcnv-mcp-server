@@ -30,7 +30,7 @@ describe('ontapDiscoverHandler', () => {
     );
 
     expect(data.categories.length).toBeGreaterThanOrEqual(175);
-    expect(totalEndpoints).toBeGreaterThanOrEqual(1300);
+    expect(totalEndpoints).toBeGreaterThanOrEqual(1014);
   });
 
   it('resource mode returns the full endpoint set for high-cardinality categories', async () => {
@@ -38,7 +38,7 @@ describe('ontapDiscoverHandler', () => {
     const data = (res.structuredContent as any).result;
 
     expect(data.resource).toBe('cluster');
-    expect(data.endpoints.length).toBeGreaterThanOrEqual(100);
+    expect(data.endpoints.length).toBeGreaterThanOrEqual(80);
   });
 
   // -------------------------------------------------------------------
@@ -271,11 +271,6 @@ describe('ontapDiscoverHandler', () => {
       search: 'create snapshot of a volume',
       method: 'POST',
       path: '/api/storage/volumes/{volume.uuid}/snapshots',
-    },
-    {
-      search: 'delete a snapshot',
-      method: 'DELETE',
-      path: '/api/storage/volumes/{volume.uuid}/snapshots/{uuid}',
     },
     {
       search: 'create snapshot policy',

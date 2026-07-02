@@ -36,22 +36,6 @@ export const createActiveDirectoryTool: ToolConfig = {
   },
 };
 
-// Delete Active Directory Tool
-export const deleteActiveDirectoryTool: ToolConfig = {
-  name: 'gcnv_active_directory_delete',
-  title: 'Delete Active Directory',
-  description: 'Deletes an active directory configuration',
-  inputSchema: {
-    projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().describe('The location of the active directory'),
-    activeDirectoryId: z.string().describe('The ID of the active directory to delete'),
-  },
-  outputSchema: {
-    success: z.boolean().describe('Whether the deletion was successful'),
-    operationId: z.string().optional().describe('The ID of the long-running operation'),
-  },
-};
-
 // Get Active Directory Tool
 export const getActiveDirectoryTool: ToolConfig = {
   name: 'gcnv_active_directory_get',

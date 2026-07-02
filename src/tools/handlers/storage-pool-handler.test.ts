@@ -756,71 +756,6 @@ describe('storage-pool-handler', () => {
     expect((result as any).isError).toBe(true);
   });
 
-  it('deleteStoragePoolHandler calls deleteStoragePool and returns operationId', async () => {
-    const deleteStoragePool = vi.fn().mockResolvedValue([{ name: 'op-del' }]);
-    createClientMock.mockReturnValue({ deleteStoragePool });
-
-    const { deleteStoragePoolHandler } = await import('./storage-pool-handler.js');
-    const result = await deleteStoragePoolHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      storagePoolId: 'sp1',
-      force: true,
-    });
-
-    expect(deleteStoragePool).toHaveBeenCalledWith({
-      name: 'projects/p1/locations/us-central1/storagePools/sp1',
-      force: true,
-    });
-    expect(result.structuredContent).toEqual({ success: true, operationId: 'op-del' });
-  });
-
-  it('deleteStoragePoolHandler falls back to empty operationId when operation[0].name is missing', async () => {
-    const deleteStoragePool = vi.fn().mockResolvedValue([{}]);
-    createClientMock.mockReturnValue({ deleteStoragePool });
-
-    const { deleteStoragePoolHandler } = await import('./storage-pool-handler.js');
-    const result = await deleteStoragePoolHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      storagePoolId: 'sp1',
-    });
-
-    expect(result.structuredContent).toEqual({ success: true, operationId: '' });
-  });
-
-  it('deleteStoragePoolHandler does not include force when false', async () => {
-    const deleteStoragePool = vi.fn().mockResolvedValue([{ name: 'op-del2' }]);
-    createClientMock.mockReturnValue({ deleteStoragePool });
-
-    const { deleteStoragePoolHandler } = await import('./storage-pool-handler.js');
-    const result = await deleteStoragePoolHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      storagePoolId: 'sp1',
-      force: false,
-    });
-
-    expect(deleteStoragePool).toHaveBeenCalledWith({
-      name: 'projects/p1/locations/us-central1/storagePools/sp1',
-    });
-    expect(result.structuredContent).toMatchObject({ operationId: 'op-del2' });
-  });
-
-  it('deleteStoragePoolHandler covers error path', async () => {
-    const deleteStoragePool = vi.fn().mockRejectedValue(new Error('boom'));
-    createClientMock.mockReturnValue({ deleteStoragePool });
-
-    const { deleteStoragePoolHandler } = await import('./storage-pool-handler.js');
-    const result = await deleteStoragePoolHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      storagePoolId: 'sp1',
-    });
-
-    expect((result as any).isError).toBe(true);
-  });
-
   it('getStoragePoolHandler calls getStoragePool and returns structuredContent', async () => {
     const getStoragePool = vi.fn().mockResolvedValue([
       {
@@ -1642,7 +1577,6 @@ describe('storage-pool-handler', () => {
     const err = {};
     createClientMock.mockReturnValue({
       createStoragePool: vi.fn().mockRejectedValue(err),
-      deleteStoragePool: vi.fn().mockRejectedValue(err),
       getStoragePool: vi.fn().mockRejectedValue(err),
       listStoragePools: vi.fn().mockRejectedValue(err),
       updateStoragePool: vi.fn().mockRejectedValue(err),
@@ -1651,7 +1585,6 @@ describe('storage-pool-handler', () => {
 
     const {
       createStoragePoolHandler,
-      deleteStoragePoolHandler,
       getStoragePoolHandler,
       listStoragePoolsHandler,
       updateStoragePoolHandler,
@@ -1667,16 +1600,6 @@ describe('storage-pool-handler', () => {
           capacityGib: 1,
           serviceLevel: 'PREMIUM',
           network: 'net',
-        })) as any
-      ).content?.[0]?.text
-    ).toContain('Unknown error');
-
-    expect(
-      (
-        (await deleteStoragePoolHandler({
-          projectId: 'p1',
-          location: 'us-central1',
-          storagePoolId: 'sp1',
         })) as any
       ).content?.[0]?.text
     ).toContain('Unknown error');

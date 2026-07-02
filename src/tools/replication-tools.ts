@@ -28,23 +28,6 @@ export const createReplicationTool: ToolConfig = {
   },
 };
 
-// Delete Replication Tool
-export const deleteReplicationTool: ToolConfig = {
-  name: 'gcnv_replication_delete',
-  title: 'Delete Replication',
-  description: 'Deletes a replication configuration',
-  inputSchema: {
-    projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().describe('The location of the replication'),
-    volumeId: z.string().describe('The ID of the volume containing the replication'),
-    replicationId: z.string().describe('The ID of the replication to delete'),
-  },
-  outputSchema: {
-    success: z.boolean().describe('Whether the deletion was successful'),
-    operationId: z.string().optional().describe('The ID of the long-running operation'),
-  },
-};
-
 // Get Replication Tool
 export const getReplicationTool: ToolConfig = {
   name: 'gcnv_replication_get',

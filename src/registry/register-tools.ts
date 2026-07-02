@@ -6,7 +6,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
   createStoragePoolTool,
-  deleteStoragePoolTool,
   getStoragePoolTool,
   listStoragePoolsTool,
   updateStoragePoolTool,
@@ -14,7 +13,6 @@ import {
 } from '../tools/storage-pool-tools.js';
 import {
   createStoragePoolHandler,
-  deleteStoragePoolHandler,
   getStoragePoolHandler,
   listStoragePoolsHandler,
   updateStoragePoolHandler,
@@ -22,21 +20,18 @@ import {
 } from '../tools/handlers/storage-pool-handler.js';
 import {
   createVolumeTool,
-  deleteVolumeTool,
   getVolumeTool,
   listVolumesTool,
   updateVolumeTool,
 } from '../tools/volume-tools.js';
 import {
   createVolumeHandler,
-  deleteVolumeHandler,
   getVolumeHandler,
   listVolumesHandler,
   updateVolumeHandler,
 } from '../tools/handlers/volume-handler.js';
 import {
   createSnapshotTool,
-  deleteSnapshotTool,
   getSnapshotTool,
   listSnapshotsTool,
   revertVolumeToSnapshotTool,
@@ -44,7 +39,6 @@ import {
 } from '../tools/snapshot-tools.js';
 import {
   createSnapshotHandler,
-  deleteSnapshotHandler,
   getSnapshotHandler,
   listSnapshotsHandler,
   revertVolumeToSnapshotHandler,
@@ -52,21 +46,18 @@ import {
 } from '../tools/handlers/snapshot-handler.js';
 import {
   createBackupVaultTool,
-  deleteBackupVaultTool,
   getBackupVaultTool,
   listBackupVaultsTool,
   updateBackupVaultTool,
 } from '../tools/backup-vault-tools.js';
 import {
   createBackupVaultHandler,
-  deleteBackupVaultHandler,
   getBackupVaultHandler,
   listBackupVaultsHandler,
   updateBackupVaultHandler,
 } from '../tools/handlers/backup-vault-handler.js';
 import {
   createBackupTool,
-  deleteBackupTool,
   getBackupTool,
   listBackupsTool,
   restoreBackupTool,
@@ -75,7 +66,6 @@ import {
 } from '../tools/backup-tools.js';
 import {
   createBackupHandler,
-  deleteBackupHandler,
   getBackupHandler,
   listBackupsHandler,
   restoreBackupHandler,
@@ -94,7 +84,6 @@ import {
 } from '../tools/handlers/operation-handler.js';
 import {
   createBackupPolicyTool,
-  deleteBackupPolicyTool,
   getBackupPolicyTool,
   listBackupPoliciesTool,
   updateBackupPolicyTool,
@@ -102,7 +91,6 @@ import {
 import { backupPolicyHandlers } from '../tools/handlers/backup-policy-handler.js';
 import {
   createReplicationTool,
-  deleteReplicationTool,
   getReplicationTool,
   listReplicationsTool,
   updateReplicationTool,
@@ -114,7 +102,6 @@ import {
 } from '../tools/replication-tools.js';
 import {
   createReplicationHandler,
-  deleteReplicationHandler,
   getReplicationHandler,
   listReplicationsHandler,
   updateReplicationHandler,
@@ -126,21 +113,18 @@ import {
 } from '../tools/handlers/replication-handler.js';
 import {
   createActiveDirectoryTool,
-  deleteActiveDirectoryTool,
   getActiveDirectoryTool,
   listActiveDirectoriesTool,
   updateActiveDirectoryTool,
 } from '../tools/active-directory-tools.js';
 import {
   createActiveDirectoryHandler,
-  deleteActiveDirectoryHandler,
   getActiveDirectoryHandler,
   listActiveDirectoriesHandler,
   updateActiveDirectoryHandler,
 } from '../tools/handlers/active-directory-handler.js';
 import {
   createKmsConfigTool,
-  deleteKmsConfigTool,
   getKmsConfigTool,
   listKmsConfigsTool,
   updateKmsConfigTool,
@@ -149,7 +133,6 @@ import {
 } from '../tools/kms-config-tools.js';
 import {
   createKmsConfigHandler,
-  deleteKmsConfigHandler,
   getKmsConfigHandler,
   listKmsConfigsHandler,
   updateKmsConfigHandler,
@@ -158,28 +141,24 @@ import {
 } from '../tools/handlers/kms-config-handler.js';
 import {
   createQuotaRuleTool,
-  deleteQuotaRuleTool,
   getQuotaRuleTool,
   listQuotaRulesTool,
   updateQuotaRuleTool,
 } from '../tools/quota-rule-tools.js';
 import {
   createQuotaRuleHandler,
-  deleteQuotaRuleHandler,
   getQuotaRuleHandler,
   listQuotaRulesHandler,
   updateQuotaRuleHandler,
 } from '../tools/handlers/quota-rule-handler.js';
 import {
   createHostGroupTool,
-  deleteHostGroupTool,
   getHostGroupTool,
   listHostGroupsTool,
   updateHostGroupTool,
 } from '../tools/host-group-tools.js';
 import {
   createHostGroupHandler,
-  deleteHostGroupHandler,
   getHostGroupHandler,
   listHostGroupsHandler,
   updateHostGroupHandler,
@@ -189,30 +168,24 @@ import {
   ontapVolumeCreateTool,
   ontapVolumeListTool,
   ontapVolumeGetTool,
-  ontapVolumeDeleteTool,
   ontapJobGetTool,
   ontapSnapshotCreateTool,
   ontapSnapshotListTool,
-  ontapSnapshotDeleteTool,
   ontapLunCreateTool,
   ontapLunListTool,
   ontapLunGetTool,
-  ontapLunDeleteTool,
 } from '../tools/ontap-tools.js';
 import {
   ontapSvmListHandler,
   ontapVolumeCreateHandler,
   ontapVolumeListHandler,
   ontapVolumeGetHandler,
-  ontapVolumeDeleteHandler,
   ontapJobGetHandler,
   ontapSnapshotCreateHandler,
   ontapSnapshotListHandler,
-  ontapSnapshotDeleteHandler,
   ontapLunCreateHandler,
   ontapLunListHandler,
   ontapLunGetHandler,
-  ontapLunDeleteHandler,
 } from '../tools/handlers/ontap-handler.js';
 import { ontapDiscoverTool } from '../tools/ontap-discover-tool.js';
 import { ontapDiscoverHandler } from '../tools/handlers/ontap-discover-handler.js';
@@ -233,11 +206,6 @@ export function registerAllTools(mcpServer: McpServer) {
     createStoragePoolTool,
     createStoragePoolHandler
   );
-  mcpServer.registerTool(
-    deleteStoragePoolTool.name,
-    deleteStoragePoolTool,
-    deleteStoragePoolHandler
-  );
   mcpServer.registerTool(getStoragePoolTool.name, getStoragePoolTool, getStoragePoolHandler);
   mcpServer.registerTool(listStoragePoolsTool.name, listStoragePoolsTool, listStoragePoolsHandler);
   mcpServer.registerTool(
@@ -253,14 +221,12 @@ export function registerAllTools(mcpServer: McpServer) {
 
   // Register volume tools
   mcpServer.registerTool(createVolumeTool.name, createVolumeTool, createVolumeHandler);
-  mcpServer.registerTool(deleteVolumeTool.name, deleteVolumeTool, deleteVolumeHandler);
   mcpServer.registerTool(getVolumeTool.name, getVolumeTool, getVolumeHandler);
   mcpServer.registerTool(listVolumesTool.name, listVolumesTool, listVolumesHandler);
   mcpServer.registerTool(updateVolumeTool.name, updateVolumeTool, updateVolumeHandler);
 
   // Register snapshot tools
   mcpServer.registerTool(createSnapshotTool.name, createSnapshotTool, createSnapshotHandler);
-  mcpServer.registerTool(deleteSnapshotTool.name, deleteSnapshotTool, deleteSnapshotHandler);
   mcpServer.registerTool(getSnapshotTool.name, getSnapshotTool, getSnapshotHandler);
   mcpServer.registerTool(listSnapshotsTool.name, listSnapshotsTool, listSnapshotsHandler);
   mcpServer.registerTool(
@@ -276,11 +242,6 @@ export function registerAllTools(mcpServer: McpServer) {
     createBackupVaultTool,
     createBackupVaultHandler
   );
-  mcpServer.registerTool(
-    deleteBackupVaultTool.name,
-    deleteBackupVaultTool,
-    deleteBackupVaultHandler
-  );
   mcpServer.registerTool(getBackupVaultTool.name, getBackupVaultTool, getBackupVaultHandler);
   mcpServer.registerTool(listBackupVaultsTool.name, listBackupVaultsTool, listBackupVaultsHandler);
   mcpServer.registerTool(
@@ -291,7 +252,6 @@ export function registerAllTools(mcpServer: McpServer) {
 
   // Register backup tools
   mcpServer.registerTool(createBackupTool.name, createBackupTool, createBackupHandler);
-  mcpServer.registerTool(deleteBackupTool.name, deleteBackupTool, deleteBackupHandler);
   mcpServer.registerTool(getBackupTool.name, getBackupTool, getBackupHandler);
   mcpServer.registerTool(listBackupsTool.name, listBackupsTool, listBackupsHandler);
   mcpServer.registerTool(restoreBackupTool.name, restoreBackupTool, restoreBackupHandler);
@@ -314,11 +274,6 @@ export function registerAllTools(mcpServer: McpServer) {
     backupPolicyHandlers[createBackupPolicyTool.name]
   );
   mcpServer.registerTool(
-    deleteBackupPolicyTool.name,
-    deleteBackupPolicyTool,
-    backupPolicyHandlers[deleteBackupPolicyTool.name]
-  );
-  mcpServer.registerTool(
     getBackupPolicyTool.name,
     getBackupPolicyTool,
     backupPolicyHandlers[getBackupPolicyTool.name]
@@ -339,11 +294,6 @@ export function registerAllTools(mcpServer: McpServer) {
     createReplicationTool.name,
     createReplicationTool,
     createReplicationHandler
-  );
-  mcpServer.registerTool(
-    deleteReplicationTool.name,
-    deleteReplicationTool,
-    deleteReplicationHandler
   );
   mcpServer.registerTool(getReplicationTool.name, getReplicationTool, getReplicationHandler);
   mcpServer.registerTool(listReplicationsTool.name, listReplicationsTool, listReplicationsHandler);
@@ -373,11 +323,6 @@ export function registerAllTools(mcpServer: McpServer) {
     createActiveDirectoryHandler
   );
   mcpServer.registerTool(
-    deleteActiveDirectoryTool.name,
-    deleteActiveDirectoryTool,
-    deleteActiveDirectoryHandler
-  );
-  mcpServer.registerTool(
     getActiveDirectoryTool.name,
     getActiveDirectoryTool,
     getActiveDirectoryHandler
@@ -395,7 +340,6 @@ export function registerAllTools(mcpServer: McpServer) {
 
   // Register KMS config tools
   mcpServer.registerTool(createKmsConfigTool.name, createKmsConfigTool, createKmsConfigHandler);
-  mcpServer.registerTool(deleteKmsConfigTool.name, deleteKmsConfigTool, deleteKmsConfigHandler);
   mcpServer.registerTool(getKmsConfigTool.name, getKmsConfigTool, getKmsConfigHandler);
   mcpServer.registerTool(listKmsConfigsTool.name, listKmsConfigsTool, listKmsConfigsHandler);
   mcpServer.registerTool(updateKmsConfigTool.name, updateKmsConfigTool, updateKmsConfigHandler);
@@ -404,14 +348,12 @@ export function registerAllTools(mcpServer: McpServer) {
 
   // Register quota rule tools
   mcpServer.registerTool(createQuotaRuleTool.name, createQuotaRuleTool, createQuotaRuleHandler);
-  mcpServer.registerTool(deleteQuotaRuleTool.name, deleteQuotaRuleTool, deleteQuotaRuleHandler);
   mcpServer.registerTool(getQuotaRuleTool.name, getQuotaRuleTool, getQuotaRuleHandler);
   mcpServer.registerTool(listQuotaRulesTool.name, listQuotaRulesTool, listQuotaRulesHandler);
   mcpServer.registerTool(updateQuotaRuleTool.name, updateQuotaRuleTool, updateQuotaRuleHandler);
 
   // Register host group tools
   mcpServer.registerTool(createHostGroupTool.name, createHostGroupTool, createHostGroupHandler);
-  mcpServer.registerTool(deleteHostGroupTool.name, deleteHostGroupTool, deleteHostGroupHandler);
   mcpServer.registerTool(getHostGroupTool.name, getHostGroupTool, getHostGroupHandler);
   mcpServer.registerTool(listHostGroupsTool.name, listHostGroupsTool, listHostGroupsHandler);
   mcpServer.registerTool(updateHostGroupTool.name, updateHostGroupTool, updateHostGroupHandler);
@@ -428,15 +370,12 @@ export function registerAllTools(mcpServer: McpServer) {
     { tool: ontapVolumeCreateTool, handler: ontapVolumeCreateHandler },
     { tool: ontapVolumeListTool, handler: ontapVolumeListHandler },
     { tool: ontapVolumeGetTool, handler: ontapVolumeGetHandler },
-    { tool: ontapVolumeDeleteTool, handler: ontapVolumeDeleteHandler },
     { tool: ontapJobGetTool, handler: ontapJobGetHandler },
     { tool: ontapSnapshotCreateTool, handler: ontapSnapshotCreateHandler },
     { tool: ontapSnapshotListTool, handler: ontapSnapshotListHandler },
-    { tool: ontapSnapshotDeleteTool, handler: ontapSnapshotDeleteHandler },
     { tool: ontapLunCreateTool, handler: ontapLunCreateHandler },
     { tool: ontapLunListTool, handler: ontapLunListHandler },
     { tool: ontapLunGetTool, handler: ontapLunGetHandler },
-    { tool: ontapLunDeleteTool, handler: ontapLunDeleteHandler },
   ];
 
   for (const { tool, handler } of ontapTools) {
