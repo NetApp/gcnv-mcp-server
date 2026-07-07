@@ -34,7 +34,67 @@ Run the published package directly (no local build required):
 npx gcnv-mcp-server@latest --transport stdio
 ```
 
-Or install via the Gemini CLI extension workflow:
+### MCP client config examples
+
+Most MCP clients need the same stdio server command:
+
+```json
+{
+  "command": "npx",
+  "args": ["-y", "gcnv-mcp-server@latest", "--transport", "stdio"]
+}
+```
+
+For clients that use the common `mcpServers` JSON shape:
+
+```json
+{
+  "mcpServers": {
+    "gcnv": {
+      "command": "npx",
+      "args": ["-y", "gcnv-mcp-server@latest", "--transport", "stdio"]
+    }
+  }
+}
+```
+
+For VS Code-style MCP configuration:
+
+```json
+{
+  "servers": {
+    "gcnv": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "gcnv-mcp-server@latest", "--transport", "stdio"]
+    }
+  }
+}
+```
+
+Client config file locations and JSON wrappers vary by application. See the [official MCP server setup docs](https://modelcontextprotocol.io/docs/develop/build-server) and the [VS Code MCP configuration reference](https://code.visualstudio.com/docs/copilot/reference/mcp-configuration) for client-specific details.
+
+### Client CLI examples
+
+Claude Code:
+
+```bash
+claude mcp add gcnv -- npx -y gcnv-mcp-server@latest --transport stdio
+claude mcp list
+```
+
+Codex CLI:
+
+```bash
+codex mcp add gcnv -- npx -y gcnv-mcp-server@latest --transport stdio
+codex mcp list
+```
+
+See the [Claude Code MCP quickstart](https://code.claude.com/docs/en/mcp-quickstart) and [OpenAI Codex MCP docs](https://developers.openai.com/codex/mcp) for more client-specific options.
+
+### Gemini CLI / Antigravity support
+
+Gemini CLI extension users can install this repository as an extension:
 
 ```bash
 # 1. Authenticate
@@ -49,6 +109,44 @@ gemini mcp list
 ```
 
 > Gemini automatically starts the MCP server when a linked extension needs it. No manual `npm start` is required for normal usage.
+
+Antigravity / AGY users can install the repository as a plugin:
+
+```bash
+agy plugin install <repository-url>
+agy plugin list
+```
+
+If you previously installed the Gemini CLI extension, migrate existing Gemini extensions:
+
+```bash
+agy plugin import gemini
+```
+
+You can also configure the MCP server directly in the shared MCP config at `~/.gemini/config/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "gcnv": {
+      "command": "npx",
+      "args": ["-y", "gcnv-mcp-server@latest", "--transport", "stdio"]
+    }
+  }
+}
+```
+
+Restart Antigravity or run `agy`, then use `/mcp` to verify the server is loaded. See the [Google Antigravity MCP codelab](https://codelabs.developers.google.com/developer-knowledge-mcp-antigravity) for more details on Antigravity MCP configuration.
+
+## Assistant Context Files
+
+This repository includes assistant context files for clients that support repository guidance:
+
+- `AGENTS.md` — shared GCNV safety and operating guidance.
+- `CLAUDE.md` — Claude/Cursor compatibility shim that points to `AGENTS.md`.
+- `GEMINI.md` — Gemini CLI extension context.
+
+These files do not require a separate install step. Compatible clients load them automatically when using the repo or extension.
 
 ## Authentication
 
