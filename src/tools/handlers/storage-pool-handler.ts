@@ -384,50 +384,6 @@ export const createStoragePoolHandler: ToolHandler = async (args: { [key: string
   }
 };
 
-// Delete Storage Pool Handler
-export const deleteStoragePoolHandler: ToolHandler = async (args: { [key: string]: any }) => {
-  try {
-    const { projectId, location, storagePoolId, force = false } = args;
-
-    // Create a new NetApp client using the factory
-    const netAppClient = NetAppClientFactory.createClient();
-
-    // Format the name for the storage pool
-    const name = `projects/${projectId}/locations/${location}/storagePools/${storagePoolId}`;
-
-    // Call the API to delete the storage pool
-    const request: any = { name };
-    // Only add force if it's true to avoid API errors
-    if (force) {
-      request.force = force;
-    }
-
-    const operation = await netAppClient.deleteStoragePool(request);
-    const operationName = operation[0].name || '';
-
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: JSON.stringify({ success: true, operation: operation }, null, 2),
-        },
-      ],
-      structuredContent: { success: true, operationId: operationName },
-    };
-  } catch (error: any) {
-    log.error({ err: error }, 'Error deleting storage pool');
-    return {
-      isError: true,
-      content: [
-        {
-          type: 'text' as const,
-          text: `Error deleting storage pool: ${error.message || 'Unknown error'}`,
-        },
-      ],
-    };
-  }
-};
-
 // Get Storage Pool Handler
 export const getStoragePoolHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {
@@ -477,7 +433,7 @@ export const getStoragePoolHandler: ToolHandler = async (args: { [key: string]: 
     const contentBlocks: { type: 'text'; text: string }[] = [
       { type: 'text' as const, text: JSON.stringify(sc, null, 2) },
     ];
-    if (isOntapPool(storagePool as any)) {
+    if (isOntapPool(storagePool)) {
       contentBlocks.push({ type: 'text' as const, text: ONTAP_TOOL_GUIDANCE });
     }
 

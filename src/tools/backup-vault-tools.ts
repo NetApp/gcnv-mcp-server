@@ -49,23 +49,6 @@ export const createBackupVaultTool: ToolConfig = {
   },
 };
 
-// Delete Backup Vault Tool
-export const deleteBackupVaultTool: ToolConfig = {
-  name: 'gcnv_backup_vault_delete',
-  title: 'Delete Backup Vault',
-  description: 'Deletes a backup vault in the specified project and location',
-  inputSchema: {
-    projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().describe('The location of the backup vault'),
-    backupVaultId: z.string().describe('The ID of the backup vault to delete'),
-    force: z.boolean().optional().describe('Force deletion even if the vault contains backups'),
-  },
-  outputSchema: {
-    success: z.boolean().describe('Whether the deletion was successful'),
-    operationId: z.string().optional().describe('The ID of the long-running operation'),
-  },
-};
-
 // Get Backup Vault Tool
 export const getBackupVaultTool: ToolConfig = {
   name: 'gcnv_backup_vault_get',

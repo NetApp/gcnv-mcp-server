@@ -30,23 +30,6 @@ const ontapCommonInput = {
     ),
 };
 
-const confirmDeleteInput = {
-  confirmDelete: z
-    .boolean()
-    .optional()
-    .describe(
-      'Must be true for DELETE operations. IMPORTANT: Only set this to true AFTER showing ' +
-        'the delete preview to the user and receiving their explicit YES.'
-    ),
-  confirmedResourceName: z
-    .string()
-    .optional()
-    .describe(
-      'Required when confirmDelete=true. Set to the exact resourceName from the delete preview. ' +
-        'Prevents executing a DELETE for a different resource than the one the user approved.'
-    ),
-};
-
 // ---------------------------------------------------------------------------
 // SVM
 // ---------------------------------------------------------------------------
@@ -131,24 +114,6 @@ export const ontapVolumeGetTool: ToolConfig = {
   },
 };
 
-export const ontapVolumeDeleteTool: ToolConfig = {
-  name: 'ontap_volume_delete',
-  title: 'ONTAP Delete Volume',
-  description:
-    'Deletes an ONTAP volume by UUID. Returns a preview first — show it to the user and get ' +
-    'explicit confirmation before calling again with confirmDelete=true. Returns an async job UUID. ' +
-    'Use ontap_job_get to poll until the job completes.' +
-    ONTAP_AUDIT_HINT,
-  inputSchema: {
-    ...ontapCommonInput,
-    volumeUuid: z.string().describe('UUID of the volume to delete'),
-    ...confirmDeleteInput,
-  },
-  outputSchema: {
-    result: z.any().describe('ONTAP volume deletion response with job UUID'),
-  },
-};
-
 // ---------------------------------------------------------------------------
 // Jobs
 // ---------------------------------------------------------------------------
@@ -158,7 +123,7 @@ export const ontapJobGetTool: ToolConfig = {
   title: 'ONTAP Get Job Status',
   description:
     'Gets the status of an ONTAP async job by UUID. ' +
-    'Poll this after create/delete operations until state is "success" or "failure".' +
+    'Poll this after create/update operations until state is "success" or "failure".' +
     ONTAP_AUDIT_HINT,
   inputSchema: {
     ...ontapCommonInput,
@@ -199,24 +164,6 @@ export const ontapSnapshotListTool: ToolConfig = {
   },
   outputSchema: {
     result: z.any().describe('ONTAP snapshot list response'),
-  },
-};
-
-export const ontapSnapshotDeleteTool: ToolConfig = {
-  name: 'ontap_snapshot_delete',
-  title: 'ONTAP Delete Snapshot',
-  description:
-    'Deletes a snapshot from an ONTAP volume. Returns a preview first — show it to the user and get ' +
-    'explicit confirmation before calling again with confirmDelete=true. Returns an async job UUID.' +
-    ONTAP_AUDIT_HINT,
-  inputSchema: {
-    ...ontapCommonInput,
-    volumeUuid: z.string().describe('UUID of the volume that owns the snapshot'),
-    snapshotUuid: z.string().describe('UUID of the snapshot to delete'),
-    ...confirmDeleteInput,
-  },
-  outputSchema: {
-    result: z.any().describe('ONTAP snapshot deletion response with job UUID'),
   },
 };
 
@@ -269,22 +216,5 @@ export const ontapLunGetTool: ToolConfig = {
   },
   outputSchema: {
     result: z.any().describe('ONTAP LUN details'),
-  },
-};
-
-export const ontapLunDeleteTool: ToolConfig = {
-  name: 'ontap_lun_delete',
-  title: 'ONTAP Delete LUN',
-  description:
-    'Deletes a LUN by UUID. Returns a preview first — show it to the user and get explicit ' +
-    'confirmation before calling again with confirmDelete=true.' +
-    ONTAP_AUDIT_HINT,
-  inputSchema: {
-    ...ontapCommonInput,
-    lunUuid: z.string().describe('UUID of the LUN to delete'),
-    ...confirmDeleteInput,
-  },
-  outputSchema: {
-    result: z.any().describe('ONTAP LUN deletion response'),
   },
 };

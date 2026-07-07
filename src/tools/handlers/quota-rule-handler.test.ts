@@ -185,62 +185,6 @@ describe('quota-rule-handler', () => {
     expect((result as any).isError).toBe(true);
   });
 
-  it('deleteQuotaRuleHandler returns isError for missing args (no client call)', async () => {
-    const { deleteQuotaRuleHandler } = await import('./quota-rule-handler.js');
-    const result = await deleteQuotaRuleHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      volumeId: '',
-    });
-    expect(createClientMock).not.toHaveBeenCalled();
-    expect(result.isError).toBe(true);
-  });
-
-  it('deleteQuotaRuleHandler covers error path', async () => {
-    const deleteQuotaRule = vi.fn().mockRejectedValue(new Error('boom'));
-    createClientMock.mockReturnValue({ deleteQuotaRule });
-
-    const { deleteQuotaRuleHandler } = await import('./quota-rule-handler.js');
-    const result = await deleteQuotaRuleHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      volumeId: 'vol1',
-      quotaRuleId: 'qr1',
-    });
-
-    expect((result as any).isError).toBe(true);
-  });
-
-  it('deleteQuotaRuleHandler succeeds and returns operationId', async () => {
-    const deleteQuotaRule = vi.fn().mockResolvedValue([{ name: 'op-del' }]);
-    createClientMock.mockReturnValue({ deleteQuotaRule });
-
-    const { deleteQuotaRuleHandler } = await import('./quota-rule-handler.js');
-    const result = await deleteQuotaRuleHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      volumeId: 'vol1',
-      quotaRuleId: 'qr1',
-    });
-
-    expect(result.structuredContent).toEqual({ success: true, operationId: 'op-del' });
-  });
-
-  it('deleteQuotaRuleHandler handles empty operation.name (covers operation.name || \"\" branch)', async () => {
-    const deleteQuotaRule = vi.fn().mockResolvedValue([{ name: '' }]);
-    createClientMock.mockReturnValue({ deleteQuotaRule });
-
-    const { deleteQuotaRuleHandler } = await import('./quota-rule-handler.js');
-    const result = await deleteQuotaRuleHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      volumeId: 'vol1',
-      quotaRuleId: 'qr1',
-    });
-
-    expect(result.structuredContent).toMatchObject({ success: true, operationId: '' });
-  });
-
   it('getQuotaRuleHandler calls getQuotaRule and returns formatted result', async () => {
     const getQuotaRule = vi.fn().mockResolvedValue([
       {
@@ -647,7 +591,6 @@ describe('quota-rule-handler', () => {
     const err = {};
     createClientMock.mockReturnValue({
       createQuotaRule: vi.fn().mockRejectedValue(err),
-      deleteQuotaRule: vi.fn().mockRejectedValue(err),
       getQuotaRule: vi.fn().mockRejectedValue(err),
       listQuotaRules: vi.fn().mockRejectedValue(err),
       updateQuotaRule: vi.fn().mockRejectedValue(err),
@@ -655,7 +598,6 @@ describe('quota-rule-handler', () => {
 
     const {
       createQuotaRuleHandler,
-      deleteQuotaRuleHandler,
       getQuotaRuleHandler,
       listQuotaRulesHandler,
       updateQuotaRuleHandler,
@@ -671,17 +613,6 @@ describe('quota-rule-handler', () => {
           quotaType: 'INDIVIDUAL_USER_QUOTA',
           target: 't',
           diskLimitMib: 1,
-        })) as any
-      ).content?.[0]?.text
-    ).toContain('Unknown error');
-
-    expect(
-      (
-        (await deleteQuotaRuleHandler({
-          projectId: 'p1',
-          location: 'us-central1',
-          volumeId: 'vol1',
-          quotaRuleId: 'qr1',
         })) as any
       ).content?.[0]?.text
     ).toContain('Unknown error');

@@ -1079,71 +1079,10 @@ describe('volume-handler', () => {
     expect(result.content?.[0]?.text).toContain('Unknown error');
   });
 
-  it('deleteVolumeHandler omits force when false and returns operationId', async () => {
-    const deleteVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-del' }]);
-    createClientMock.mockReturnValue({ deleteVolume });
-
-    const { deleteVolumeHandler } = await import('./volume-handler.js');
-
-    const result = await deleteVolumeHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      volumeId: 'vol1',
-      force: false,
-    });
-
-    expect(deleteVolume).toHaveBeenCalledTimes(1);
-    expect(deleteVolume.mock.calls[0]?.[0]).toEqual({
-      name: 'projects/p1/locations/us-central1/volumes/vol1',
-    });
-    expect(result.structuredContent).toEqual({ success: true, operationId: 'operations/op-del' });
-  });
-
-  it('deleteVolumeHandler includes force when true', async () => {
-    const deleteVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-del2' }]);
-    createClientMock.mockReturnValue({ deleteVolume });
-
-    const { deleteVolumeHandler } = await import('./volume-handler.js');
-    const result = await deleteVolumeHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      volumeId: 'vol1',
-      force: true,
-    });
-
-    expect(deleteVolume).toHaveBeenCalledWith({
-      name: 'projects/p1/locations/us-central1/volumes/vol1',
-      force: true,
-    });
-    expect(result.structuredContent).toMatchObject({ operationId: 'operations/op-del2' });
-  });
-
-  it('deleteVolumeHandler falls back to empty operationId when operation.name is missing', async () => {
-    const deleteVolume = vi.fn().mockResolvedValue([{}]);
-    createClientMock.mockReturnValue({ deleteVolume });
-
-    const { deleteVolumeHandler } = await import('./volume-handler.js');
-    const result = await deleteVolumeHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      volumeId: 'vol1',
-      force: false,
-    });
-
-    expect(result.structuredContent).toEqual({ success: true, operationId: '' });
-  });
-
-  it('delete/get/list handlers return "Unknown error" when thrown error has no message', async () => {
+  it('get/list handlers return "Unknown error" when thrown error has no message', async () => {
     const err = {};
 
-    const { deleteVolumeHandler, getVolumeHandler, listVolumesHandler } =
-      await import('./volume-handler.js');
-
-    createClientMock.mockReturnValue({ deleteVolume: vi.fn().mockRejectedValue(err) });
-    expect(
-      ((await deleteVolumeHandler({ projectId: 'p1', location: 'l', volumeId: 'v' })) as any)
-        .content?.[0]?.text
-    ).toContain('Unknown error');
+    const { getVolumeHandler, listVolumesHandler } = await import('./volume-handler.js');
 
     createClientMock.mockReturnValue({ getVolume: vi.fn().mockRejectedValue(err) });
     expect(
@@ -1877,20 +1816,14 @@ describe('volume-handler', () => {
     const error = Object.assign(new Error('boom'), { code: 7 });
     const client = {
       createVolume: vi.fn().mockRejectedValue(error),
-      deleteVolume: vi.fn().mockRejectedValue(error),
       getVolume: vi.fn().mockRejectedValue(error),
       listVolumes: vi.fn().mockRejectedValue(error),
       updateVolume: vi.fn().mockRejectedValue(error),
     };
     createClientMock.mockReturnValue(client);
 
-    const {
-      createVolumeHandler,
-      deleteVolumeHandler,
-      getVolumeHandler,
-      listVolumesHandler,
-      updateVolumeHandler,
-    } = await import('./volume-handler.js');
+    const { createVolumeHandler, getVolumeHandler, listVolumesHandler, updateVolumeHandler } =
+      await import('./volume-handler.js');
 
     expect(
       (
@@ -1901,10 +1834,6 @@ describe('volume-handler', () => {
           volumeId: 'v',
         })) as any
       ).isError
-    ).toBe(true);
-    expect(
-      ((await deleteVolumeHandler({ projectId: 'p1', location: 'l', volumeId: 'v' })) as any)
-        .isError
     ).toBe(true);
     expect(
       ((await getVolumeHandler({ projectId: 'p1', location: 'l', volumeId: 'v' })) as any).isError

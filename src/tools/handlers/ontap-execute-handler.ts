@@ -12,10 +12,6 @@ import {
   isPrivateCliPath,
   PRIVATE_CLI_REJECTION_REASON,
 } from '../../utils/scope-denied-envelope.js';
-import {
-  requireDeleteConfirmation,
-  resolveDeleteTargetName,
-} from '../../utils/ontap-delete-preview.js';
 import { logger } from '../../logger.js';
 
 const log = logger.child({ module: 'ontap-execute-handler' });
@@ -99,12 +95,32 @@ export function normalizeOntapQueryParams(
 }
 
 export const ontapExecuteHandler: ToolHandler = async (args) => {
-  const { projectId, locationId, storagePoolId, method, ontapApiPath, confirmDelete } = args;
-  const confirmedResourceName =
-    typeof args.confirmedResourceName === 'string' ? args.confirmedResourceName : undefined;
+  const { projectId, locationId, storagePoolId, method, ontapApiPath } = args;
   const userIntent = typeof args.userIntent === 'string' ? args.userIntent : undefined;
 
   log.info({ method, ontapApiPath, storagePoolId, projectId, userIntent }, 'ontap_execute called');
+
+  // DELETE is not supported. All delete capability has been removed from the
+  // server; refuse the method here so a hand-crafted call can never reach the
+  // proxy, independent of the API index contents.
+  if (method === 'DELETE') {
+    log.info({ method, ontapApiPath }, 'ontap_execute rejected -- DELETE is not supported');
+    const envelope = buildScopeDeniedEnvelope({
+      source: 'preflight',
+      reason:
+        'DELETE operations are not supported by this server. ' +
+        'Delete resources through the Google Cloud console or another tool.',
+    });
+    return {
+      isError: true,
+      content: [
+        {
+          type: 'text' as const,
+          text: JSON.stringify(envelope, null, 2),
+        },
+      ],
+    };
+  }
 
   let parsedBody: Record<string, unknown> | undefined;
   let parsedQueryParams: Record<string, string> | undefined;
@@ -207,35 +223,6 @@ export const ontapExecuteHandler: ToolHandler = async (args) => {
     };
   }
 
-  // 3. Delete confirmation -- returns a preview (not an error) so the caller
-  //    must surface it to the user and obtain explicit confirmation first.
-  if (method === 'DELETE') {
-    let resourceName = '';
-    if (confirmDelete !== true) {
-      const client = OntapHttpClient.create(projectId, locationId, storagePoolId);
-      resourceName = await resolveDeleteTargetName(client, ontapApiPath);
-    }
-
-    const preview = requireDeleteConfirmation({
-      toolName: 'ontap_execute',
-      projectId,
-      locationId,
-      storagePoolId,
-      path: ontapApiPath,
-      resourceName,
-      confirmDelete,
-      confirmedResourceName,
-    });
-    if (preview) {
-      log.info({ ontapApiPath }, 'DELETE preview requested -- awaiting user confirmation');
-      const structured = sanitizeStructuredContent(preview.structuredContent, EXECUTE_OUTPUT_KEYS);
-      return {
-        content: preview.content,
-        structuredContent: structured,
-      };
-    }
-  }
-
   try {
     const client = OntapHttpClient.create(projectId, locationId, storagePoolId);
 
@@ -260,16 +247,13 @@ export const ontapExecuteHandler: ToolHandler = async (args) => {
       case 'PATCH':
         result = await client.patch(ontapApiPath, parsedBody, effectiveQueryParams);
         break;
-      case 'DELETE':
-        result = await client.delete(ontapApiPath, effectiveQueryParams);
-        break;
       default:
         return {
           isError: true,
           content: [
             {
               type: 'text' as const,
-              text: `Unsupported method: ${method}. Use GET, POST, PATCH, or DELETE. retryable: false`,
+              text: `Unsupported method: ${method}. Use GET, POST, or PATCH. retryable: false`,
             },
           ],
         };

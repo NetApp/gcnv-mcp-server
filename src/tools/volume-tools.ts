@@ -397,23 +397,6 @@ export const createVolumeTool: ToolConfig = {
   },
 };
 
-// Delete Volume Tool
-export const deleteVolumeTool: ToolConfig = {
-  name: 'gcnv_volume_delete',
-  title: 'Delete Volume',
-  description: 'Deletes a GCNV managed volume in the specified storage pool.' + NOT_FOR_ONTAP,
-  inputSchema: {
-    projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().describe('The location of the volume'),
-    volumeId: z.string().describe('The ID of the volume to delete'),
-    force: z.boolean().optional().describe('Force deletion even if the volume has snapshots'),
-  },
-  outputSchema: {
-    success: z.boolean().describe('Whether the deletion was successful'),
-    operationId: z.string().optional().describe('The ID of the long-running operation'),
-  },
-};
-
 // Get Volume Tool
 export const getVolumeTool: ToolConfig = {
   name: 'gcnv_volume_get',

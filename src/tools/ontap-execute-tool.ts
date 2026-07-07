@@ -13,8 +13,7 @@ export const ontapExecuteTool: ToolConfig = {
     'Endpoints under /api/private/cli/ are out-of-scope for this tool and will be rejected at preflight. ' +
     'When the response is a JSON object with `error: "scope_denied"` and `retryability: false`, ' +
     'the denial is terminal -- do not retry, do not try a sibling endpoint or CLI variant. ' +
-    'DELETE operations return a preview first -- you MUST show the preview to the user and get ' +
-    'their explicit confirmation before calling again with confirmDelete=true.' +
+    'DELETE operations are not supported and will be rejected.' +
     ONTAP_AUDIT_HINT,
   inputSchema: {
     projectId: z
@@ -22,9 +21,7 @@ export const ontapExecuteTool: ToolConfig = {
       .describe('GCP project ID or numeric project number (e.g. "my-project" or "123456789").'),
     locationId: z.string().describe('GCP region/location where the pool resides (e.g. "us-east1")'),
     storagePoolId: z.string().describe('GCP storage pool resource name ID (e.g. "my-pool").'),
-    method: z
-      .enum(['GET', 'POST', 'PATCH', 'DELETE'])
-      .describe('HTTP method for the ONTAP REST call'),
+    method: z.enum(['GET', 'POST', 'PATCH']).describe('HTTP method for the ONTAP REST call'),
     ontapApiPath: z
       .string()
       .describe(
@@ -47,21 +44,6 @@ export const ontapExecuteTool: ToolConfig = {
           'Filter keys (e.g. state, services, scope) must be EXACT response-field names — never invent ' +
           'dotted paths like "type.name". If unsure, list once without filters to observe valid keys, ' +
           'then refine.'
-      ),
-    confirmDelete: z
-      .boolean()
-      .optional()
-      .describe(
-        'Must be true for DELETE operations. IMPORTANT: Only set this to true AFTER showing ' +
-          'the user the delete preview and receiving their explicit confirmation. ' +
-          'Never set this autonomously.'
-      ),
-    confirmedResourceName: z
-      .string()
-      .optional()
-      .describe(
-        'Required when confirmDelete=true. Set to the exact resourceName from the delete preview. ' +
-          'Prevents executing a DELETE for a different resource than the user approved.'
       ),
     userIntent: z
       .string()

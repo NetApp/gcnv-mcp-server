@@ -16,7 +16,7 @@ interface AuditEntry {
   toolName: string;
   timestamp: string;
   durationMs: number;
-  outcome: 'SUCCESS' | 'ERROR' | 'PREVIEW';
+  outcome: 'SUCCESS' | 'ERROR';
   userIntent: string | null;
   args: Record<string, unknown>;
   summary: string;
@@ -101,7 +101,7 @@ function toStr(value: unknown): string {
 
 function escapeMarkdownTableCell(value: unknown): string {
   return toStr(value)
-    .replace(/\|/g, '\\|')
+    .replace(/\|/g, '&#124;')
     .replace(/\r\n|\r|\n/g, '<br>');
 }
 
@@ -275,7 +275,7 @@ function summarizeResult(result: {
   content: { type: string; text: string }[];
   structuredContent?: unknown;
   isError?: boolean;
-}): { outcome: 'SUCCESS' | 'ERROR' | 'PREVIEW'; summary: string } {
+}): { outcome: 'SUCCESS' | 'ERROR'; summary: string } {
   if (result.isError) {
     const text = result.content?.[0]?.text ?? 'Unknown error';
     return { outcome: 'ERROR', summary: extractErrorSummary(text) };
@@ -285,20 +285,6 @@ function summarizeResult(result: {
 
   try {
     const parsed = JSON.parse(text);
-    if (parsed?.action === 'confirm_delete') {
-      return {
-        outcome: 'PREVIEW',
-        summary: `Delete preview: ${parsed.method} ${parsed.path} on pool ${parsed.storagePoolId}`,
-      };
-    }
-    if (parsed?.action === 'delete_confirmation_failed') {
-      return {
-        outcome: 'ERROR',
-        summary:
-          `Delete rejected (${parsed.reason ?? 'confirmation failed'}): ` +
-          `${parsed.method ?? 'DELETE'} ${parsed.path ?? ''} on pool ${parsed.storagePoolId ?? 'unknown'}`,
-      };
-    }
     if (parsed?.result?.asyncJobDetected) {
       const jobUuid =
         parsed.result?.result?.job?.uuid ??
@@ -418,12 +404,7 @@ function appendEntry(state: AuditState, entry: AuditEntry): void {
     lines.push(`## Query ${state.queryCount}\n`);
   }
 
-  const outcomeTag =
-    entry.outcome === 'ERROR'
-      ? '**ERROR**'
-      : entry.outcome === 'PREVIEW'
-        ? '**PREVIEW**'
-        : 'SUCCESS';
+  const outcomeTag = entry.outcome === 'ERROR' ? '**ERROR**' : 'SUCCESS';
 
   let toolLabel = entry.toolName;
   if (entry.args.method && entry.args.ontapApiPath) {
@@ -471,7 +452,6 @@ function writeSessionSummary(state: AuditState): void {
 
   const endTime = new Date().toISOString();
   const failedOps = state.entries.filter((e) => e.outcome === 'ERROR');
-  const previewOps = state.entries.filter((e) => e.outcome === 'PREVIEW');
   const pools = new Set<string>();
   for (const e of state.entries) {
     const pool = e.args.storagePoolId;
@@ -486,7 +466,6 @@ function writeSessionSummary(state: AuditState): void {
     `**Total operations**: ${state.operationCount}`,
     `**Successful**: ${state.successCount}`,
     `**Failed**: ${state.errorCount}`,
-    `**Delete previews**: ${previewOps.length}`,
   ];
 
   if (pools.size > 0) {

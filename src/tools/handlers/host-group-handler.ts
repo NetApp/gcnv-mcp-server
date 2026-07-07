@@ -150,57 +150,6 @@ export const createHostGroupHandler: ToolHandler = async (args: { [key: string]:
   }
 };
 
-// Delete Host Group Handler
-export const deleteHostGroupHandler: ToolHandler = async (args: { [key: string]: any }) => {
-  try {
-    const { projectId, location, hostGroupId } = args;
-    const errors: string[] = [];
-    validateRequiredString(projectId, 'projectId', errors);
-    validateRequiredString(location, 'location', errors);
-    validateRequiredString(hostGroupId, 'hostGroupId', errors);
-
-    if (errors.length > 0) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: 'text' as const,
-            text: `Invalid input: ${errors.join('; ')}`,
-          },
-        ],
-      };
-    }
-
-    const netAppClient = NetAppClientFactory.createClient();
-    const name = `projects/${projectId}/locations/${location}/hostGroups/${hostGroupId}`;
-    const [operation] = await (netAppClient as any).deleteHostGroup({ name });
-
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: `Host group deletion initiated. Operation ID: ${operation.name || ''}`,
-        },
-      ],
-      structuredContent: {
-        success: true,
-        operationId: operation.name || '',
-      },
-    };
-  } catch (error: any) {
-    log.error({ err: error }, 'Error deleting host group');
-    return {
-      isError: true,
-      content: [
-        {
-          type: 'text' as const,
-          text: `Error deleting host group: ${error.message || 'Unknown error'}`,
-        },
-      ],
-    };
-  }
-};
-
 // Get Host Group Handler
 export const getHostGroupHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {

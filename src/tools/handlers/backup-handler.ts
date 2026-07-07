@@ -165,60 +165,6 @@ export const createBackupHandler: ToolHandler = async (args: { [key: string]: an
   }
 };
 
-// Delete Backup Handler
-export const deleteBackupHandler: ToolHandler = async (args: { [key: string]: any }) => {
-  try {
-    const { projectId, location, backupVaultId, backupId } = args;
-
-    // Create a new NetApp client using the factory
-    const netAppClient = NetAppClientFactory.createClient();
-
-    // Format the name for the backup
-    const name = `projects/${projectId}/locations/${location}/backupVaults/${backupVaultId}/backups/${backupId}`;
-
-    // Delete the backup
-    const [operation] = await netAppClient.deleteBackup({
-      name,
-    });
-
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: `Backup deletion initiated. Operation ID: ${operation.name}`,
-        },
-      ],
-      structuredContent: {
-        success: true,
-        operationId: operation.name,
-      },
-    };
-  } catch (error: any) {
-    log.error({ err: error }, 'Error deleting backup');
-
-    let errorMessage = `Failed to delete backup: ${error.message}`;
-
-    // Handle specific error types
-    if (error.code === 5) {
-      // NOT_FOUND
-      errorMessage = `Backup not found: projects/${args.projectId}/locations/${args.location}/backupVaults/${args.backupVaultId}/backups/${args.backupId}`;
-    } else if (error.code === 7) {
-      // PERMISSION_DENIED
-      errorMessage = 'Permission denied. Please check your credentials and access rights.';
-    }
-
-    return {
-      isError: true,
-      content: [
-        {
-          type: 'text' as const,
-          text: errorMessage,
-        },
-      ],
-    };
-  }
-};
-
 // Get Backup Handler
 export const getBackupHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {

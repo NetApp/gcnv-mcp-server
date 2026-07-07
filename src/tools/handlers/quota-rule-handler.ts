@@ -218,62 +218,6 @@ export const createQuotaRuleHandler: ToolHandler = async (args: { [key: string]:
   }
 };
 
-// Delete Quota Rule Handler
-export const deleteQuotaRuleHandler: ToolHandler = async (args: { [key: string]: any }) => {
-  try {
-    const { projectId, location, volumeId, quotaRuleId } = args;
-
-    const errors = validatePathArgs({ projectId, location, volumeId, quotaRuleId }, true);
-    if (errors.length > 0) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: 'text' as const,
-            text: `Invalid input: ${errors.join('; ')}`,
-          },
-        ],
-      };
-    }
-
-    const netAppClient = NetAppClientFactory.createClient();
-    const name = `projects/${projectId}/locations/${location}/volumes/${volumeId}/quotaRules/${quotaRuleId}`;
-
-    const [operation] = await netAppClient.deleteQuotaRule({ name });
-
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: JSON.stringify(
-            {
-              message: `Quota rule ${quotaRuleId} deletion requested`,
-              operation: operation,
-            },
-            null,
-            2
-          ),
-        },
-      ],
-      structuredContent: {
-        success: true,
-        operationId: operation.name || '',
-      },
-    };
-  } catch (error: any) {
-    log.error({ err: error }, 'Error deleting quota rule');
-    return {
-      isError: true,
-      content: [
-        {
-          type: 'text' as const,
-          text: `Error deleting quota rule: ${error.message || 'Unknown error'}`,
-        },
-      ],
-    };
-  }
-};
-
 // Get Quota Rule Handler
 export const getQuotaRuleHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {

@@ -28,26 +28,6 @@ export const createBackupPolicyTool: ToolConfig = {
   },
 };
 
-// Delete Backup Policy Tool
-export const deleteBackupPolicyTool: ToolConfig = {
-  name: 'gcnv_backup_policy_delete',
-  title: 'Delete Backup Policy',
-  description: 'Deletes a backup policy in the specified project and location',
-  inputSchema: {
-    projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().describe('The location of the backup policy'),
-    backupPolicyId: z.string().describe('The ID of the backup policy to delete'),
-    force: z
-      .boolean()
-      .optional()
-      .describe('Force deletion even if the policy is assigned to volumes'),
-  },
-  outputSchema: {
-    success: z.boolean().describe('Whether the deletion was successful'),
-    operationId: z.string().optional().describe('The ID of the long-running operation'),
-  },
-};
-
 // Get Backup Policy Tool
 export const getBackupPolicyTool: ToolConfig = {
   name: 'gcnv_backup_policy_get',

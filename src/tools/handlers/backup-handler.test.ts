@@ -109,40 +109,6 @@ describe('backup-handler', () => {
     }
   });
 
-  it('deleteBackupHandler calls deleteBackup and returns operationId', async () => {
-    const deleteBackup = vi.fn().mockResolvedValue([{ name: 'op-del' }]);
-    createClientMock.mockReturnValue({ deleteBackup });
-
-    const { deleteBackupHandler } = await import('./backup-handler.js');
-    const result = await deleteBackupHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      backupVaultId: 'bv1',
-      backupId: 'b1',
-    });
-
-    expect(deleteBackup).toHaveBeenCalledWith({
-      name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
-    });
-    expect(result.structuredContent).toEqual({ success: true, operationId: 'op-del' });
-  });
-
-  it('deleteBackupHandler covers error-code branches', async () => {
-    const { deleteBackupHandler } = await import('./backup-handler.js');
-    const mkErr = (code: number) => Object.assign(new Error('boom'), { code });
-
-    for (const code of [5, 7]) {
-      createClientMock.mockReturnValue({ deleteBackup: vi.fn().mockRejectedValue(mkErr(code)) });
-      const res = (await deleteBackupHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        backupVaultId: 'bv1',
-        backupId: 'b1',
-      })) as any;
-      expect(res.isError).toBe(true);
-    }
-  });
-
   it('getBackupHandler calls getBackup and fills defaults for required fields', async () => {
     const getBackup = vi.fn().mockResolvedValue([
       {

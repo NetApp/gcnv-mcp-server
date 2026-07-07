@@ -170,7 +170,9 @@ export class OntapHttpClient {
         const hint = transient
           ? 'Transient network error talking to the ONTAP proxy. Retry the request.'
           : 'Verify projectId, locationId, and storagePoolId are correct.';
-        throw new Error(`ONTAP proxy fetch failed for ${method} ${url}: ${detail}. ${hint}`);
+        throw new Error(`ONTAP proxy fetch failed for ${method} ${url}: ${detail}. ${hint}`, {
+          cause: fetchErr,
+        });
       }
 
       const text = await response.text();
@@ -232,9 +234,5 @@ export class OntapHttpClient {
     queryParams?: Record<string, string>
   ): Promise<T> {
     return this.request<T>('PATCH', subPath, body, queryParams);
-  }
-
-  async delete<T = unknown>(subPath: string, queryParams?: Record<string, string>): Promise<T> {
-    return this.request<T>('DELETE', subPath, undefined, queryParams);
   }
 }

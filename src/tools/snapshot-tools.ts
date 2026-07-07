@@ -22,23 +22,6 @@ export const createSnapshotTool: ToolConfig = {
   },
 };
 
-// Delete Snapshot Tool
-export const deleteSnapshotTool: ToolConfig = {
-  name: 'gcnv_snapshot_delete',
-  title: 'Delete Snapshot',
-  description: 'Deletes a GCNV managed snapshot of a volume.' + NOT_FOR_ONTAP,
-  inputSchema: {
-    projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().describe('The location of the volume'),
-    volumeId: z.string().describe('The ID of the volume containing the snapshot'),
-    snapshotId: z.string().describe('The ID of the snapshot to delete'),
-  },
-  outputSchema: {
-    success: z.boolean().describe('Whether the deletion was successful'),
-    operationId: z.string().optional().describe('The ID of the long-running operation'),
-  },
-};
-
 // Get Snapshot Tool
 export const getSnapshotTool: ToolConfig = {
   name: 'gcnv_snapshot_get',

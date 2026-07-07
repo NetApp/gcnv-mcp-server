@@ -2,25 +2,20 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   ontapSvmListHandler,
   ontapVolumeCreateHandler,
-  ontapVolumeDeleteHandler,
   ontapVolumeListHandler,
   ontapVolumeGetHandler,
   ontapJobGetHandler,
   ontapSnapshotCreateHandler,
   ontapSnapshotListHandler,
-  ontapSnapshotDeleteHandler,
   ontapLunCreateHandler,
   ontapLunListHandler,
   ontapLunGetHandler,
-  ontapLunDeleteHandler,
 } from './ontap-handler.js';
-import { clearDeletePreviewStore } from '../../utils/ontap-delete-preview.js';
 
 const mockClient = {
   get: vi.fn(),
   post: vi.fn(),
   patch: vi.fn(),
-  delete: vi.fn(),
 };
 
 vi.mock('../../utils/ontap-http-client.js', () => ({
@@ -39,10 +34,8 @@ const baseArgs = {
 
 describe('dedicated ONTAP handlers', () => {
   beforeEach(async () => {
-    clearDeletePreviewStore();
     mockClient.get.mockReset();
     mockClient.post.mockReset();
-    mockClient.delete.mockReset();
     const { OntapHttpClient } = await import('../../utils/ontap-http-client.js');
     (OntapHttpClient.create as any).mockReturnValue(mockClient);
   });
@@ -112,57 +105,6 @@ describe('dedicated ONTAP handlers', () => {
         aggregates: [{ name: 'my-aggr' }],
         size: '2GB',
       });
-    });
-  });
-
-  describe('ontapVolumeDeleteHandler', () => {
-    it('returns delete preview when confirmDelete is not set', async () => {
-      mockClient.get.mockResolvedValue({ name: 'prod-vol' });
-      const result = await ontapVolumeDeleteHandler({
-        ...baseArgs,
-        volumeUuid: 'v-uuid',
-      });
-      const data = result.structuredContent as any;
-      expect(data.result.action).toBe('confirm_delete');
-      expect(data.result.tool).toBe('ontap_volume_delete');
-      expect(data.result.resourceName).toBe('prod-vol');
-      expect(mockClient.delete).not.toHaveBeenCalled();
-    });
-
-    it('rejects delete when confirmedResourceName does not match previewed resource', async () => {
-      mockClient.get.mockResolvedValue({ name: 'prod-vol' });
-      await ontapVolumeDeleteHandler({
-        ...baseArgs,
-        volumeUuid: 'v-uuid',
-      });
-      const result = await ontapVolumeDeleteHandler({
-        ...baseArgs,
-        volumeUuid: 'v-uuid',
-        confirmDelete: true,
-        confirmedResourceName: 'staging-vol',
-      });
-      const data = result.structuredContent as any;
-      expect(data.result.action).toBe('delete_confirmation_failed');
-      expect(mockClient.delete).not.toHaveBeenCalled();
-    });
-
-    it('returns pollingGuidance when job UUID present and confirmDelete=true', async () => {
-      mockClient.get.mockResolvedValue({ name: 'prod-vol' });
-      mockClient.delete.mockResolvedValue({ job: { uuid: 'del-job' } });
-      await ontapVolumeDeleteHandler({
-        ...baseArgs,
-        volumeUuid: 'v-uuid',
-      });
-      const result = await ontapVolumeDeleteHandler({
-        ...baseArgs,
-        volumeUuid: 'v-uuid',
-        confirmDelete: true,
-        confirmedResourceName: 'prod-vol',
-      });
-      const data = result.structuredContent as any;
-      expect(data.result.asyncJobDetected).toBe(true);
-      expect(data.result.pollingGuidance).toContain('del-job');
-      expect(mockClient.delete).toHaveBeenCalledWith('/api/storage/volumes/v-uuid');
     });
   });
 
@@ -236,28 +178,6 @@ describe('dedicated ONTAP handlers', () => {
     });
   });
 
-  describe('ontapSnapshotDeleteHandler', () => {
-    it('uses correct compound path', async () => {
-      mockClient.get.mockResolvedValue({ name: 'snap1' });
-      mockClient.delete.mockResolvedValue({ job: { uuid: 'sdel-job' } });
-      await ontapSnapshotDeleteHandler({
-        ...baseArgs,
-        volumeUuid: 'v1',
-        snapshotUuid: 's1',
-      });
-      const result = await ontapSnapshotDeleteHandler({
-        ...baseArgs,
-        volumeUuid: 'v1',
-        snapshotUuid: 's1',
-        confirmDelete: true,
-        confirmedResourceName: 'snap1',
-      });
-      expect(mockClient.delete).toHaveBeenCalledWith('/api/storage/volumes/v1/snapshots/s1');
-      const data = result.structuredContent as any;
-      expect(data.result.asyncJobDetected).toBe(true);
-    });
-  });
-
   describe('ontapLunCreateHandler', () => {
     it('auto-resolves SVM when not provided', async () => {
       mockClient.get.mockResolvedValue({
@@ -307,24 +227,6 @@ describe('dedicated ONTAP handlers', () => {
     });
   });
 
-  describe('ontapLunDeleteHandler', () => {
-    it('uses correct path /api/storage/luns/{uuid}', async () => {
-      mockClient.get.mockResolvedValue({ name: '/vol/vol1/lun1' });
-      mockClient.delete.mockResolvedValue({});
-      await ontapLunDeleteHandler({
-        ...baseArgs,
-        lunUuid: 'lun-uuid-1',
-      });
-      await ontapLunDeleteHandler({
-        ...baseArgs,
-        lunUuid: 'lun-uuid-1',
-        confirmDelete: true,
-        confirmedResourceName: '/vol/vol1/lun1',
-      });
-      expect(mockClient.delete).toHaveBeenCalledWith('/api/storage/luns/lun-uuid-1');
-    });
-  });
-
   describe('non-async responses', () => {
     it('SVM list does NOT include pollingGuidance', async () => {
       mockClient.get.mockResolvedValue({
@@ -339,17 +241,13 @@ describe('dedicated ONTAP handlers', () => {
 
   describe('error fallback hint', () => {
     it('includes discover+execute fallback when a typed ONTAP tool fails', async () => {
-      mockClient.get.mockResolvedValue({ name: 'fc-vol' });
-      mockClient.delete.mockRejectedValue(new Error('FlexCache volumes require a different API'));
-      await ontapVolumeDeleteHandler({
+      mockClient.post.mockRejectedValue(new Error('FlexCache volumes require a different API'));
+      const result = await ontapVolumeCreateHandler({
         ...baseArgs,
-        volumeUuid: 'fc-uuid',
-      });
-      const result = await ontapVolumeDeleteHandler({
-        ...baseArgs,
-        volumeUuid: 'fc-uuid',
-        confirmDelete: true,
-        confirmedResourceName: 'fc-vol',
+        name: 'fc-vol',
+        size: '2GB',
+        svmName: 'my-svm',
+        aggregateName: 'my-aggr',
       });
       expect(result.isError).toBe(true);
       const text = result.content[0].text;

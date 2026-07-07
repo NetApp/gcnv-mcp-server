@@ -78,37 +78,6 @@ describe('backup-policy-handler', () => {
     expect(result.structuredContent).toMatchObject({ operationId: 'op-create2' });
   });
 
-  it('deleteBackupPolicyHandler calls deleteBackupPolicy and returns success', async () => {
-    const deleteBackupPolicy = vi.fn().mockResolvedValue([{ name: 'op-del' }]);
-    createClientMock.mockReturnValue({ deleteBackupPolicy });
-
-    const { deleteBackupPolicyHandler } = await import('./backup-policy-handler.js');
-    const result = await deleteBackupPolicyHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      backupPolicyId: 'bp1',
-    });
-
-    expect(deleteBackupPolicy).toHaveBeenCalledWith({
-      name: 'projects/p1/locations/us-central1/backupPolicies/bp1',
-    });
-    expect(result.structuredContent).toEqual({ success: true, operationId: 'op-del' });
-  });
-
-  it('deleteBackupPolicyHandler falls back to empty operationId when operation.name is missing', async () => {
-    const deleteBackupPolicy = vi.fn().mockResolvedValue([{}]);
-    createClientMock.mockReturnValue({ deleteBackupPolicy });
-
-    const { deleteBackupPolicyHandler } = await import('./backup-policy-handler.js');
-    const result = await deleteBackupPolicyHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      backupPolicyId: 'bp1',
-    });
-
-    expect(result.structuredContent).toEqual({ success: true, operationId: '' });
-  });
-
   it('getBackupPolicyHandler calls getBackupPolicy and returns formatted policy', async () => {
     const getBackupPolicy = vi.fn().mockResolvedValue([
       {
@@ -373,11 +342,7 @@ describe('backup-policy-handler', () => {
   });
 
   it('updateBackupPolicyHandler handles missing operation.metadata and missing operation.name', async () => {
-    const updateBackupPolicy = vi.fn().mockResolvedValue([
-      {
-        /* no name, no metadata */
-      },
-    ]);
+    const updateBackupPolicy = vi.fn().mockResolvedValue([{/* no name, no metadata */}]);
     createClientMock.mockReturnValue({ updateBackupPolicy });
 
     const { updateBackupPolicyHandler } = await import('./backup-policy-handler.js');
@@ -406,11 +371,10 @@ describe('backup-policy-handler', () => {
     expect(result.structuredContent).toEqual({ name: '', operationId: 'op' });
   });
 
-  it('covers error paths for create/delete/get/list/update', async () => {
+  it('covers error paths for create/get/list/update', async () => {
     const err = new Error('boom');
     const {
       createBackupPolicyHandler,
-      deleteBackupPolicyHandler,
       getBackupPolicyHandler,
       listBackupPoliciesHandler,
       updateBackupPolicyHandler,
@@ -420,17 +384,6 @@ describe('backup-policy-handler', () => {
     expect(
       (
         (await createBackupPolicyHandler({
-          projectId: 'p1',
-          location: 'l',
-          backupPolicyId: 'bp1',
-        })) as any
-      ).isError
-    ).toBe(true);
-
-    createClientMock.mockReturnValue({ deleteBackupPolicy: vi.fn().mockRejectedValue(err) });
-    expect(
-      (
-        (await deleteBackupPolicyHandler({
           projectId: 'p1',
           location: 'l',
           backupPolicyId: 'bp1',
@@ -470,7 +423,6 @@ describe('backup-policy-handler', () => {
     const err = {};
     createClientMock.mockReturnValue({
       createBackupPolicy: vi.fn().mockRejectedValue(err),
-      deleteBackupPolicy: vi.fn().mockRejectedValue(err),
       getBackupPolicy: vi.fn().mockRejectedValue(err),
       listBackupPolicies: vi.fn().mockRejectedValue(err),
       updateBackupPolicy: vi.fn().mockRejectedValue(err),
@@ -478,7 +430,6 @@ describe('backup-policy-handler', () => {
 
     const {
       createBackupPolicyHandler,
-      deleteBackupPolicyHandler,
       getBackupPolicyHandler,
       listBackupPoliciesHandler,
       updateBackupPolicyHandler,
@@ -487,16 +438,6 @@ describe('backup-policy-handler', () => {
     expect(
       (
         (await createBackupPolicyHandler({
-          projectId: 'p1',
-          location: 'l',
-          backupPolicyId: 'bp1',
-        })) as any
-      ).content?.[0]?.text
-    ).toContain('undefined');
-
-    expect(
-      (
-        (await deleteBackupPolicyHandler({
           projectId: 'p1',
           location: 'l',
           backupPolicyId: 'bp1',

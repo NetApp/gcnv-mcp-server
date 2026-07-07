@@ -137,55 +137,6 @@ describe('replication-handler', () => {
     expect((result as any).isError).toBe(true);
   });
 
-  it('deleteReplicationHandler calls deleteReplication', async () => {
-    const deleteReplication = vi.fn().mockResolvedValue([{ name: 'op-del' }]);
-    createClientMock.mockReturnValue({ deleteReplication });
-
-    const { deleteReplicationHandler } = await import('./replication-handler.js');
-    const result = await deleteReplicationHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      volumeId: 'vol1',
-      replicationId: 'r1',
-    });
-
-    expect(deleteReplication).toHaveBeenCalledWith({
-      name: 'projects/p1/locations/us-central1/volumes/vol1/replications/r1',
-    });
-    expect(result.structuredContent).toEqual({ success: true, operationId: 'op-del' });
-  });
-
-  it('deleteReplicationHandler falls back to empty operationId when operation.name is missing', async () => {
-    const deleteReplication = vi.fn().mockResolvedValue([{}]);
-    createClientMock.mockReturnValue({ deleteReplication });
-
-    const { deleteReplicationHandler } = await import('./replication-handler.js');
-    const result = await deleteReplicationHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      volumeId: 'vol1',
-      replicationId: 'r1',
-    });
-
-    expect(result.structuredContent).toEqual({ success: true, operationId: '' });
-  });
-
-  it('deleteReplicationHandler covers error path', async () => {
-    const deleteReplication = vi.fn().mockRejectedValue(new Error('boom'));
-    createClientMock.mockReturnValue({ deleteReplication });
-
-    const { deleteReplicationHandler } = await import('./replication-handler.js');
-    const result = await deleteReplicationHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      volumeId: 'vol1',
-      replicationId: 'r1',
-    });
-
-    expect((result as any).isError).toBe(true);
-    expect((result as any).structuredContent).toMatchObject({ success: false });
-  });
-
   it('getReplicationHandler calls getReplication and returns formatted replication', async () => {
     const getReplication = vi.fn().mockResolvedValue([
       {
@@ -738,7 +689,6 @@ describe('replication-handler', () => {
     const err = {};
     createClientMock.mockReturnValue({
       createReplication: vi.fn().mockRejectedValue(err),
-      deleteReplication: vi.fn().mockRejectedValue(err),
       getReplication: vi.fn().mockRejectedValue(err),
       listReplications: vi.fn().mockRejectedValue(err),
       updateReplication: vi.fn().mockRejectedValue(err),
@@ -751,7 +701,6 @@ describe('replication-handler', () => {
 
     const {
       createReplicationHandler,
-      deleteReplicationHandler,
       getReplicationHandler,
       listReplicationsHandler,
       updateReplicationHandler,
@@ -771,17 +720,6 @@ describe('replication-handler', () => {
           sourceVolumeId: 'vol1',
           destinationStoragePool: 'sp',
           replicationSchedule: 'DAILY',
-        })) as any
-      ).content?.[0]?.text
-    ).toContain('Unknown error');
-
-    expect(
-      (
-        (await deleteReplicationHandler({
-          projectId: 'p1',
-          location: 'us-central1',
-          volumeId: 'vol1',
-          replicationId: 'r1',
         })) as any
       ).content?.[0]?.text
     ).toContain('Unknown error');

@@ -134,60 +134,6 @@ export const createReplicationHandler: ToolHandler = async (args: { [key: string
   }
 };
 
-// Delete Replication Handler
-export const deleteReplicationHandler: ToolHandler = async (args: { [key: string]: any }) => {
-  try {
-    const { projectId, location, volumeId, replicationId } = args;
-
-    // Create a new NetApp client using the factory
-    const netAppClient = NetAppClientFactory.createClient();
-
-    // Format the name for the replication
-    const name = `projects/${projectId}/locations/${location}/volumes/${volumeId}/replications/${replicationId}`;
-
-    // Call the API to delete the replication
-    const request = { name };
-
-    log.info({ request }, 'Delete Replication request');
-    const [operation] = await netAppClient.deleteReplication(request);
-    log.info({ operation }, 'Delete Replication operation');
-
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: JSON.stringify(
-            {
-              message: `Replication ${replicationId} deletion requested`,
-              operation: operation,
-            },
-            null,
-            2
-          ),
-        },
-      ],
-      structuredContent: {
-        success: true,
-        operationId: operation.name || '',
-      },
-    };
-  } catch (error: any) {
-    log.error({ err: error }, 'Error deleting replication');
-    return {
-      isError: true,
-      content: [
-        {
-          type: 'text' as const,
-          text: `Error deleting replication: ${error.message || 'Unknown error'}`,
-        },
-      ],
-      structuredContent: {
-        success: false,
-      },
-    };
-  }
-};
-
 // Get Replication Handler
 export const getReplicationHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {

@@ -5,10 +5,6 @@ import {
   successResponse,
   errorResponse,
 } from '../../utils/ontap-response-utils.js';
-import {
-  requireDeleteConfirmation,
-  resolveDeleteTargetName,
-} from '../../utils/ontap-delete-preview.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -135,41 +131,6 @@ export const ontapVolumeGetHandler: ToolHandler = async (args) => {
   }
 };
 
-export const ontapVolumeDeleteHandler: ToolHandler = async (args) => {
-  const { projectId, locationId, storagePoolId, volumeUuid, confirmDelete, confirmedResourceName } =
-    args;
-  const path = `/api/storage/volumes/${volumeUuid}`;
-  const client = OntapHttpClient.create(projectId, locationId, storagePoolId);
-
-  let resourceName = '';
-  if (confirmDelete !== true) {
-    try {
-      resourceName = await resolveDeleteTargetName(client, path);
-    } catch (err) {
-      return errorResponse('ontap_volume_delete', err);
-    }
-  }
-
-  const preview = requireDeleteConfirmation({
-    toolName: 'ontap_volume_delete',
-    projectId,
-    locationId,
-    storagePoolId,
-    path,
-    resourceName,
-    confirmDelete: confirmDelete as boolean | undefined,
-    confirmedResourceName: confirmedResourceName as string | undefined,
-  });
-  if (preview) return preview;
-
-  try {
-    const result = await client.delete(path);
-    return asyncSuccessResponse(result);
-  } catch (err) {
-    return errorResponse('ontap_volume_delete', err);
-  }
-};
-
 // ---------------------------------------------------------------------------
 // Jobs
 // ---------------------------------------------------------------------------
@@ -218,48 +179,6 @@ export const ontapSnapshotListHandler: ToolHandler = async (args) => {
     return successResponse(result);
   } catch (err) {
     return errorResponse('ontap_snapshot_list', err);
-  }
-};
-
-export const ontapSnapshotDeleteHandler: ToolHandler = async (args) => {
-  const {
-    projectId,
-    locationId,
-    storagePoolId,
-    volumeUuid,
-    snapshotUuid,
-    confirmDelete,
-    confirmedResourceName,
-  } = args;
-  const path = `/api/storage/volumes/${volumeUuid}/snapshots/${snapshotUuid}`;
-  const client = OntapHttpClient.create(projectId, locationId, storagePoolId);
-
-  let resourceName = '';
-  if (confirmDelete !== true) {
-    try {
-      resourceName = await resolveDeleteTargetName(client, path);
-    } catch (err) {
-      return errorResponse('ontap_snapshot_delete', err);
-    }
-  }
-
-  const preview = requireDeleteConfirmation({
-    toolName: 'ontap_snapshot_delete',
-    projectId,
-    locationId,
-    storagePoolId,
-    path,
-    resourceName,
-    confirmDelete: confirmDelete as boolean | undefined,
-    confirmedResourceName: confirmedResourceName as string | undefined,
-  });
-  if (preview) return preview;
-
-  try {
-    const result = await client.delete(path);
-    return asyncSuccessResponse(result);
-  } catch (err) {
-    return errorResponse('ontap_snapshot_delete', err);
   }
 };
 
@@ -316,40 +235,5 @@ export const ontapLunGetHandler: ToolHandler = async (args) => {
     return successResponse(result);
   } catch (err) {
     return errorResponse('ontap_lun_get', err);
-  }
-};
-
-export const ontapLunDeleteHandler: ToolHandler = async (args) => {
-  const { projectId, locationId, storagePoolId, lunUuid, confirmDelete, confirmedResourceName } =
-    args;
-  const path = `/api/storage/luns/${lunUuid}`;
-  const client = OntapHttpClient.create(projectId, locationId, storagePoolId);
-
-  let resourceName = '';
-  if (confirmDelete !== true) {
-    try {
-      resourceName = await resolveDeleteTargetName(client, path);
-    } catch (err) {
-      return errorResponse('ontap_lun_delete', err);
-    }
-  }
-
-  const preview = requireDeleteConfirmation({
-    toolName: 'ontap_lun_delete',
-    projectId,
-    locationId,
-    storagePoolId,
-    path,
-    resourceName,
-    confirmDelete: confirmDelete as boolean | undefined,
-    confirmedResourceName: confirmedResourceName as string | undefined,
-  });
-  if (preview) return preview;
-
-  try {
-    const result = await client.delete(path);
-    return asyncSuccessResponse(result);
-  } catch (err) {
-    return errorResponse('ontap_lun_delete', err);
   }
 };

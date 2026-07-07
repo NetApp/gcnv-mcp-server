@@ -4,25 +4,25 @@ A [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server for man
 
 ## Supported Resources
 
-| Resource              | Operations                                                                                  |
-| --------------------- | ------------------------------------------------------------------------------------------- |
-| **Storage Pools**     | create, get, list, update, delete, validate directory service                               |
-| **Volumes**           | create, get, list, update, delete                                                           |
-| **Snapshots**         | create, get, list, update, delete, revert                                                   |
-| **Backup Vaults**     | create, get, list, update, delete                                                           |
-| **Backups**           | create, get, list, update, delete, restore, restore files                                   |
-| **Backup Policies**   | create, get, list, update, delete                                                           |
-| **Replications**      | create, get, list, update, delete, stop, resume, reverse direction, sync, establish peering |
-| **Active Directory**  | create, get, list, update, delete                                                           |
-| **KMS Configs**       | create, get, list, update, delete, verify, encrypt volumes                                  |
-| **Quota Rules**       | create, get, list, update, delete                                                           |
-| **Host Groups**       | create, get, list, update, delete                                                           |
-| **Operations**        | get, list, cancel                                                                           |
-| **ONTAP Expert Mode** | discover and execute supported ONTAP REST operations for ONTAP-mode pools                   |
+| Resource              | Operations                                                                          |
+| --------------------- | ----------------------------------------------------------------------------------- |
+| **Storage Pools**     | create, get, list, update, validate directory service                               |
+| **Volumes**           | create, get, list, update                                                           |
+| **Snapshots**         | create, get, list, update, revert                                                   |
+| **Backup Vaults**     | create, get, list, update                                                           |
+| **Backups**           | create, get, list, update, restore, restore files                                   |
+| **Backup Policies**   | create, get, list, update                                                           |
+| **Replications**      | create, get, list, update, stop, resume, reverse direction, sync, establish peering |
+| **Active Directory**  | create, get, list, update                                                           |
+| **KMS Configs**       | create, get, list, update, verify, encrypt volumes                                  |
+| **Quota Rules**       | create, get, list, update                                                           |
+| **Host Groups**       | create, get, list, update                                                           |
+| **Operations**        | get, list, cancel                                                                   |
+| **ONTAP Expert Mode** | discover and execute supported ONTAP REST operations for ONTAP-mode pools           |
 
 ## Prerequisites
 
-- Node.js 18 or higher
+- Node.js 20.19.0 or higher
 - A Google Cloud project with the [NetApp Volumes API](https://cloud.google.com/netapp/volumes/docs) enabled
 - Google Cloud authentication credentials (see [Authentication](#authentication))
 
@@ -107,7 +107,6 @@ HTTP endpoint: `http://localhost:<port>/message`
 | `gcnv_storage_pool_get`                        | Get storage pool details                                    |
 | `gcnv_storage_pool_list`                       | List storage pools (supports pagination and filtering)      |
 | `gcnv_storage_pool_update`                     | Update pool capacity, description, labels, QoS, or type     |
-| `gcnv_storage_pool_delete`                     | Delete a storage pool                                       |
 | `gcnv_storage_pool_validate_directory_service` | Validate attached directory service                         |
 
 **Service level guidance:**
@@ -128,7 +127,6 @@ HTTP endpoint: `http://localhost:<port>/message`
 | `gcnv_volume_get`    | Get volume details including mount points                                   |
 | `gcnv_volume_list`   | List volumes with pagination and filtering                                  |
 | `gcnv_volume_update` | Update capacity, description, labels, export policy, tiering, backup config |
-| `gcnv_volume_delete` | Delete a volume                                                             |
 
 **iSCSI notes:** Protocols must be `["ISCSI"]` only (no mixing). Requires `hostGroup` or `hostGroups`. Optional `blockDevice` object with `identifier`, `osType` (`LINUX` / `WINDOWS` / `ESXI`), and `sizeGib`.
 
@@ -163,7 +161,6 @@ These flags require `protocols` to include `SMB`. `CONTINUOUSLY_AVAILABLE` is **
 | `gcnv_snapshot_get`    | Get snapshot details                  |
 | `gcnv_snapshot_list`   | List snapshots for a volume           |
 | `gcnv_snapshot_update` | Update snapshot description or labels |
-| `gcnv_snapshot_delete` | Delete a snapshot                     |
 | `gcnv_snapshot_revert` | Revert a volume to a snapshot         |
 
 ### Backup Vault Tools
@@ -174,7 +171,6 @@ These flags require `protocols` to include `SMB`. `CONTINUOUSLY_AVAILABLE` is **
 | `gcnv_backup_vault_get`    | Get backup vault details                               |
 | `gcnv_backup_vault_list`   | List backup vaults                                     |
 | `gcnv_backup_vault_update` | Update description, labels, or retention policy        |
-| `gcnv_backup_vault_delete` | Delete a backup vault                                  |
 
 ### Backup Tools
 
@@ -184,7 +180,6 @@ These flags require `protocols` to include `SMB`. `CONTINUOUSLY_AVAILABLE` is **
 | `gcnv_backup_get`           | Get backup details                        |
 | `gcnv_backup_list`          | List backups in a vault                   |
 | `gcnv_backup_update`        | Update backup description or labels       |
-| `gcnv_backup_delete`        | Delete a backup                           |
 | `gcnv_backup_restore`       | Restore a backup to a volume              |
 | `gcnv_backup_restore_files` | Restore specific files from a backup      |
 
@@ -196,7 +191,6 @@ These flags require `protocols` to include `SMB`. `CONTINUOUSLY_AVAILABLE` is **
 | `gcnv_backup_policy_get`    | Get backup policy details                               |
 | `gcnv_backup_policy_list`   | List backup policies                                    |
 | `gcnv_backup_policy_update` | Update backup policy settings                           |
-| `gcnv_backup_policy_delete` | Delete a backup policy                                  |
 
 ### Replication Tools
 
@@ -206,7 +200,6 @@ These flags require `protocols` to include `SMB`. `CONTINUOUSLY_AVAILABLE` is **
 | `gcnv_replication_get`               | Get replication details                        |
 | `gcnv_replication_list`              | List replications                              |
 | `gcnv_replication_update`            | Update replication settings                    |
-| `gcnv_replication_delete`            | Delete a replication                           |
 | `gcnv_replication_stop`              | Stop an active replication                     |
 | `gcnv_replication_resume`            | Resume a stopped replication                   |
 | `gcnv_replication_reverse_direction` | Reverse replication direction                  |
@@ -223,7 +216,6 @@ Replication is supported between specific region pairs (Standard/Premium/Extreme
 | `gcnv_active_directory_get`    | Get Active Directory details             |
 | `gcnv_active_directory_list`   | List Active Directory configurations     |
 | `gcnv_active_directory_update` | Update Active Directory settings         |
-| `gcnv_active_directory_delete` | Delete an Active Directory configuration |
 
 ### KMS Config Tools
 
@@ -233,7 +225,6 @@ Replication is supported between specific region pairs (Standard/Premium/Extreme
 | `gcnv_kms_config_get`             | Get KMS config details            |
 | `gcnv_kms_config_list`            | List KMS configurations           |
 | `gcnv_kms_config_update`          | Update KMS config settings        |
-| `gcnv_kms_config_delete`          | Delete a KMS configuration        |
 | `gcnv_kms_config_verify`          | Verify a KMS configuration        |
 | `gcnv_kms_config_encrypt_volumes` | Encrypt volumes with a KMS config |
 
@@ -245,7 +236,6 @@ Replication is supported between specific region pairs (Standard/Premium/Extreme
 | `gcnv_quota_rule_get`    | Get quota rule details           |
 | `gcnv_quota_rule_list`   | List quota rules                 |
 | `gcnv_quota_rule_update` | Update a quota rule              |
-| `gcnv_quota_rule_delete` | Delete a quota rule              |
 
 ### Host Group Tools
 
@@ -255,7 +245,6 @@ Replication is supported between specific region pairs (Standard/Premium/Extreme
 | `gcnv_host_group_get`    | Get host group details                      |
 | `gcnv_host_group_list`   | List host groups                            |
 | `gcnv_host_group_update` | Update a host group                         |
-| `gcnv_host_group_delete` | Delete a host group                         |
 
 ### Operation Tools
 
@@ -284,11 +273,11 @@ For advanced resources such as QoS policies, SnapMirror, export policies, CIFS s
 
 `ontap_discover` responses include descriptions, hints, example body templates, and generated `requiredBody` metadata when ONTAP swagger marks body fields as required. `ontap_execute` preflight-validates requests against the bundled API index (method, path, and required body fields) before calling ONTAP. Unlisted paths — including GET — are rejected with a `scope_denied` envelope; use `ontap_discover` to find supported endpoints. For POST/PATCH calls, pass the body as a JSON string.
 
-ONTAP mutating operations commonly return async jobs. After create, update, delete, or replication actions, poll the returned job UUID with `ontap_job_get`; a returned job reference does not by itself mean the operation is complete.
+ONTAP mutating operations commonly return async jobs. After create, update, or replication actions, poll the returned job UUID with `ontap_job_get`; a returned job reference does not by itself mean the operation is complete.
 
 Safety guardrails:
 
-- ONTAP DELETE operations are preview-first. The first call returns a delete preview with the target `resourceName` (resolved via read-only GET). After explicit user approval, call again with `confirmDelete=true` and `confirmedResourceName` set to the exact name from the preview. Applies to `ontap_execute` DELETE and dedicated delete tools (`ontap_volume_delete`, `ontap_snapshot_delete`, `ontap_lun_delete`).
+- Delete operations are not supported. This server exposes no delete tools, and `ontap_execute` rejects the DELETE method. Delete resources through the Google Cloud console, `gcloud`, or another tool.
 - Some endpoints are out of scope for this MCP server or blocked by the proxy/RBAC policy. These return a `scope_denied` envelope and should not be retried with sibling paths or private CLI variants.
 - `/api/private/cli` subpaths are intentionally blocked at preflight. Use public `/api/...` endpoints from `ontap_discover` or dedicated tools instead.
 - User-facing clients should redact sensitive fields before displaying tool output.
@@ -315,7 +304,6 @@ src/
     ontap-http-client.ts            # ONTAP REST client (auth, body envelope, response unwrapping)
     ontap-index-loader.ts           # Loads and indexes the ONTAP API catalog
     ontap-preflight-validator.ts    # Pre-execution validation (index allowlist, CLI block, required body)
-    ontap-delete-preview.ts         # DELETE preview / confirmation guardrail
     ontap-response-utils.ts         # ONTAP response shaping and error helpers
     ontap-audit-logger.ts           # Optional Markdown audit log for ONTAP tool calls
     scope-denied-envelope.ts        # Proxy/RBAC scope denial envelope

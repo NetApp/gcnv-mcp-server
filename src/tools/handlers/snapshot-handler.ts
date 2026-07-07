@@ -101,53 +101,6 @@ export const createSnapshotHandler: ToolHandler = async (args: { [key: string]: 
   }
 };
 
-// Delete Snapshot Handler
-export const deleteSnapshotHandler: ToolHandler = async (args: { [key: string]: any }) => {
-  try {
-    const { projectId, location, volumeId, snapshotId } = args;
-
-    // Create a new NetApp client using the factory
-    const netAppClient = NetAppClientFactory.createClient();
-
-    // Format the name for the snapshot
-    const name = `projects/${projectId}/locations/${location}/volumes/${volumeId}/snapshots/${snapshotId}`;
-
-    // Call the API to delete the snapshot
-    const request = { name };
-
-    log.info({ request }, 'Delete Snapshot request');
-    const [operation] = await netAppClient.deleteSnapshot(request);
-    log.info({ operation }, 'Delete Snapshot operation');
-
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: `Snapshot '${snapshotId}' deletion operation started.`,
-        },
-      ],
-      structuredContent: {
-        success: true,
-        operationId: operation.name || '',
-      },
-    };
-  } catch (error: any) {
-    log.error({ err: error }, 'Error deleting snapshot');
-    return {
-      isError: true,
-      content: [
-        {
-          type: 'text' as const,
-          text: `Error deleting snapshot: ${error.message || 'Unknown error'}`,
-        },
-      ],
-      structuredContent: {
-        success: false,
-      },
-    };
-  }
-};
-
 // Get Snapshot Handler
 export const getSnapshotHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {

@@ -22,7 +22,6 @@ const PATH_PARAM_MATCH_BOOST = 6;
 const LAST_SEGMENT_MATCH_BOOST = 4;
 const LAST_QUERY_TOKEN_SEGMENT_BOOST = 20;
 const COLLECTION_CREATE_BOOST = 3;
-const DELETE_SPECIFICITY_BOOST = 4;
 const RESOURCE_TOKEN_MATCH_BOOST = 10;
 
 /** Discover response shape. `resource` is omitted in resource-mode (it lives on the parent). */
@@ -232,14 +231,6 @@ function scoreEndpointShape(queryTokens: string[], endpoint: IndexEndpoint): num
     score += COLLECTION_CREATE_BOOST;
   }
 
-  if (tokenSet.has('delete') && endpoint.method === 'DELETE') {
-    const lastSegTokens = new Set(tokenizeText(lastStaticPathSegment(endpoint.path) ?? ''));
-    const targetMatches = queryTokens.some((t) => t !== 'delete' && lastSegTokens.has(t));
-    if (targetMatches) {
-      score += endpoint.pathParams.length * DELETE_SPECIFICITY_BOOST;
-    }
-  }
-
   return score;
 }
 
@@ -290,7 +281,7 @@ function diversifyByResource(
 }
 
 function mutatingSpecificity(ep: IndexEndpoint): number {
-  return ep.method === 'PATCH' || ep.method === 'DELETE' ? ep.pathParams.length : 0;
+  return ep.method === 'PATCH' ? ep.pathParams.length : 0;
 }
 
 function compareScoredEndpoints(
@@ -314,9 +305,6 @@ function inferMethodIntent(tokens: string[]): Set<IndexEndpoint['method']> {
     )
   ) {
     methods.add('POST');
-  }
-  if (['delete', 'remove', 'end', 'abort', 'destroy'].some((token) => tokenSet.has(token))) {
-    methods.add('DELETE');
   }
   if (
     ['update', 'modify', 'resize', 'patch', 'accept', 'reject', 'change'].some((token) =>

@@ -216,67 +216,6 @@ describe('ontap-audit-logger', () => {
       expect(content).not.toContain('| code: 400, message: { |');
     });
 
-    it('appends a PREVIEW entry for delete previews', () => {
-      enableAuditLog(testDir);
-      logOperation(
-        'ontap_execute',
-        { method: 'DELETE', ontapApiPath: '/api/cluster/peers/uuid1', storagePoolId: 'pool1' },
-        {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({
-                action: 'confirm_delete',
-                method: 'DELETE',
-                path: '/api/cluster/peers/uuid1',
-                storagePoolId: 'pool1',
-              }),
-            },
-          ],
-        },
-        50
-      );
-
-      const content = readLog();
-      expect(content).toContain('**PREVIEW**');
-      expect(content).toContain('Delete preview');
-    });
-
-    it('appends an ERROR entry for delete_confirmation_failed responses', () => {
-      enableAuditLog(testDir);
-      logOperation(
-        'ontap_execute',
-        {
-          method: 'DELETE',
-          ontapApiPath: '/api/cluster/peers/uuid1',
-          storagePoolId: 'pool1',
-          confirmDelete: true,
-          confirmedResourceName: 'wrong-name',
-        },
-        {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({
-                action: 'delete_confirmation_failed',
-                method: 'DELETE',
-                path: '/api/cluster/peers/uuid1',
-                storagePoolId: 'pool1',
-                reason: 'resource_name_mismatch',
-                message: 'confirmedResourceName must exactly match the preview resourceName.',
-              }),
-            },
-          ],
-        },
-        50
-      );
-
-      const content = readLog();
-      expect(content).toContain('**ERROR**');
-      expect(content).toContain('Delete rejected (resource_name_mismatch)');
-      expect(content).toContain('/api/cluster/peers/uuid1');
-    });
-
     it('sanitizes projectId from logged args', () => {
       enableAuditLog(testDir);
       logOperation(
@@ -443,7 +382,7 @@ describe('ontap-audit-logger', () => {
       );
 
       const content = readLog();
-      expect(content).toContain('| pipe\\|key | line1<br>line2\\|tail |');
+      expect(content).toContain('| pipe&#124;key | line1<br>line2&#124;tail |');
     });
 
     it('displays userIntent as a query group heading', () => {

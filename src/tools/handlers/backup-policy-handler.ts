@@ -1,7 +1,6 @@
 import { NetAppClientFactory } from '../../utils/netapp-client-factory.js';
 import {
   createBackupPolicyTool,
-  deleteBackupPolicyTool,
   getBackupPolicyTool,
   listBackupPoliciesTool,
   updateBackupPolicyTool,
@@ -89,50 +88,6 @@ export const createBackupPolicyHandler: ToolHandler = async (args) => {
         {
           type: 'text',
           text: `Failed to create backup policy: ${error.message}`,
-        },
-      ],
-      isError: true,
-    };
-  }
-};
-
-/**
- * Deletes a backup policy
- */
-export const deleteBackupPolicyHandler: ToolHandler = async (args) => {
-  try {
-    const { projectId, location, backupPolicyId } = args;
-
-    const client = NetAppClientFactory.createClient();
-
-    // Format resource name
-    const name = `projects/${projectId}/locations/${location}/backupPolicies/${backupPolicyId}`;
-
-    // Call the API to delete a backup policy
-    const [operation] = await client.deleteBackupPolicy({
-      name,
-    });
-
-    const result = {
-      success: true,
-      operationId: operation.name || '',
-    };
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: `Deleted backup policy ${backupPolicyId}. Operation ID: ${result.operationId}`,
-        },
-      ],
-      structuredContent: result,
-    };
-  } catch (error: any) {
-    return {
-      content: [
-        {
-          type: 'text',
-          text: `Failed to delete backup policy: ${error.message}`,
         },
       ],
       isError: true,
@@ -349,7 +304,6 @@ export const updateBackupPolicyHandler: ToolHandler = async (args) => {
 // Export tool handler mappings
 export const backupPolicyHandlers = {
   [createBackupPolicyTool.name]: createBackupPolicyHandler,
-  [deleteBackupPolicyTool.name]: deleteBackupPolicyHandler,
   [getBackupPolicyTool.name]: getBackupPolicyHandler,
   [listBackupPoliciesTool.name]: listBackupPoliciesHandler,
   [updateBackupPolicyTool.name]: updateBackupPolicyHandler,

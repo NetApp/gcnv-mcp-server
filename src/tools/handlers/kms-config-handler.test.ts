@@ -110,51 +110,6 @@ describe('kms-config-handler', () => {
     expect((result as any).isError).toBe(true);
   });
 
-  it('deleteKmsConfigHandler calls deleteKmsConfig and returns operationId', async () => {
-    const deleteKmsConfig = vi.fn().mockResolvedValue([{ name: 'op-del' }]);
-    createClientMock.mockReturnValue({ deleteKmsConfig });
-
-    const { deleteKmsConfigHandler } = await import('./kms-config-handler.js');
-    const result = await deleteKmsConfigHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      kmsConfigId: 'k1',
-    });
-
-    expect(deleteKmsConfig).toHaveBeenCalledWith({
-      name: 'projects/p1/locations/us-central1/kmsConfigs/k1',
-    });
-    expect(result.structuredContent).toEqual({ success: true, operationId: 'op-del' });
-  });
-
-  it('deleteKmsConfigHandler falls back to empty operationId when operation.name is missing', async () => {
-    const deleteKmsConfig = vi.fn().mockResolvedValue([{}]);
-    createClientMock.mockReturnValue({ deleteKmsConfig });
-
-    const { deleteKmsConfigHandler } = await import('./kms-config-handler.js');
-    const result = await deleteKmsConfigHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      kmsConfigId: 'k1',
-    });
-
-    expect(result.structuredContent).toEqual({ success: true, operationId: '' });
-  });
-
-  it('deleteKmsConfigHandler covers error path', async () => {
-    const deleteKmsConfig = vi.fn().mockRejectedValue(new Error('boom'));
-    createClientMock.mockReturnValue({ deleteKmsConfig });
-
-    const { deleteKmsConfigHandler } = await import('./kms-config-handler.js');
-    const result = await deleteKmsConfigHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      kmsConfigId: 'k1',
-    });
-
-    expect((result as any).isError).toBe(true);
-  });
-
   it('getKmsConfigHandler calls getKmsConfig and returns schema-valid structuredContent', async () => {
     const getKmsConfig = vi.fn().mockResolvedValue([
       {
@@ -333,7 +288,6 @@ describe('kms-config-handler', () => {
     const err = {};
     createClientMock.mockReturnValue({
       createKmsConfig: vi.fn().mockRejectedValue(err),
-      deleteKmsConfig: vi.fn().mockRejectedValue(err),
       getKmsConfig: vi.fn().mockRejectedValue(err),
       listKmsConfigs: vi.fn().mockRejectedValue(err),
       updateKmsConfig: vi.fn().mockRejectedValue(err),
@@ -343,7 +297,6 @@ describe('kms-config-handler', () => {
 
     const {
       createKmsConfigHandler,
-      deleteKmsConfigHandler,
       getKmsConfigHandler,
       listKmsConfigsHandler,
       updateKmsConfigHandler,
@@ -358,16 +311,6 @@ describe('kms-config-handler', () => {
           location: 'us-central1',
           kmsConfigId: 'k1',
           cryptoKeyName: 'ck',
-        })) as any
-      ).content?.[0]?.text
-    ).toContain('Unknown error');
-
-    expect(
-      (
-        (await deleteKmsConfigHandler({
-          projectId: 'p1',
-          location: 'us-central1',
-          kmsConfigId: 'k1',
         })) as any
       ).content?.[0]?.text
     ).toContain('Unknown error');

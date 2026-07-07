@@ -68,23 +68,6 @@ describe('backup-vault-handler', () => {
     });
   });
 
-  it('deleteBackupVaultHandler calls deleteBackupVault and returns operationId', async () => {
-    const deleteBackupVault = vi.fn().mockResolvedValue([{ name: 'op-del' }]);
-    createClientMock.mockReturnValue({ deleteBackupVault });
-
-    const { deleteBackupVaultHandler } = await import('./backup-vault-handler.js');
-    const result = await deleteBackupVaultHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      backupVaultId: 'bv1',
-    });
-
-    expect(deleteBackupVault).toHaveBeenCalledWith({
-      name: 'projects/p1/locations/us-central1/backupVaults/bv1',
-    });
-    expect(result.structuredContent).toEqual({ success: true, operationId: 'op-del' });
-  });
-
   it('getBackupVaultHandler calls getBackupVault and fills defaults for required fields', async () => {
     const getBackupVault = vi.fn().mockResolvedValue([
       {
@@ -441,12 +424,11 @@ describe('backup-vault-handler', () => {
     });
   });
 
-  it('covers error-code branches for create/delete/get/list/update', async () => {
+  it('covers error-code branches for create/get/list/update', async () => {
     const mkErr = (code: number) => Object.assign(new Error('boom'), { code });
 
     const {
       createBackupVaultHandler,
-      deleteBackupVaultHandler,
       getBackupVaultHandler,
       listBackupVaultsHandler,
       updateBackupVaultHandler,
@@ -458,19 +440,6 @@ describe('backup-vault-handler', () => {
         createBackupVault: vi.fn().mockRejectedValue(mkErr(code)),
       });
       const res = (await createBackupVaultHandler({
-        projectId: 'p1',
-        location: 'us-central1',
-        backupVaultId: 'bv1',
-      })) as any;
-      expect(res.isError).toBe(true);
-    }
-
-    // delete error branches: 5/7/9
-    for (const code of [5, 7, 9]) {
-      createClientMock.mockReturnValue({
-        deleteBackupVault: vi.fn().mockRejectedValue(mkErr(code)),
-      });
-      const res = (await deleteBackupVaultHandler({
         projectId: 'p1',
         location: 'us-central1',
         backupVaultId: 'bv1',

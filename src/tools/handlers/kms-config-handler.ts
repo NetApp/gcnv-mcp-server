@@ -93,49 +93,6 @@ export const createKmsConfigHandler: ToolHandler = async (args: { [key: string]:
   }
 };
 
-// Delete KMS Config Handler
-export const deleteKmsConfigHandler: ToolHandler = async (args: { [key: string]: any }) => {
-  try {
-    const { projectId, location, kmsConfigId } = args;
-
-    const netAppClient = NetAppClientFactory.createClient();
-    const name = `projects/${projectId}/locations/${location}/kmsConfigs/${kmsConfigId}`;
-
-    const [operation] = await netAppClient.deleteKmsConfig({ name });
-
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: JSON.stringify(
-            {
-              message: `KMS config ${kmsConfigId} deletion requested`,
-              operation: operation,
-            },
-            null,
-            2
-          ),
-        },
-      ],
-      structuredContent: {
-        success: true,
-        operationId: operation.name || '',
-      },
-    };
-  } catch (error: any) {
-    log.error({ err: error }, 'Error deleting KMS config');
-    return {
-      isError: true,
-      content: [
-        {
-          type: 'text' as const,
-          text: `Error deleting KMS config: ${error.message || 'Unknown error'}`,
-        },
-      ],
-    };
-  }
-};
-
 // Get KMS Config Handler
 export const getKmsConfigHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {
