@@ -105,14 +105,18 @@ export const ontapExecuteHandler: ToolHandler = async (args) => {
   // proxy, independent of the API index contents.
   if (method === 'DELETE') {
     log.info({ method, ontapApiPath }, 'ontap_execute rejected -- DELETE is not supported');
+    const envelope = buildScopeDeniedEnvelope({
+      source: 'preflight',
+      reason:
+        'DELETE operations are not supported by this server. ' +
+        'Delete resources through the Google Cloud console or another tool.',
+    });
     return {
       isError: true,
       content: [
         {
           type: 'text' as const,
-          text:
-            'DELETE operations are not supported by this server. ' +
-            'Delete resources through the Google Cloud console or another tool. retryable: false',
+          text: JSON.stringify(envelope, null, 2),
         },
       ],
     };

@@ -6,7 +6,6 @@ const mockClient = {
   get: vi.fn(),
   post: vi.fn(),
   patch: vi.fn(),
-  delete: vi.fn(),
 };
 
 vi.mock('../../utils/ontap-http-client.js', () => ({
@@ -29,7 +28,6 @@ describe('ontapExecuteHandler', () => {
     mockClient.get.mockReset();
     mockClient.post.mockReset();
     mockClient.patch.mockReset();
-    mockClient.delete.mockReset();
     const { OntapHttpClient } = await import('../../utils/ontap-http-client.js');
     (OntapHttpClient.create as any).mockReturnValue(mockClient);
   });
@@ -63,9 +61,14 @@ describe('ontapExecuteHandler', () => {
       ontapApiPath: '/api/storage/volumes/uuid1',
     });
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('DELETE operations are not supported by this server.');
-    expect(mockClient.delete).not.toHaveBeenCalled();
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.error).toBe('scope_denied');
+    expect(parsed.retryability).toBe(false);
+    expect(parsed.source).toBe('preflight');
+    expect(parsed.reason).toContain('DELETE operations are not supported by this server.');
     expect(mockClient.get).not.toHaveBeenCalled();
+    expect(mockClient.post).not.toHaveBeenCalled();
+    expect(mockClient.patch).not.toHaveBeenCalled();
   });
 
   // HTTP method dispatch (accepts body/queryParams as JSON strings or objects)
@@ -602,7 +605,6 @@ describe('ontapExecuteHandler', () => {
         expect(mockClient.get).not.toHaveBeenCalled();
         expect(mockClient.post).not.toHaveBeenCalled();
         expect(mockClient.patch).not.toHaveBeenCalled();
-        expect(mockClient.delete).not.toHaveBeenCalled();
       } finally {
         spy.mockRestore();
         _resetIndexCache();

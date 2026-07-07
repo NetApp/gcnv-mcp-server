@@ -136,14 +136,14 @@ export function preflightValidate(
         return {
           valid: false,
           error: `${method} ${ontapApiPath} requires a request body.`,
-          suggestion: `Provide a body with these fields: ${Object.keys(expectedBody as Record<string, unknown>).join(', ')}.`,
+          suggestion: `Provide a body with these fields: ${Object.keys(expectedBody).join(', ')}.`,
           expectedBody,
         };
       }
 
       // Index body templates are enforced for POST only; PATCH templates are illustrative.
       if (method === 'POST') {
-        const expectedKeys = Object.keys(expectedBody as Record<string, unknown>);
+        const expectedKeys = Object.keys(expectedBody);
         const providedKeys = Object.keys(body);
         const missingKeys = expectedKeys.filter((k) => !providedKeys.includes(k));
         if (missingKeys.length > 0 && missingKeys.length === expectedKeys.length) {

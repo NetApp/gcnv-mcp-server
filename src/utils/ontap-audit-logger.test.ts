@@ -382,7 +382,7 @@ describe('ontap-audit-logger', () => {
       );
 
       const content = readLog();
-      expect(content).toContain('| pipe\\|key | line1<br>line2\\|tail |');
+      expect(content).toContain('| pipe&#124;key | line1<br>line2&#124;tail |');
     });
 
     it('displays userIntent as a query group heading', () => {

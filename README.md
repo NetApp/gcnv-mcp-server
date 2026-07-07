@@ -22,7 +22,7 @@ A [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server for man
 
 ## Prerequisites
 
-- Node.js 18 or higher
+- Node.js 20.19.0 or higher
 - A Google Cloud project with the [NetApp Volumes API](https://cloud.google.com/netapp/volumes/docs) enabled
 - Google Cloud authentication credentials (see [Authentication](#authentication))
 

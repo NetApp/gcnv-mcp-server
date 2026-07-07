@@ -433,7 +433,7 @@ export const getStoragePoolHandler: ToolHandler = async (args: { [key: string]: 
     const contentBlocks: { type: 'text'; text: string }[] = [
       { type: 'text' as const, text: JSON.stringify(sc, null, 2) },
     ];
-    if (isOntapPool(storagePool as any)) {
+    if (isOntapPool(storagePool)) {
       contentBlocks.push({ type: 'text' as const, text: ONTAP_TOOL_GUIDANCE });
     }
 

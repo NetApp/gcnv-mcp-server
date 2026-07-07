@@ -342,11 +342,7 @@ describe('backup-policy-handler', () => {
   });
 
   it('updateBackupPolicyHandler handles missing operation.metadata and missing operation.name', async () => {
-    const updateBackupPolicy = vi.fn().mockResolvedValue([
-      {
-        /* no name, no metadata */
-      },
-    ]);
+    const updateBackupPolicy = vi.fn().mockResolvedValue([{/* no name, no metadata */}]);
     createClientMock.mockReturnValue({ updateBackupPolicy });
 
     const { updateBackupPolicyHandler } = await import('./backup-policy-handler.js');

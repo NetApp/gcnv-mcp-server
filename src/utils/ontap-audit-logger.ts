@@ -101,7 +101,7 @@ function toStr(value: unknown): string {
 
 function escapeMarkdownTableCell(value: unknown): string {
   return toStr(value)
-    .replace(/\|/g, '\\|')
+    .replace(/\|/g, '&#124;')
     .replace(/\r\n|\r|\n/g, '<br>');
 }
 
