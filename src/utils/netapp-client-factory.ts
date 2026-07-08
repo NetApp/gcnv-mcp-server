@@ -1,5 +1,7 @@
 import { NetAppClient } from '@google-cloud/netapp';
+import { OAuth2Client } from 'google-auth-library';
 import { ClientOptions } from 'google-gax';
+import { currentRequestAccessToken } from '../auth/access-token-context.js';
 
 /**
  * Factory class for creating NetAppClient instances
@@ -27,8 +29,10 @@ export class NetAppClientFactory {
    * @returns A configured NetAppClient instance
    */
   public static createClient(options?: ClientOptions, cacheKey?: string): NetAppClient {
+    const requestAccessToken = currentRequestAccessToken();
+
     // If a cache key is provided and a client exists, return the cached client
-    if (cacheKey && this.clientCache[cacheKey]) {
+    if (!requestAccessToken && cacheKey && this.clientCache[cacheKey]) {
       return this.clientCache[cacheKey];
     }
 
@@ -47,11 +51,20 @@ export class NetAppClientFactory {
       };
     }
 
-    // Create a new client with the merged options
-    const client = mergedOptions ? new NetAppClient(mergedOptions) : new NetAppClient();
+    const clientOptions: ClientOptions = {
+      ...(mergedOptions || {}),
+    };
+
+    if (requestAccessToken) {
+      const authClient = new OAuth2Client();
+      authClient.setCredentials({ access_token: requestAccessToken });
+      clientOptions.authClient = authClient as unknown as ClientOptions['authClient'];
+    }
+
+    const client = new NetAppClient(clientOptions);
 
     // If a cache key is provided, store the client for future use
-    if (cacheKey) {
+    if (!requestAccessToken && cacheKey) {
       this.clientCache[cacheKey] = client;
     }
 

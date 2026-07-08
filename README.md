@@ -150,19 +150,78 @@ These files do not require a separate install step. Compatible clients load them
 
 ## Authentication
 
-The server uses Google Cloud credentials to authenticate API requests. Configure one of the following before invoking any tool:
+Google NetApp Volumes API calls need a Google access token. How that token is supplied depends on the MCP transport and caller.
 
-- **Application Default Credentials (recommended)**
+### Application Default Credentials (ADC) — default for stdio CLI clients
+
+Use ADC when running locally with Gemini CLI, Cursor, Claude Code, or other stdio MCP clients:
 
 ```bash
 gcloud auth application-default login
 ```
 
-- **Service account key file**
+Or point at a service account key:
 
 ```bash
 export GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json
 ```
+
+No extra environment variables are required. The server obtains a token from ADC for each tool call.
+
+### HTTP/SSE — per-request bearer header
+
+For HTTP or SSE transport, send a bearer token on **each MCP HTTP request** to override ADC for that request only. This path is independent of stdio delegated auth.
+
+By default the server reads `Authorization: Bearer <token>`. Customize the header name with `GCNV_AUTH_HEADER`:
+
+```bash
+export GCNV_AUTH_HEADER="X-Google-Access-Token"
+```
+
+Then send requests with:
+
+```http
+X-Google-Access-Token: Bearer <token>
+```
+
+### Stdio delegated access token
+
+Stdio MCP has no HTTP headers. A trusted parent process that spawns this server as a subprocess can inject a per-user Google access token via a **runtime-only** tool argument: `_stdio_delegated_google_access_token`.
+
+This is **disabled by default** so public stdio clients cannot supply arbitrary bearer tokens via tool arguments.
+
+Enable only when the MCP server is spawned by a fully controlled trusted subprocess:
+
+```bash
+export GCNV_STDIO_DELEGATED_ACCESS_TOKEN=true
+```
+
+When enabled:
+
+- The runtime arg is **never** advertised in `list_tools` schemas.
+- It is stripped before tool handlers run and is **never logged**.
+- It overrides ADC for that tool call only.
+- HTTP clients should continue to use the bearer header path above; Gemini CLI and other public stdio clients should use ADC.
+
+| Transport                      | Token source                                       | Environment                              |
+| ------------------------------ | -------------------------------------------------- | ---------------------------------------- |
+| stdio (CLI)                    | ADC                                                | none                                     |
+| stdio (delegated access token) | `_stdio_delegated_google_access_token` runtime arg | `GCNV_STDIO_DELEGATED_ACCESS_TOKEN=true` |
+| HTTP/SSE                       | `Authorization` (or `GCNV_AUTH_HEADER`)            | none                                     |
+
+## ONTAP KG Discover (Query-Only, Optional)
+
+To externalize ONTAP discover ranking, set a knowledge endpoint and the server will call it per query.
+
+| Variable              | Purpose                                                      |
+| --------------------- | ------------------------------------------------------------ |
+| `ONTAP_KG_URL`        | Full discover endpoint URL (MCP sends `POST` to this value)  |
+| `ONTAP_KG_AUTH_TOKEN` | Optional bearer token used to authenticate to the KG service |
+| `ONTAP_KG_TIMEOUT_MS` | Optional timeout for KG discover requests (default `5000`)   |
+
+Request/response contract is documented in [`docs/ontap-kg-protocol.md`](docs/ontap-kg-protocol.md) and schema in [`schemas/ontap-kg.schema.json`](schemas/ontap-kg.schema.json).
+
+When the KG request fails or returns invalid payload, discover falls back to the bundled `ontap-api-index.json`.
 
 ## Transport Modes
 
