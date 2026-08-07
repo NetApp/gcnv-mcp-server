@@ -219,4 +219,67 @@ describe('registerAllTools', () => {
       vi.resetModules();
     }
   });
+
+  it('forwards declared cross-region backup vault arguments to the handler', async () => {
+    delete process.env.GCNV_STDIO_DELEGATED_ACCESS_TOKEN;
+    const received: Array<Record<string, unknown>> = [];
+    const unusedHandler = async () => ({
+      content: [{ type: 'text' as const, text: 'ok' }],
+    });
+
+    vi.doMock('../tools/handlers/backup-vault-handler.js', () => ({
+      createBackupVaultHandler: async (args: Record<string, unknown>) => {
+        received.push({ ...args });
+        return {
+          structuredContent: { name: 'vault-1', operationId: 'op-1' },
+          content: [{ type: 'text' as const, text: 'ok' }],
+        };
+      },
+      getBackupVaultHandler: unusedHandler,
+      listBackupVaultsHandler: unusedHandler,
+      updateBackupVaultHandler: unusedHandler,
+    }));
+
+    vi.resetModules();
+    const { registerAllTools: registerAllToolsFresh } = await import('./register-tools.js');
+
+    try {
+      const calls: Array<{ name: string; tool: any; handler: any }> = [];
+      registerAllToolsFresh({
+        registerTool: (name: string, tool: any, handler: any) => {
+          calls.push({ name, tool, handler });
+        },
+      } as any);
+
+      const createTool = calls.find((call) => call.name === 'gcnv_backup_vault_create');
+      expect(createTool).toBeTruthy();
+      expect(createTool!.tool.inputSchema.shape).toHaveProperty('backupVaultType');
+      expect(createTool!.tool.inputSchema.shape).toHaveProperty('backupRegion');
+      expect(createTool!.tool.inputSchema.shape).toHaveProperty('kmsConfig');
+
+      await createTool!.handler({
+        projectId: 'p1',
+        location: 'us-central1',
+        backupVaultId: 'vault-1',
+        backupVaultType: 'CROSS_REGION',
+        backupRegion: 'us-east1',
+        kmsConfig: 'projects/p1/locations/us-east1/kmsConfigs/key-1',
+        unexpected_injection: 'drop-me',
+      });
+
+      expect(received).toEqual([
+        {
+          projectId: 'p1',
+          location: 'us-central1',
+          backupVaultId: 'vault-1',
+          backupVaultType: 'CROSS_REGION',
+          backupRegion: 'us-east1',
+          kmsConfig: 'projects/p1/locations/us-east1/kmsConfigs/key-1',
+        },
+      ]);
+    } finally {
+      vi.doUnmock('../tools/handlers/backup-vault-handler.js');
+      vi.resetModules();
+    }
+  });
 });

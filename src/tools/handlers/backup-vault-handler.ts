@@ -8,6 +8,17 @@ function normalizeStringEnum(value: any): string {
   return typeof value === 'string' ? value : 'UNKNOWN';
 }
 
+function locationId(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const text = value.trim().replace(/\/+$/, '');
+  if (!text) return '';
+  return text.split('/').pop() || '';
+}
+
+function kmsConfigLocation(value: string): string {
+  return value.match(/^projects\/[^/]+\/locations\/([^/]+)\/kmsConfigs\/[^/]+$/)?.[1] || '';
+}
+
 // Helper to format backup vault data for responses
 function formatBackupVaultData(backupVault: any): any {
   const result: any = {};
@@ -58,6 +69,13 @@ function formatBackupVaultData(backupVault: any): any {
   // Copy optional properties
   if (backupVault.description) result.description = backupVault.description;
   if (backupVault.labels) result.labels = backupVault.labels;
+  if (backupVault.kmsConfig) result.kmsConfig = backupVault.kmsConfig;
+  if (backupVault.encryptionState !== undefined) {
+    result.encryptionState = normalizeStringEnum(backupVault.encryptionState);
+  }
+  if (backupVault.backupsCryptoKeyVersion) {
+    result.backupsCryptoKeyVersion = backupVault.backupsCryptoKeyVersion;
+  }
 
   return result;
 }
@@ -65,7 +83,81 @@ function formatBackupVaultData(backupVault: any): any {
 // Create Backup Vault Handler
 export const createBackupVaultHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {
-    const { projectId, location, backupVaultId, description, labels, backupRetentionPolicy } = args;
+    const {
+      projectId,
+      location,
+      backupVaultId,
+      backupVaultType = 'IN_REGION',
+      backupRegion,
+      kmsConfig,
+      description,
+      labels,
+      backupRetentionPolicy,
+    } = args;
+    const vaultType = String(backupVaultType).toUpperCase() as 'IN_REGION' | 'CROSS_REGION';
+    const sourceRegion = locationId(location);
+    const destinationRegionId = locationId(backupRegion);
+
+    if (vaultType === 'CROSS_REGION' && !destinationRegionId) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Invalid argument: CROSS_REGION backup vaults require backupRegion.',
+          },
+        ],
+      };
+    }
+    if (vaultType === 'CROSS_REGION' && sourceRegion === destinationRegionId) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Invalid argument: backupRegion must differ from location for CROSS_REGION vaults.',
+          },
+        ],
+      };
+    }
+    if (vaultType === 'IN_REGION' && destinationRegionId && sourceRegion !== destinationRegionId) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Invalid argument: backupRegion must match location or be omitted for IN_REGION vaults.',
+          },
+        ],
+      };
+    }
+
+    if (kmsConfig !== undefined) {
+      const kmsRegion = kmsConfigLocation(kmsConfig);
+      const expectedKmsRegion = vaultType === 'CROSS_REGION' ? destinationRegionId : sourceRegion;
+      if (!kmsRegion) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text' as const,
+              text: 'Invalid argument: kmsConfig must be a full KMS config resource name.',
+            },
+          ],
+        };
+      }
+      if (kmsRegion !== expectedKmsRegion) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text' as const,
+              text: `Invalid argument: kmsConfig must be in region ${expectedKmsRegion}.`,
+            },
+          ],
+        };
+      }
+    }
 
     // Create a new NetApp client using the factory
     const netAppClient = NetAppClientFactory.createClient();
@@ -78,17 +170,36 @@ export const createBackupVaultHandler: ToolHandler = async (args: { [key: string
       parent,
       backupVaultId,
       backupVault: {
+        backupVaultType: vaultType,
         description,
         labels,
+        ...(vaultType === 'CROSS_REGION' ? { backupRegion: destinationRegionId } : {}),
+        ...(kmsConfig !== undefined ? { kmsConfig } : {}),
         ...(backupRetentionPolicy !== undefined ? { backupRetentionPolicy } : {}),
       },
     };
+
+    log.info(
+      {
+        gcnvApi: 'NetAppClient.createBackupVault',
+        request,
+      },
+      'Calling GCNV API to create backup vault'
+    );
 
     // Create the backup vault
     const [operation] = await netAppClient.createBackupVault(request);
 
     // Extract the operation name for tracking
     const operationName = operation.name;
+
+    log.info(
+      {
+        gcnvApi: 'NetAppClient.createBackupVault',
+        operationName,
+      },
+      'GCNV backup vault creation operation started'
+    );
 
     // Construct the backup vault name
     const backupVaultName = `${parent}/backupVaults/${backupVaultId}`;
@@ -155,11 +266,9 @@ export const getBackupVaultHandler: ToolHandler = async (args: { [key: string]: 
     const formattedData = formatBackupVaultData(backupVault);
 
     // Default values for required fields if they're not present in the API response
-    if (!formattedData.backupVaultType) formattedData.backupVaultType = 'STANDARD';
-    if (!formattedData.sourceRegion) formattedData.sourceRegion = location;
-    if (!formattedData.backupRegion) formattedData.backupRegion = location;
-    if (!formattedData.sourceBackupVault) formattedData.sourceBackupVault = '';
-    if (!formattedData.destinationBackupVault) formattedData.destinationBackupVault = '';
+    if (!formattedData.backupVaultType) {
+      formattedData.backupVaultType = 'BACKUP_VAULT_TYPE_UNSPECIFIED';
+    }
 
     return {
       content: [
