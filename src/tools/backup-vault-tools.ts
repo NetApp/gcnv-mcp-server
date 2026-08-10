@@ -25,7 +25,7 @@ export const createBackupVaultTool: ToolConfig = {
       .string()
       .optional()
       .describe(
-        'Optional full KMS config resource name. For CROSS_REGION vaults, it must be in backupRegion.'
+        'Optional full KMS config resource name. It must be in location for IN_REGION vaults or backupRegion for CROSS_REGION vaults.'
       ),
     description: z.string().optional().describe('Optional description of the backup vault'),
     backupRetentionPolicy: z

@@ -15,8 +15,20 @@ function locationId(value: unknown): string {
   return text.split('/').pop() || '';
 }
 
-function kmsConfigLocation(value: string): string {
-  return value.match(/^projects\/[^/]+\/locations\/([^/]+)\/kmsConfigs\/[^/]+$/)?.[1] || '';
+function normalizeResourceName(value: unknown): string {
+  return typeof value === 'string' ? value.trim().replace(/\/+$/, '') : '';
+}
+
+function kmsConfigLocation(value: unknown): string {
+  return (
+    normalizeResourceName(value).match(
+      /^projects\/[^/]+\/locations\/([^/]+)\/kmsConfigs\/[^/]+$/
+    )?.[1] || ''
+  );
+}
+
+function isBackupVaultType(value: string): value is 'IN_REGION' | 'CROSS_REGION' {
+  return value === 'IN_REGION' || value === 'CROSS_REGION';
 }
 
 // Helper to format backup vault data for responses
@@ -94,9 +106,22 @@ export const createBackupVaultHandler: ToolHandler = async (args: { [key: string
       labels,
       backupRetentionPolicy,
     } = args;
-    const vaultType = String(backupVaultType).toUpperCase() as 'IN_REGION' | 'CROSS_REGION';
+    const vaultType = String(backupVaultType).toUpperCase();
     const sourceRegion = locationId(location);
     const destinationRegionId = locationId(backupRegion);
+    const normalizedKmsConfig = normalizeResourceName(kmsConfig);
+
+    if (!isBackupVaultType(vaultType)) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Invalid argument: backupVaultType must be IN_REGION or CROSS_REGION.',
+          },
+        ],
+      };
+    }
 
     if (vaultType === 'CROSS_REGION' && !destinationRegionId) {
       return {
@@ -133,7 +158,7 @@ export const createBackupVaultHandler: ToolHandler = async (args: { [key: string
     }
 
     if (kmsConfig !== undefined) {
-      const kmsRegion = kmsConfigLocation(kmsConfig);
+      const kmsRegion = kmsConfigLocation(normalizedKmsConfig);
       const expectedKmsRegion = vaultType === 'CROSS_REGION' ? destinationRegionId : sourceRegion;
       if (!kmsRegion) {
         return {
@@ -173,8 +198,10 @@ export const createBackupVaultHandler: ToolHandler = async (args: { [key: string
         backupVaultType: vaultType,
         description,
         labels,
-        ...(vaultType === 'CROSS_REGION' ? { backupRegion: destinationRegionId } : {}),
-        ...(kmsConfig !== undefined ? { kmsConfig } : {}),
+        ...(vaultType === 'CROSS_REGION'
+          ? { backupRegion: `projects/${projectId}/locations/${destinationRegionId}` }
+          : {}),
+        ...(kmsConfig !== undefined ? { kmsConfig: normalizedKmsConfig } : {}),
         ...(backupRetentionPolicy !== undefined ? { backupRetentionPolicy } : {}),
       },
     };

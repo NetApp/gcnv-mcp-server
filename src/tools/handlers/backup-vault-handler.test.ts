@@ -24,7 +24,12 @@ describe('backup-vault-handler', () => {
     expect(createBackupVault).toHaveBeenCalledWith({
       parent: 'projects/p1/locations/us-central1',
       backupVaultId: 'bv1',
-      backupVault: { description: 'd', labels: undefined, backupRetentionPolicy: undefined },
+      backupVault: {
+        backupVaultType: 'IN_REGION',
+        description: 'd',
+        labels: undefined,
+        backupRetentionPolicy: undefined,
+      },
     });
     expect(result.structuredContent).toEqual({
       name: 'projects/p1/locations/us-central1/backupVaults/bv1',
@@ -55,6 +60,7 @@ describe('backup-vault-handler', () => {
       parent: 'projects/p1/locations/us-central1',
       backupVaultId: 'bv1',
       backupVault: {
+        backupVaultType: 'IN_REGION',
         description: 'd',
         labels: undefined,
         backupRetentionPolicy: {
@@ -67,6 +73,99 @@ describe('backup-vault-handler', () => {
       },
     });
   });
+
+  it('createBackupVaultHandler constructs a cross-region request', async () => {
+    const createBackupVault = vi.fn().mockResolvedValue([{ name: 'op-crb' }]);
+    createClientMock.mockReturnValue({ createBackupVault });
+
+    const { createBackupVaultHandler } = await import('./backup-vault-handler.js');
+    await createBackupVaultHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+      backupVaultType: 'cross_region',
+      backupRegion: 'us-east1',
+      kmsConfig: 'projects/p1/locations/us-east1/kmsConfigs/key-1',
+    });
+
+    expect(createBackupVault).toHaveBeenCalledWith({
+      parent: 'projects/p1/locations/us-central1',
+      backupVaultId: 'bv1',
+      backupVault: {
+        backupVaultType: 'CROSS_REGION',
+        description: undefined,
+        labels: undefined,
+        backupRegion: 'projects/p1/locations/us-east1',
+        kmsConfig: 'projects/p1/locations/us-east1/kmsConfigs/key-1',
+      },
+    });
+  });
+
+  it('createBackupVaultHandler normalizes resource-name inputs', async () => {
+    const createBackupVault = vi.fn().mockResolvedValue([{ name: 'op-crb' }]);
+    createClientMock.mockReturnValue({ createBackupVault });
+
+    const { createBackupVaultHandler } = await import('./backup-vault-handler.js');
+    await createBackupVaultHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+      backupVaultType: 'CROSS_REGION',
+      backupRegion: ' projects/p1/locations/us-east1/ ',
+      kmsConfig: ' projects/p1/locations/us-east1/kmsConfigs/key-1/ ',
+    });
+
+    expect(createBackupVault.mock.calls[0]?.[0].backupVault).toMatchObject({
+      backupRegion: 'projects/p1/locations/us-east1',
+      kmsConfig: 'projects/p1/locations/us-east1/kmsConfigs/key-1',
+    });
+  });
+
+  const invalidCreateCases: Array<[Record<string, unknown>, string]> = [
+    [{ backupVaultType: 'INVALID' }, 'backupVaultType must be IN_REGION or CROSS_REGION'],
+    [{ backupVaultType: 'CROSS_REGION' }, 'CROSS_REGION backup vaults require backupRegion'],
+    [
+      { backupVaultType: 'CROSS_REGION', backupRegion: 'us-central1' },
+      'backupRegion must differ from location',
+    ],
+    [{ backupRegion: 'us-east1' }, 'backupRegion must match location or be omitted'],
+    [
+      { backupVaultType: 'CROSS_REGION', backupRegion: 'us-east1', kmsConfig: 'key-1' },
+      'kmsConfig must be a full KMS config resource name',
+    ],
+    [
+      {
+        backupVaultType: 'CROSS_REGION',
+        backupRegion: 'us-east1',
+        kmsConfig: 'projects/p1/locations/us-central1/kmsConfigs/key-1',
+      },
+      'kmsConfig must be in region us-east1',
+    ],
+    [
+      { kmsConfig: 'projects/p1/locations/us-east1/kmsConfigs/key-1' },
+      'kmsConfig must be in region us-central1',
+    ],
+  ];
+
+  it.each(invalidCreateCases)(
+    'createBackupVaultHandler rejects invalid arguments (case %#)',
+    async (overrides, message) => {
+      const createBackupVault = vi.fn();
+      createClientMock.mockReturnValue({ createBackupVault });
+
+      const { createBackupVaultHandler } = await import('./backup-vault-handler.js');
+      const result = (await createBackupVaultHandler({
+        projectId: 'p1',
+        location: 'us-central1',
+        backupVaultId: 'bv1',
+        ...overrides,
+      })) as any;
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain(message);
+      expect(createBackupVault).not.toHaveBeenCalled();
+    }
+  );
 
   it('getBackupVaultHandler calls getBackupVault and fills defaults for required fields', async () => {
     const getBackupVault = vi.fn().mockResolvedValue([
@@ -90,12 +189,12 @@ describe('backup-vault-handler', () => {
     expect(result.structuredContent).toMatchObject({
       name: 'projects/p1/locations/us-central1/backupVaults/bv1',
       backupVaultId: 'bv1',
-      backupVaultType: 'STANDARD',
-      sourceRegion: 'us-central1',
-      backupRegion: 'us-central1',
-      sourceBackupVault: '',
-      destinationBackupVault: '',
+      backupVaultType: 'BACKUP_VAULT_TYPE_UNSPECIFIED',
     });
+    expect(result.structuredContent).not.toHaveProperty('sourceRegion');
+    expect(result.structuredContent).not.toHaveProperty('backupRegion');
+    expect(result.structuredContent).not.toHaveProperty('sourceBackupVault');
+    expect(result.structuredContent).not.toHaveProperty('destinationBackupVault');
     expect((result.structuredContent as any).createTime).toMatch(/^\d{4}-/);
   });
 
@@ -110,12 +209,8 @@ describe('backup-vault-handler', () => {
       backupVaultId: 'bv1',
     });
 
-    expect(result.structuredContent).toMatchObject({
-      backupVaultType: 'STANDARD',
-      sourceRegion: 'us-central1',
-      backupRegion: 'us-central1',
-      sourceBackupVault: '',
-      destinationBackupVault: '',
+    expect(result.structuredContent).toEqual({
+      backupVaultType: 'BACKUP_VAULT_TYPE_UNSPECIFIED',
     });
   });
 
