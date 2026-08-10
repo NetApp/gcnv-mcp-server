@@ -95,7 +95,7 @@ describe('backup-vault-handler', () => {
         backupVaultType: 'CROSS_REGION',
         description: undefined,
         labels: undefined,
-        backupRegion: 'projects/p1/locations/us-east1',
+        backupRegion: 'us-east1',
         kmsConfig: 'projects/p1/locations/us-east1/kmsConfigs/key-1',
       },
     });
@@ -116,7 +116,7 @@ describe('backup-vault-handler', () => {
     });
 
     expect(createBackupVault.mock.calls[0]?.[0].backupVault).toMatchObject({
-      backupRegion: 'projects/p1/locations/us-east1',
+      backupRegion: 'us-east1',
       kmsConfig: 'projects/p1/locations/us-east1/kmsConfigs/key-1',
     });
   });
