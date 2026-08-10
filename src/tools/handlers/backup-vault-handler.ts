@@ -198,9 +198,7 @@ export const createBackupVaultHandler: ToolHandler = async (args: { [key: string
         backupVaultType: vaultType,
         description,
         labels,
-        ...(vaultType === 'CROSS_REGION'
-          ? { backupRegion: destinationRegionId }
-          : {}),
+        ...(vaultType === 'CROSS_REGION' ? { backupRegion: destinationRegionId } : {}),
         ...(kmsConfig !== undefined ? { kmsConfig: normalizedKmsConfig } : {}),
         ...(backupRetentionPolicy !== undefined ? { backupRetentionPolicy } : {}),
       },
