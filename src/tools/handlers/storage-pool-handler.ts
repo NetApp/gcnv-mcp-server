@@ -273,14 +273,14 @@ export const createStoragePoolHandler: ToolHandler = async (args: { [key: string
     if (
       normalizedQosType === 'MANUAL' &&
       normalizedServiceLevel === 'FLEX' &&
-      parsedStoragePoolType !== 2
+      !isFlexUnifiedPoolType(parsedStoragePoolType)
     ) {
       return {
         isError: true,
         content: [
           {
             type: 'text' as const,
-            text: 'Error creating storage pool: qosType MANUAL is not supported for Flex File. Use AUTO, or set storagePoolType to UNIFIED for Flex Unified.',
+            text: 'Error creating storage pool: qosType MANUAL is not supported for Flex File. Use AUTO for Flex File, or create a Flex Unified pool with storagePoolType UNIFIED.',
           },
         ],
       };
