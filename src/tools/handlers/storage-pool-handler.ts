@@ -106,6 +106,12 @@ function isLikelyZone(location: string): boolean {
   return /-[a-z]$/i.test(location.trim());
 }
 
+function isFlexUnifiedPoolType(type: unknown): boolean {
+  if (type === 2) return true;
+  if (typeof type === 'string' && type.trim().toUpperCase() === 'UNIFIED') return true;
+  return false;
+}
+
 // Create Storage Pool Handler
 export const createStoragePoolHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {
@@ -263,14 +269,18 @@ export const createStoragePoolHandler: ToolHandler = async (args: { [key: string
       };
     }
 
-    // Manual QoS is supported for Standard/Premium/Extreme; not supported for Flex
-    if (normalizedQosType === 'MANUAL' && normalizedServiceLevel === 'FLEX') {
+    // Manual QoS: Flex Unified yes; Flex File no (Standard/Premium/Extreme always allowed)
+    if (
+      normalizedQosType === 'MANUAL' &&
+      normalizedServiceLevel === 'FLEX' &&
+      parsedStoragePoolType !== 2
+    ) {
       return {
         isError: true,
         content: [
           {
             type: 'text' as const,
-            text: 'Error creating storage pool: qosType MANUAL is not supported for FLEX service level.',
+            text: 'Error creating storage pool: qosType MANUAL is not supported for Flex File. Use AUTO, or set storagePoolType to UNIFIED for Flex Unified.',
           },
         ],
       };
@@ -609,7 +619,30 @@ export const updateStoragePoolHandler: ToolHandler = async (args: { [key: string
     }
 
     if (qosType !== undefined) {
-      storagePool.qosType = typeof qosType === 'string' ? qosType.toUpperCase() : qosType;
+      const normalizedUpdateQosType = typeof qosType === 'string' ? qosType.toUpperCase() : qosType;
+      if (normalizedUpdateQosType === 'MANUAL') {
+        const existing = await getExistingPool();
+        const existingServiceLevel =
+          typeof existing?.serviceLevel === 'string'
+            ? existing.serviceLevel.toUpperCase()
+            : existing?.serviceLevel;
+        if (
+          existingServiceLevel === 'FLEX' &&
+          !isFlexUnifiedPoolType(existing?.type) &&
+          !isOntapPool(existing)
+        ) {
+          return {
+            isError: true,
+            content: [
+              {
+                type: 'text' as const,
+                text: 'Error updating storage pool: qosType MANUAL is not supported for Flex File. Manual QoS is only supported on Flex Unified pools.',
+              },
+            ],
+          };
+        }
+      }
+      storagePool.qosType = normalizedUpdateQosType;
       updateMask.push('qos_type');
     }
 

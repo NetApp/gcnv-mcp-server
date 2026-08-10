@@ -57,7 +57,7 @@ export const createStoragePoolTool: ToolConfig = {
       .union([z.enum(['AUTO', 'MANUAL']), z.enum(['auto', 'manual'])])
       .optional()
       .describe(
-        'QoS type for the storage pool (AUTO or MANUAL). Manual QoS is supported for Standard/Premium/Extreme; not supported for Flex.'
+        'QoS type for the storage pool (AUTO or MANUAL). Manual QoS is supported for Standard/Premium/Extreme/Flex Unified; not supported for Flex File.'
       ),
     allowAutoTiering: z
       .boolean()
@@ -256,7 +256,7 @@ export const updateStoragePoolTool: ToolConfig = {
       .union([z.enum(['AUTO', 'MANUAL']), z.enum(['auto', 'manual'])])
       .optional()
       .describe(
-        'QoS type for the storage pool (AUTO or MANUAL). Manual QoS is supported for Standard/Premium/Extreme; not supported for Flex.'
+        'QoS type for the storage pool (AUTO or MANUAL). Manual QoS is supported for Standard/Premium/Extreme/Flex Unified; not supported for Flex File.'
       ),
     totalThroughputMibps: z
       .number()
