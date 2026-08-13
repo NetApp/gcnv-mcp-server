@@ -15,7 +15,7 @@ export const createActiveDirectoryTool: ToolConfig = {
     dns: z.string().optional().describe('DNS server address'),
     netBiosPrefix: z.string().optional().describe('NetBIOS prefix'),
     organizationalUnit: z.string().optional().describe('Organizational unit'),
-    aesEncryption: z.boolean().optional().describe('Enable AES encryption'),
+    aesEncryption: z.boolean().optional().describe('Enable AES encryption for SMB communication.'),
     username: z.string().optional().describe('Username for domain join'),
     password: z.string().optional().describe('Password for domain join'),
     backupOperators: z.array(z.string()).optional().describe('List of backup operators'),
@@ -26,7 +26,18 @@ export const createActiveDirectoryTool: ToolConfig = {
     securityOperators: z.array(z.string()).optional().describe('List of security operators'),
     kdcHostname: z.string().optional().describe('KDC hostname'),
     kdcIp: z.string().optional().describe('KDC IP address'),
-    nfsUsersWithLdap: z.boolean().optional().describe('Enable NFS users with LDAP'),
+    nfsUsersWithLdap: z
+      .boolean()
+      .optional()
+      .describe('Allow access to local users and LDAP users. Disable for LDAP-only access.'),
+    ldapSigning: z
+      .boolean()
+      .optional()
+      .describe('Specifies whether LDAP traffic needs to be signed.'),
+    encryptDcConnections: z
+      .boolean()
+      .optional()
+      .describe('Encrypt traffic between the SMB server and domain controllers.'),
     description: z.string().optional().describe('Optional description'),
     labels: z.record(z.string()).optional().describe('Optional labels'),
   },
@@ -54,7 +65,19 @@ export const getActiveDirectoryTool: ToolConfig = {
     dns: z.string().optional().describe('DNS server address'),
     netBiosPrefix: z.string().optional().describe('NetBIOS prefix'),
     organizationalUnit: z.string().optional().describe('Organizational unit'),
-    aesEncryption: z.boolean().optional().describe('AES encryption enabled'),
+    aesEncryption: z.boolean().optional().describe('AES encryption enabled for SMB communication.'),
+    nfsUsersWithLdap: z
+      .boolean()
+      .optional()
+      .describe('Allow access to local users and LDAP users. Disable for LDAP-only access.'),
+    ldapSigning: z
+      .boolean()
+      .optional()
+      .describe('Specifies whether LDAP traffic needs to be signed.'),
+    encryptDcConnections: z
+      .boolean()
+      .optional()
+      .describe('Encrypt traffic between the SMB server and domain controllers.'),
     state: z.string().optional().describe('The current state'),
     createTime: z.string().optional().describe('The creation timestamp'),
     description: z.string().optional().describe('Description'),
@@ -89,7 +112,22 @@ export const listActiveDirectoriesTool: ToolConfig = {
           dns: z.string().optional().describe('DNS server address'),
           netBiosPrefix: z.string().optional().describe('NetBIOS prefix'),
           organizationalUnit: z.string().optional().describe('Organizational unit'),
-          aesEncryption: z.boolean().optional().describe('AES encryption enabled'),
+          aesEncryption: z
+            .boolean()
+            .optional()
+            .describe('AES encryption enabled for SMB communication.'),
+          nfsUsersWithLdap: z
+            .boolean()
+            .optional()
+            .describe('Allow access to local users and LDAP users. Disable for LDAP-only access.'),
+          ldapSigning: z
+            .boolean()
+            .optional()
+            .describe('Specifies whether LDAP traffic needs to be signed.'),
+          encryptDcConnections: z
+            .boolean()
+            .optional()
+            .describe('Encrypt traffic between the SMB server and domain controllers.'),
           state: z.string().optional().describe('The current state'),
           createTime: z.string().optional().describe('The creation timestamp'),
           description: z.string().optional().describe('Description'),
@@ -115,7 +153,7 @@ export const updateActiveDirectoryTool: ToolConfig = {
     dns: z.string().optional().describe('DNS server address'),
     netBiosPrefix: z.string().optional().describe('NetBIOS prefix'),
     organizationalUnit: z.string().optional().describe('Organizational unit'),
-    aesEncryption: z.boolean().optional().describe('Enable AES encryption'),
+    aesEncryption: z.boolean().optional().describe('Enable AES encryption for SMB communication.'),
     username: z.string().optional().describe('Username for domain join'),
     password: z.string().optional().describe('Password for domain join'),
     backupOperators: z.array(z.string()).optional().describe('List of backup operators'),
@@ -126,7 +164,18 @@ export const updateActiveDirectoryTool: ToolConfig = {
     securityOperators: z.array(z.string()).optional().describe('List of security operators'),
     kdcHostname: z.string().optional().describe('KDC hostname'),
     kdcIp: z.string().optional().describe('KDC IP address'),
-    nfsUsersWithLdap: z.boolean().optional().describe('Enable NFS users with LDAP'),
+    nfsUsersWithLdap: z
+      .boolean()
+      .optional()
+      .describe('Allow access to local users and LDAP users. Disable for LDAP-only access.'),
+    ldapSigning: z
+      .boolean()
+      .optional()
+      .describe('Specifies whether LDAP traffic needs to be signed.'),
+    encryptDcConnections: z
+      .boolean()
+      .optional()
+      .describe('Encrypt traffic between the SMB server and domain controllers.'),
     description: z.string().optional().describe('New description'),
     labels: z.record(z.string()).optional().describe('New labels'),
   },

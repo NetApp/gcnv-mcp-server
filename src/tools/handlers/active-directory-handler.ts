@@ -26,6 +26,9 @@ function formatActiveDirectoryData(ad: any): any {
   if (ad.netBiosPrefix) result.netBiosPrefix = ad.netBiosPrefix;
   if (ad.organizationalUnit) result.organizationalUnit = ad.organizationalUnit;
   if (ad.aesEncryption !== undefined) result.aesEncryption = ad.aesEncryption;
+  if (ad.nfsUsersWithLdap !== undefined) result.nfsUsersWithLdap = ad.nfsUsersWithLdap;
+  if (ad.ldapSigning !== undefined) result.ldapSigning = ad.ldapSigning;
+  if (ad.encryptDcConnections !== undefined) result.encryptDcConnections = ad.encryptDcConnections;
   if (ad.state !== undefined) result.state = normalizeStringEnum(ad.state);
 
   if (ad.createTime) {
@@ -59,6 +62,8 @@ export const createActiveDirectoryHandler: ToolHandler = async (args: { [key: st
       kdcHostname,
       kdcIp,
       nfsUsersWithLdap,
+      ldapSigning,
+      encryptDcConnections,
       description,
       labels,
     } = args;
@@ -81,6 +86,9 @@ export const createActiveDirectoryHandler: ToolHandler = async (args: { [key: st
     if (kdcHostname) activeDirectory.kdcHostname = kdcHostname;
     if (kdcIp) activeDirectory.kdcIp = kdcIp;
     if (nfsUsersWithLdap !== undefined) activeDirectory.nfsUsersWithLdap = nfsUsersWithLdap;
+    if (ldapSigning !== undefined) activeDirectory.ldapSigning = ldapSigning;
+    if (encryptDcConnections !== undefined)
+      activeDirectory.encryptDcConnections = encryptDcConnections;
     if (description) activeDirectory.description = description;
     if (labels) activeDirectory.labels = labels;
 
@@ -229,6 +237,8 @@ export const updateActiveDirectoryHandler: ToolHandler = async (args: { [key: st
       kdcHostname,
       kdcIp,
       nfsUsersWithLdap,
+      ldapSigning,
+      encryptDcConnections,
       description,
       labels,
     } = args;
@@ -294,6 +304,14 @@ export const updateActiveDirectoryHandler: ToolHandler = async (args: { [key: st
     if (nfsUsersWithLdap !== undefined) {
       activeDirectory.nfsUsersWithLdap = nfsUsersWithLdap;
       updateMask.push('nfs_users_with_ldap');
+    }
+    if (ldapSigning !== undefined) {
+      activeDirectory.ldapSigning = ldapSigning;
+      updateMask.push('ldap_signing');
+    }
+    if (encryptDcConnections !== undefined) {
+      activeDirectory.encryptDcConnections = encryptDcConnections;
+      updateMask.push('encrypt_dc_connections');
     }
     if (description !== undefined) {
       activeDirectory.description = description;
