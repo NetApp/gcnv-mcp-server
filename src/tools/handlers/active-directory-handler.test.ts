@@ -62,6 +62,8 @@ describe('active-directory-handler', () => {
       kdcHostname: 'kdc',
       kdcIp: '10.0.0.1',
       nfsUsersWithLdap: false,
+      ldapSigning: true,
+      encryptDcConnections: true,
       description: 'd',
       labels: { a: 'b' },
     });
@@ -84,6 +86,8 @@ describe('active-directory-handler', () => {
         kdcHostname: 'kdc',
         kdcIp: '10.0.0.1',
         nfsUsersWithLdap: false,
+        ldapSigning: true,
+        encryptDcConnections: true,
         description: 'd',
         labels: { a: 'b' },
       },
@@ -149,6 +153,9 @@ describe('active-directory-handler', () => {
         netBiosPrefix: 'NB',
         organizationalUnit: 'OU=Test,DC=example,DC=com',
         aesEncryption: true,
+        nfsUsersWithLdap: false,
+        ldapSigning: true,
+        encryptDcConnections: false,
         state: 'READY',
         createTime: { seconds: 1 },
         description: 'd',
@@ -172,6 +179,9 @@ describe('active-directory-handler', () => {
       netBiosPrefix: 'NB',
       organizationalUnit: 'OU=Test,DC=example,DC=com',
       aesEncryption: true,
+      nfsUsersWithLdap: false,
+      ldapSigning: true,
+      encryptDcConnections: false,
       state: 'READY',
       description: 'd',
       labels: { a: 'b' },
@@ -299,6 +309,54 @@ describe('active-directory-handler', () => {
       name: 'projects/p1/locations/us-central1/activeDirectories/ad1',
       operationId: 'op-upd',
     });
+  });
+
+  it('updateActiveDirectoryHandler passes ldapSigning and encryptDcConnections with updateMask', async () => {
+    const updateActiveDirectory = vi.fn().mockResolvedValue([{ name: 'op-secure-ldap' }]);
+    createClientMock.mockReturnValue({ updateActiveDirectory });
+
+    const { updateActiveDirectoryHandler } = await import('./active-directory-handler.js');
+    const result = await updateActiveDirectoryHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      activeDirectoryId: 'ad1',
+      ldapSigning: true,
+      encryptDcConnections: true,
+    });
+
+    expect(updateActiveDirectory).toHaveBeenCalledTimes(1);
+    expect(updateActiveDirectory.mock.calls[0]?.[0]).toMatchObject({
+      activeDirectory: {
+        name: 'projects/p1/locations/us-central1/activeDirectories/ad1',
+        ldapSigning: true,
+        encryptDcConnections: true,
+      },
+      updateMask: {
+        paths: expect.arrayContaining(['ldap_signing', 'encrypt_dc_connections']),
+      },
+    });
+    expect(result.structuredContent).toEqual({
+      name: 'projects/p1/locations/us-central1/activeDirectories/ad1',
+      operationId: 'op-secure-ldap',
+    });
+  });
+
+  it('updateActiveDirectoryHandler omits secure-LDAP fields when not provided', async () => {
+    const updateActiveDirectory = vi.fn().mockResolvedValue([{ name: 'op-dns-only' }]);
+    createClientMock.mockReturnValue({ updateActiveDirectory });
+
+    const { updateActiveDirectoryHandler } = await import('./active-directory-handler.js');
+    await updateActiveDirectoryHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      activeDirectoryId: 'ad1',
+      dns: '8.8.8.8',
+    });
+
+    const request = updateActiveDirectory.mock.calls[0]?.[0];
+    expect(request.activeDirectory).not.toHaveProperty('ldapSigning');
+    expect(request.activeDirectory).not.toHaveProperty('encryptDcConnections');
+    expect(request.updateMask.paths).toEqual(['dns']);
   });
 
   it('updateActiveDirectoryHandler falls back to empty operationId when operation.name is missing', async () => {

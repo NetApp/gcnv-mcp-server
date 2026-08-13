@@ -587,7 +587,7 @@ describe('storage-pool-handler', () => {
     });
   });
 
-  it('createStoragePoolHandler rejects qosType MANUAL for FLEX pools', async () => {
+  it('createStoragePoolHandler rejects qosType MANUAL for Flex File FLEX pools', async () => {
     const createStoragePool = vi.fn().mockResolvedValue([{ name: 'op-create' }]);
     createClientMock.mockReturnValue({ createStoragePool });
 
@@ -604,6 +604,32 @@ describe('storage-pool-handler', () => {
 
     expect(createStoragePool).not.toHaveBeenCalled();
     expect((result as any).isError).toBe(true);
+    expect((result as any).content[0].text).toContain('Flex File');
+  });
+
+  it('createStoragePoolHandler allows qosType MANUAL for FLEX UNIFIED pools', async () => {
+    const createStoragePool = vi.fn().mockResolvedValue([{ name: 'op-create' }]);
+    createClientMock.mockReturnValue({ createStoragePool });
+
+    const { createStoragePoolHandler } = await import('./storage-pool-handler.js');
+    await createStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1-a',
+      storagePoolId: 'sp1',
+      capacityGib: 100,
+      serviceLevel: 'FLEX',
+      storagePoolType: 'UNIFIED',
+      network: 'net1',
+      qosType: 'manual',
+    });
+
+    expect(createStoragePool.mock.calls[0]?.[0]).toMatchObject({
+      storagePool: expect.objectContaining({
+        serviceLevel: 'FLEX',
+        type: 2,
+        qosType: 'MANUAL',
+      }),
+    });
   });
 
   it('createStoragePoolHandler handles empty operation.name (covers operation.name || "" branch)', async () => {
@@ -1381,8 +1407,9 @@ describe('storage-pool-handler', () => {
   });
 
   it('updateStoragePoolHandler supports updating qosType', async () => {
+    const getStoragePool = vi.fn().mockResolvedValue([{ serviceLevel: 'PREMIUM' }]);
     const updateStoragePool = vi.fn().mockResolvedValue([{ name: 'op-upd-qos' }]);
-    createClientMock.mockReturnValue({ updateStoragePool });
+    createClientMock.mockReturnValue({ getStoragePool, updateStoragePool });
 
     const { updateStoragePoolHandler } = await import('./storage-pool-handler.js');
     const result = await updateStoragePoolHandler({
@@ -1400,6 +1427,49 @@ describe('storage-pool-handler', () => {
       updateMask: { paths: ['qos_type'] },
     });
     expect(result.structuredContent).toMatchObject({ operationId: 'op-upd-qos' });
+  });
+
+  it('updateStoragePoolHandler rejects qosType MANUAL for Flex File pools', async () => {
+    const getStoragePool = vi.fn().mockResolvedValue([{ serviceLevel: 'FLEX', type: 1 }]);
+    const updateStoragePool = vi.fn().mockResolvedValue([{ name: 'op-upd-qos' }]);
+    createClientMock.mockReturnValue({ getStoragePool, updateStoragePool });
+
+    const { updateStoragePoolHandler } = await import('./storage-pool-handler.js');
+    const result = await updateStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      qosType: 'MANUAL',
+    });
+
+    expect(getStoragePool).toHaveBeenCalled();
+    expect(updateStoragePool).not.toHaveBeenCalled();
+    expect((result as any).isError).toBe(true);
+    expect((result as any).content[0].text).toContain('Flex File');
+  });
+
+  it('updateStoragePoolHandler allows qosType MANUAL for Flex Unified pools', async () => {
+    const getStoragePool = vi.fn().mockResolvedValue([{ serviceLevel: 'FLEX', type: 2 }]);
+    const updateStoragePool = vi.fn().mockResolvedValue([{ name: 'op-upd-qos-unified' }]);
+    createClientMock.mockReturnValue({ getStoragePool, updateStoragePool });
+
+    const { updateStoragePoolHandler } = await import('./storage-pool-handler.js');
+    const result = await updateStoragePoolHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      storagePoolId: 'sp1',
+      qosType: 'manual',
+    });
+
+    expect(getStoragePool).toHaveBeenCalled();
+    expect(updateStoragePool).toHaveBeenCalledWith({
+      storagePool: {
+        name: 'projects/p1/locations/us-central1/storagePools/sp1',
+        qosType: 'MANUAL',
+      },
+      updateMask: { paths: ['qos_type'] },
+    });
+    expect(result.structuredContent).toMatchObject({ operationId: 'op-upd-qos-unified' });
   });
 
   it('updateStoragePoolHandler supports updating totalThroughputMibps for FLEX pools', async () => {
