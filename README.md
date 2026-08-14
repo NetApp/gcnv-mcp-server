@@ -501,6 +501,20 @@ npm run dev:http       # HTTP via tsx
 npm run githooks:install   # enables lint + test on commit
 ```
 
+## Remote workflow prompts (optional)
+
+When enabled, this server fetches workflow playbooks (for example `create_arp`) from the configured catalog URL and exposes them as standard MCP prompts. Prompt text is not hard-coded in this repo.
+
+| Env var                         | Meaning                                 |
+| ------------------------------- | --------------------------------------- |
+| `GCNV_MCP_REMOTE_PROMPTS`       | `1`/`0` feature flag (default off)      |
+| `GCNV_MCP_PROMPTS_URL`          | Catalog URL ending in `/v1/mcp-prompts` |
+| `GCNV_MCP_PROMPTS_TOKEN`        | Optional bearer token                   |
+| `GCNV_MCP_PROMPTS_TIMEOUT_MS`   | Fetch timeout (default `3000`)          |
+| `GCNV_MCP_PROMPTS_CACHE_TTL_MS` | Catalog cache TTL (default `300000`)    |
+
+Flag off = tools only (unchanged). If the catalog is unreachable, the server still starts and tools keep working.
+
 ## Billing
 
 Pricing is based on provisioned pool capacity, not consumed capacity. Some features (e.g. auto-tiering) add usage-based I/O charges. See the [pricing page](https://cloud.google.com/netapp/volumes/pricing?hl=en) or use the Google Cloud Pricing Calculator for estimates.

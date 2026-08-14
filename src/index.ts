@@ -3,6 +3,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { registerAllTools } from './registry/register-tools.js';
+import { registerAllPrompts } from './registry/register-prompts.js';
 import {
   accessTokenFromHttpHeaders,
   runWithRequestAccessToken,
@@ -59,23 +60,23 @@ async function startHttpTransport(mcpServerTemplate: McpServer, port: number = 3
             version: PACKAGE_VERSION,
           });
 
-          // Register tools for this connection
+          // Register tools immediately; load prompts after SSE connect so slow MC
+          // catalog fetch never blocks the handshake.
           registerAllTools(connectionServer);
 
-          // Create transport with the response object (not the server)
           const transport = new SSEServerTransport('/message', res);
 
-          // Store transport by session ID for POST message routing
           const sessionId = transport.sessionId;
           transports.set(sessionId, transport);
 
-          // Set up cleanup handler
           transport.onclose = () => {
             transports.delete(sessionId);
           };
 
-          // Connect the server to the transport (this automatically calls start())
           await connectionServer.connect(transport);
+          void registerAllPrompts(connectionServer).catch((err) => {
+            log.warn({ err, sessionId }, 'Background remote prompt registration failed');
+          });
         } catch (error) {
           log.error({ err: error }, 'Error handling HTTP connection');
           if (!res.headersSent) {
@@ -202,8 +203,10 @@ async function main() {
   registerAllTools(mcpServer);
 
   if (transport === 'http') {
+    // HTTP uses per-connection servers; skip template prompt fetch here.
     await startHttpTransport(mcpServer, port);
   } else {
+    await registerAllPrompts(mcpServer);
     await startStdioTransport(mcpServer);
   }
 }
