@@ -136,17 +136,31 @@ export const listBackupsTool: ToolConfig = {
 export const restoreBackupTool: ToolConfig = {
   name: 'gcnv_backup_restore',
   title: 'Restore Backup',
-  description: 'Restores a backup to a new or existing volume',
+  description:
+    'Creates a new volume from a backup (full restore) using volumes.create with restoreParameters.sourceBackup. For selective/single-file restore use gcnv_backup_restore_files instead.',
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
     location: z.string().describe('The location of the backup'),
     backupVaultId: z.string().describe('The ID of the backup vault containing the backup'),
     backupId: z.string().describe('The ID of the backup to restore'),
     targetStoragePoolId: z.string().describe('The ID of the storage pool to restore to'),
-    targetVolumeId: z.string().describe('The ID of the target volume to create or overwrite'),
-    restoreOption: z
-      .enum(['CREATE_NEW_VOLUME', 'OVERWRITE_EXISTING_VOLUME'])
-      .describe('Whether to create a new volume or overwrite an existing one'),
+    targetVolumeId: z.string().describe('The ID of the new volume to create from the backup'),
+    restoreOption: z.literal('CREATE_NEW_VOLUME').describe('Creates a new volume from the backup.'),
+    capacityGib: z
+      .number()
+      .describe(
+        'The capacity of the new volume in GiB. Must be larger than the backup volume usage size (docs recommend at least 20% larger).'
+      ),
+    protocols: z
+      .array(z.enum(['NFSV3', 'NFSV4', 'SMB', 'ISCSI']))
+      .describe(
+        'The protocols to enable on the new volume. Use the same protocols as the source volume.'
+      ),
+    shareName: z
+      .string()
+      .optional()
+      .describe('Share name for the new volume. Defaults to targetVolumeId.'),
+    description: z.string().optional().describe('Optional description for the new volume'),
   },
   outputSchema: {
     name: z.string().describe('The name of the target volume'),

@@ -295,7 +295,8 @@ export const listBackupsHandler: ToolHandler = async (args: { [key: string]: any
   }
 };
 
-// Restore Backup Handler
+// Restore Backup Handler — full restore creates a new volume from the backup.
+// Selective/single-file restore lives in restoreBackupFilesHandler.
 export const restoreBackupHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {
     const {
@@ -305,75 +306,55 @@ export const restoreBackupHandler: ToolHandler = async (args: { [key: string]: a
       backupId,
       targetStoragePoolId,
       targetVolumeId,
-      restoreOption,
+      capacityGib,
+      protocols,
+      shareName,
+      description,
     } = args;
 
     // Create a new NetApp client using the factory
     const netAppClient = NetAppClientFactory.createClient();
 
-    // Format the name for the backup
-    const name = `projects/${projectId}/locations/${location}/backupVaults/${backupVaultId}/backups/${backupId}`;
+    const backupName = `projects/${projectId}/locations/${location}/backupVaults/${backupVaultId}/backups/${backupId}`;
+    const targetVolumeName = `projects/${projectId}/locations/${location}/volumes/${targetVolumeId}`;
 
-    // Format the target volume name
-    const targetVolumeName = `projects/${projectId}/locations/${location}/storagePools/${targetStoragePoolId}/volumes/${targetVolumeId}`;
+    // NetApp API expects numeric proto enum values for `protocols`.
+    const protocolEnumMap: Record<'NFSV3' | 'NFSV4' | 'SMB' | 'ISCSI', number> = {
+      NFSV3: 1,
+      NFSV4: 2,
+      SMB: 3,
+      ISCSI: 4,
+    };
 
-    // Create restore options
-    let requestOptions = {};
-    if (restoreOption === 'CREATE_NEW_VOLUME') {
-      requestOptions = {
-        targetVolumeName: targetVolumeName,
-      };
-    } else if (restoreOption === 'OVERWRITE_EXISTING_VOLUME') {
-      requestOptions = {
-        targetVolumeName: targetVolumeName,
-        overwriteExistingVolume: true,
-      };
-    }
-
-    // Get the available methods from the client for debugging
-    log.debug(
-      {
-        methods: Object.keys(netAppClient).filter(
-          (k) => typeof netAppClient[k as keyof typeof netAppClient] === 'function'
-        ),
+    const request = {
+      parent: `projects/${projectId}/locations/${location}`,
+      volumeId: targetVolumeId,
+      volume: {
+        storagePool: targetStoragePoolId,
+        capacityGib,
+        protocols: protocols.map((p: 'NFSV3' | 'NFSV4' | 'SMB' | 'ISCSI') => protocolEnumMap[p]),
+        shareName: shareName || targetVolumeId,
+        ...(description !== undefined ? { description } : {}),
+        restoreParameters: {
+          sourceBackup: backupName,
+        },
       },
-      'Available NetApp client methods'
-    );
+    };
 
-    // Attempt to use the backup client - we'll use a safe approach with any to avoid compile errors
-    // and log a proper error if the method doesn't exist
-    let operation;
-    try {
-      // Try the method that seems most likely
-      const client = netAppClient as any;
-      if (typeof client.restoreBackup === 'function') {
-        [operation] = await client.restoreBackup({
-          name,
-          ...requestOptions,
-        });
-      } else if (typeof client.restoreVolumeBackup === 'function') {
-        [operation] = await client.restoreVolumeBackup({
-          name,
-          ...requestOptions,
-        });
-      } else {
-        throw new Error('restoreBackup method not found on NetApp client');
-      }
-    } catch (restoreError: any) {
-      log.error({ err: restoreError }, 'Error in restore operation');
-      throw restoreError;
-    }
+    log.info({ request }, 'Restore Backup request');
+    const [operation] = await netAppClient.createVolume(request);
+    log.info({ operation }, 'Restore Backup operation');
 
     return {
       content: [
         {
           type: 'text' as const,
-          text: `Backup restore initiated. Operation ID: ${operation.name}`,
+          text: `Backup restore initiated (new volume ${targetVolumeId}). Operation ID: ${operation.name || ''}`,
         },
       ],
       structuredContent: {
         name: targetVolumeName,
-        operationId: operation.name,
+        operationId: operation.name || '',
       },
     };
   } catch (error: any) {
@@ -390,10 +371,13 @@ export const restoreBackupHandler: ToolHandler = async (args: { [key: string]: a
       errorMessage = 'Permission denied. Please check your credentials and access rights.';
     } else if (error.code === 6) {
       // ALREADY_EXISTS
-      errorMessage = `Target volume already exists and overwrite option was not selected`;
+      errorMessage = `Target volume already exists; choose a new targetVolumeId`;
     } else if (error.code === 9) {
       // FAILED_PRECONDITION
       errorMessage = `Failed precondition: ${error.message}`;
+    } else if (error.code === 3) {
+      // INVALID_ARGUMENT
+      errorMessage = `Invalid argument: ${error.message}`;
     }
 
     return {
