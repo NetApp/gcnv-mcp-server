@@ -343,7 +343,6 @@ describe('backup-handler', () => {
       backupId: 'b1',
       targetStoragePoolId: 'sp1',
       targetVolumeId: 'vol2',
-      restoreOption: 'CREATE_NEW_VOLUME',
       capacityGib: 50,
       protocols: ['NFSV4', 'SMB'],
       shareName: 'restored-share',
@@ -382,7 +381,6 @@ describe('backup-handler', () => {
       backupId: 'b1',
       targetStoragePoolId: 'sp1',
       targetVolumeId: 'vol2',
-      restoreOption: 'CREATE_NEW_VOLUME',
       capacityGib: 100,
       protocols: ['NFSV3'],
     });
@@ -408,7 +406,6 @@ describe('backup-handler', () => {
         backupId: 'b1',
         targetStoragePoolId: 'sp1',
         targetVolumeId: 'vol2',
-        restoreOption: 'CREATE_NEW_VOLUME',
         capacityGib: 10,
         protocols: ['NFSV3'],
       })) as any;

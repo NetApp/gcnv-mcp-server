@@ -145,7 +145,6 @@ export const restoreBackupTool: ToolConfig = {
     backupId: z.string().describe('The ID of the backup to restore'),
     targetStoragePoolId: z.string().describe('The ID of the storage pool to restore to'),
     targetVolumeId: z.string().describe('The ID of the new volume to create from the backup'),
-    restoreOption: z.literal('CREATE_NEW_VOLUME').describe('Creates a new volume from the backup.'),
     capacityGib: z
       .number()
       .describe(
