@@ -8,6 +8,33 @@ function normalizeStringEnum(value: any): string {
   return typeof value === 'string' ? value : 'UNKNOWN';
 }
 
+function parseBlockDeviceOsType(input: any): { value?: number; error?: string } {
+  if (input === undefined || input === null) return {};
+
+  const osTypeMap: Record<string, number> = {
+    OS_TYPE_UNSPECIFIED: 0,
+    LINUX: 1,
+    WINDOWS: 2,
+    ESXI: 3,
+  };
+
+  if (typeof input === 'number') {
+    if (Object.values(osTypeMap).includes(input)) return { value: input };
+    return { error: 'blockDevice.osType must be a valid enum number (0, 1, 2, 3)' };
+  }
+
+  if (typeof input === 'string') {
+    const value = osTypeMap[input.trim().toUpperCase()];
+    if (value !== undefined) return { value };
+    return {
+      error:
+        'blockDevice.osType must be one of OS_TYPE_UNSPECIFIED, LINUX, WINDOWS, ESXI (or the corresponding enum number)',
+    };
+  }
+
+  return { error: 'blockDevice.osType must be a string enum name or enum number' };
+}
+
 // Helper to format backup data for responses
 function formatBackupData(backup: any): any {
   const result: any = {};
@@ -308,9 +335,105 @@ export const restoreBackupHandler: ToolHandler = async (args: { [key: string]: a
       targetVolumeId,
       capacityGib,
       protocols,
+      hostGroup,
+      hostGroups,
+      blockDevice,
       shareName,
       description,
     } = args;
+
+    if (!Array.isArray(protocols) || protocols.length === 0) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error restoring backup: protocols must contain at least one protocol.',
+          },
+        ],
+      };
+    }
+
+    const isIscsi = protocols.includes('ISCSI');
+    if (isIscsi && protocols.some((protocol: string) => protocol !== 'ISCSI')) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error restoring backup: ISCSI cannot be combined with NFS/SMB protocols.',
+          },
+        ],
+      };
+    }
+
+    const hostGroupInputs: string[] = [
+      ...(Array.isArray(hostGroups) ? hostGroups : []),
+      ...(typeof hostGroup === 'string' && hostGroup.trim() !== '' ? [hostGroup] : []),
+    ].filter((value) => typeof value === 'string' && value.trim() !== '');
+
+    if (!isIscsi && hostGroupInputs.length > 0) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error restoring backup: hostGroup(s) can only be provided when protocols includes ISCSI.',
+          },
+        ],
+      };
+    }
+
+    if (isIscsi && hostGroupInputs.length === 0) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error restoring backup: hostGroup(s) is required when restoring an ISCSI volume.',
+          },
+        ],
+      };
+    }
+
+    const hostGroupNames = hostGroupInputs.map((value) =>
+      value.includes('/')
+        ? value
+        : `projects/${projectId}/locations/${location}/hostGroups/${value}`
+    );
+
+    let blockDevices:
+      | Array<{
+          hostGroups: string[];
+          identifier: string;
+          osType: number;
+        }>
+      | undefined;
+    if (isIscsi) {
+      const { value: osType, error: osTypeError } = parseBlockDeviceOsType(blockDevice?.osType);
+      if (osTypeError) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text' as const,
+              text: `Error restoring backup: ${osTypeError}`,
+            },
+          ],
+        };
+      }
+
+      blockDevices = [
+        {
+          hostGroups: hostGroupNames,
+          identifier:
+            typeof blockDevice?.identifier === 'string' && blockDevice.identifier.trim() !== ''
+              ? blockDevice.identifier
+              : `${targetVolumeId}-lun0`,
+          osType: osType ?? 0,
+        },
+      ];
+    }
 
     // Create a new NetApp client using the factory
     const netAppClient = NetAppClientFactory.createClient();
@@ -333,7 +456,8 @@ export const restoreBackupHandler: ToolHandler = async (args: { [key: string]: a
         storagePool: targetStoragePoolId,
         capacityGib,
         protocols: protocols.map((p: 'NFSV3' | 'NFSV4' | 'SMB' | 'ISCSI') => protocolEnumMap[p]),
-        shareName: shareName || targetVolumeId,
+        ...(!isIscsi ? { shareName: shareName || targetVolumeId } : {}),
+        ...(blockDevices ? { blockDevices } : {}),
         ...(description !== undefined ? { description } : {}),
         restoreParameters: {
           sourceBackup: backupName,

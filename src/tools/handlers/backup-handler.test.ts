@@ -391,6 +391,127 @@ describe('backup-handler', () => {
     expect(volume).not.toHaveProperty('description');
   });
 
+  it('restoreBackupHandler creates an ISCSI volume with block devices and no shareName', async () => {
+    const createVolume = vi.fn().mockResolvedValue([{ name: 'op-iscsi-restore' }]);
+    createClientMock.mockReturnValue({ createVolume });
+
+    const { restoreBackupHandler } = await import('./backup-handler.js');
+    const result = await restoreBackupHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+      backupId: 'b1',
+      targetStoragePoolId: 'sp1',
+      targetVolumeId: 'iscsi-vol',
+      capacityGib: 100,
+      protocols: ['ISCSI'],
+      hostGroup: 'hg1',
+      hostGroups: ['projects/p1/locations/us-central1/hostGroups/hg2'],
+      blockDevice: { identifier: 'lun0', osType: 'LINUX' },
+      shareName: 'must-not-be-used',
+    });
+
+    expect(createVolume).toHaveBeenCalledWith({
+      parent: 'projects/p1/locations/us-central1',
+      volumeId: 'iscsi-vol',
+      volume: {
+        storagePool: 'sp1',
+        capacityGib: 100,
+        protocols: [4],
+        blockDevices: [
+          {
+            hostGroups: [
+              'projects/p1/locations/us-central1/hostGroups/hg2',
+              'projects/p1/locations/us-central1/hostGroups/hg1',
+            ],
+            identifier: 'lun0',
+            osType: 1,
+          },
+        ],
+        restoreParameters: {
+          sourceBackup: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
+        },
+      },
+    });
+    expect(result.structuredContent).toMatchObject({ operationId: 'op-iscsi-restore' });
+  });
+
+  it('restoreBackupHandler requires host groups for ISCSI restores', async () => {
+    const { restoreBackupHandler } = await import('./backup-handler.js');
+    const result = (await restoreBackupHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+      backupId: 'b1',
+      targetStoragePoolId: 'sp1',
+      targetVolumeId: 'iscsi-vol',
+      capacityGib: 100,
+      protocols: ['ISCSI'],
+    })) as any;
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('hostGroup(s) is required');
+    expect(createClientMock).not.toHaveBeenCalled();
+  });
+
+  it('restoreBackupHandler rejects ISCSI mixed with file protocols', async () => {
+    const { restoreBackupHandler } = await import('./backup-handler.js');
+    const result = (await restoreBackupHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+      backupId: 'b1',
+      targetStoragePoolId: 'sp1',
+      targetVolumeId: 'mixed-vol',
+      capacityGib: 100,
+      protocols: ['ISCSI', 'NFSV3'],
+      hostGroup: 'hg1',
+    })) as any;
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('ISCSI cannot be combined');
+    expect(createClientMock).not.toHaveBeenCalled();
+  });
+
+  it('restoreBackupHandler rejects an empty protocols array', async () => {
+    const { restoreBackupHandler } = await import('./backup-handler.js');
+    const result = (await restoreBackupHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+      backupId: 'b1',
+      targetStoragePoolId: 'sp1',
+      targetVolumeId: 'vol2',
+      capacityGib: 100,
+      protocols: [],
+    })) as any;
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('at least one protocol');
+    expect(createClientMock).not.toHaveBeenCalled();
+  });
+
+  it('restoreBackupHandler rejects host groups for non-ISCSI restores', async () => {
+    const { restoreBackupHandler } = await import('./backup-handler.js');
+    const result = (await restoreBackupHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+      backupId: 'b1',
+      targetStoragePoolId: 'sp1',
+      targetVolumeId: 'nfs-vol',
+      capacityGib: 100,
+      protocols: ['NFSV3'],
+      hostGroups: ['hg1'],
+    })) as any;
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain(
+      'hostGroup(s) can only be provided when protocols includes ISCSI'
+    );
+    expect(createClientMock).not.toHaveBeenCalled();
+  });
+
   it('covers error-code branches for restoreBackupHandler and updateBackupHandler', async () => {
     const mkErr = (code: number) => Object.assign(new Error('boom'), { code });
     const { restoreBackupHandler, updateBackupHandler } = await import('./backup-handler.js');

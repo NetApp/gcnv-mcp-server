@@ -152,9 +152,40 @@ export const restoreBackupTool: ToolConfig = {
       ),
     protocols: z
       .array(z.enum(['NFSV3', 'NFSV4', 'SMB', 'ISCSI']))
+      .min(1)
       .describe(
         'The protocols to enable on the new volume. Use the same protocols as the source volume.'
       ),
+    hostGroups: z
+      .array(z.string())
+      .min(1)
+      .optional()
+      .describe(
+        'Host group IDs or fully-qualified resource names to attach to iSCSI block device(s) (e.g. "hg1" or "projects/.../locations/.../hostGroups/hg1"). Required when protocols includes ISCSI.'
+      ),
+    hostGroup: z
+      .string()
+      .optional()
+      .describe(
+        'Single host group ID or fully-qualified resource name (shorthand for hostGroups=[...]).'
+      ),
+    blockDevice: z
+      .object({
+        identifier: z
+          .string()
+          .optional()
+          .describe('Optional block device identifier (defaults to "<targetVolumeId>-lun0")'),
+        osType: z
+          .union([
+            z.enum(['OS_TYPE_UNSPECIFIED', 'LINUX', 'WINDOWS', 'ESXI']),
+            z.enum(['os_type_unspecified', 'linux', 'windows', 'esxi']),
+            z.number(),
+          ])
+          .optional()
+          .describe('Optional OS type for the iSCSI block device'),
+      })
+      .optional()
+      .describe('iSCSI block device configuration (used when protocols includes ISCSI)'),
     shareName: z
       .string()
       .optional()
