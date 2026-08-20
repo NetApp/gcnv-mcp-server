@@ -353,6 +353,10 @@ Notes:
 - Backup vault immutability: use `backupRetentionPolicy` (for example `dailyBackupImmutable`, `weeklyBackupImmutable`, `monthlyBackupImmutable`, `manualBackupImmutable`) on create/update to make backups immutable per policy.
 - Backup create source: you can create a backup from either a `sourceVolumeName` or a `sourceSnapshotName` (provide exactly one).
 - Always clarify retention rules, correct region, and correct target volume/storage pool before creating/restoring.
+- For a full restore into a `DEFAULT`-mode pool, always use `gcnv_backup_restore`; never substitute `gcnv_volume_create`, which creates an empty volume without restoring backup data.
+- A full restore creates a new volume. `targetVolumeId` must be unused; overwriting an existing volume is not supported, and `gcnv_backup_restore` has no `restoreOption`.
+- Before proposing a full restore, read the backup to identify its source volume, then read the source volume and storage pool. Pass the source volume's capacity as `capacityGib` and its protocols as `protocols`.
+- The full-restore handler creates the volume with `restoreParameters.sourceBackup`. `shareName` and `description` are optional.
 - For `gcnv_backup_restore_files`, confirm:
   - Destination `volumeId`
   - `fileList` contains absolute source paths
