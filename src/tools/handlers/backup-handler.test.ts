@@ -331,12 +331,144 @@ describe('backup-handler', () => {
     }
   });
 
-  it('restoreBackupHandler uses restoreBackup when available', async () => {
-    const restoreBackup = vi.fn().mockResolvedValue([{ name: 'op-restore' }]);
-    createClientMock.mockReturnValue({ restoreBackup });
+  it('restoreBackupHandler creates a volume from backup via createVolume', async () => {
+    const getBackup = vi.fn().mockResolvedValue([
+      {
+        name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
+        sourceVolume: 'projects/p1/locations/us-central1/volumes/src-vol',
+        volumeUsageBytes: '1073741824',
+      },
+    ]);
+    const getVolume = vi.fn().mockResolvedValue([
+      {
+        name: 'projects/p1/locations/us-central1/volumes/src-vol',
+        capacityGib: 100,
+        protocols: ['NFSV3'],
+        shareName: 'src-share',
+      },
+    ]);
+    const createVolume = vi.fn().mockResolvedValue([{ name: 'op-restore' }]);
+    createClientMock.mockReturnValue({ getBackup, getVolume, createVolume });
 
     const { restoreBackupHandler } = await import('./backup-handler.js');
     const result = await restoreBackupHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+      backupId: 'b1',
+      targetStoragePoolId: 'sp1',
+      targetVolumeId: 'vol2',
+      restoreOption: 'CREATE_NEW_VOLUME',
+    });
+
+    expect(getBackup).toHaveBeenCalledWith({
+      name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
+    });
+    expect(getVolume).toHaveBeenCalledWith({
+      name: 'projects/p1/locations/us-central1/volumes/src-vol',
+    });
+    expect(createVolume).toHaveBeenCalledWith({
+      parent: 'projects/p1/locations/us-central1',
+      volumeId: 'vol2',
+      volume: {
+        storagePool: 'sp1',
+        capacityGib: 100,
+        protocols: [1],
+        shareName: 'src-share',
+        restoreParameters: {
+          sourceBackup: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
+        },
+      },
+    });
+    expect(result.structuredContent).toEqual({
+      name: 'projects/p1/locations/us-central1/volumes/vol2',
+      operationId: 'op-restore',
+    });
+  });
+
+  it('restoreBackupHandler uses explicit capacity/protocols when source volume is gone', async () => {
+    const getBackup = vi.fn().mockResolvedValue([
+      {
+        name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
+        sourceVolume: 'projects/p1/locations/us-central1/volumes/missing',
+        volumeUsageBytes: String(5 * 1024 ** 3),
+      },
+    ]);
+    const getVolume = vi.fn().mockRejectedValue(Object.assign(new Error('not found'), { code: 5 }));
+    const createVolume = vi.fn().mockResolvedValue([{ name: 'op-restore2' }]);
+    createClientMock.mockReturnValue({ getBackup, getVolume, createVolume });
+
+    const { restoreBackupHandler } = await import('./backup-handler.js');
+    const result = await restoreBackupHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+      backupId: 'b1',
+      targetStoragePoolId: 'sp1',
+      targetVolumeId: 'vol2',
+      restoreOption: 'CREATE_NEW_VOLUME',
+      capacityGib: 50,
+      protocols: ['NFSV4', 'SMB'],
+      shareName: 'restored-share',
+    });
+
+    expect(createVolume).toHaveBeenCalledWith({
+      parent: 'projects/p1/locations/us-central1',
+      volumeId: 'vol2',
+      volume: {
+        storagePool: 'sp1',
+        capacityGib: 50,
+        protocols: [2, 3],
+        shareName: 'restored-share',
+        restoreParameters: {
+          sourceBackup: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
+        },
+      },
+    });
+    expect(result.structuredContent).toEqual({
+      name: 'projects/p1/locations/us-central1/volumes/vol2',
+      operationId: 'op-restore2',
+    });
+  });
+
+  it('restoreBackupHandler derives capacity from backup usage when source volume is gone', async () => {
+    const getBackup = vi.fn().mockResolvedValue([
+      {
+        name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
+        volumeUsageBytes: String(10 * 1024 ** 3),
+      },
+    ]);
+    const createVolume = vi.fn().mockResolvedValue([{ name: 'op-restore3' }]);
+    createClientMock.mockReturnValue({ getBackup, createVolume });
+
+    const { restoreBackupHandler } = await import('./backup-handler.js');
+    await restoreBackupHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+      backupId: 'b1',
+      targetStoragePoolId: 'sp1',
+      targetVolumeId: 'vol2',
+      restoreOption: 'CREATE_NEW_VOLUME',
+      protocols: ['NFSV3'],
+    });
+
+    expect(createVolume).toHaveBeenCalledWith(
+      expect.objectContaining({
+        volume: expect.objectContaining({
+          capacityGib: 12, // ceil(10 * 1.2)
+          protocols: [1],
+          shareName: 'vol2',
+        }),
+      })
+    );
+  });
+
+  it('restoreBackupHandler rejects OVERWRITE_EXISTING_VOLUME', async () => {
+    createClientMock.mockReturnValue({});
+
+    const { restoreBackupHandler } = await import('./backup-handler.js');
+    const result = (await restoreBackupHandler({
       projectId: 'p1',
       location: 'us-central1',
       backupVaultId: 'bv1',
@@ -344,25 +476,23 @@ describe('backup-handler', () => {
       targetStoragePoolId: 'sp1',
       targetVolumeId: 'vol2',
       restoreOption: 'OVERWRITE_EXISTING_VOLUME',
-    });
+    })) as any;
 
-    expect(restoreBackup).toHaveBeenCalledWith({
-      name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
-      targetVolumeName: 'projects/p1/locations/us-central1/storagePools/sp1/volumes/vol2',
-      overwriteExistingVolume: true,
-    });
-    expect(result.structuredContent).toEqual({
-      name: 'projects/p1/locations/us-central1/storagePools/sp1/volumes/vol2',
-      operationId: 'op-restore',
-    });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('OVERWRITE_EXISTING_VOLUME is not supported');
   });
 
-  it('restoreBackupHandler uses restoreVolumeBackup when restoreBackup is not available', async () => {
-    const restoreVolumeBackup = vi.fn().mockResolvedValue([{ name: 'op-restore2' }]);
-    createClientMock.mockReturnValue({ restoreVolumeBackup });
+  it('restoreBackupHandler returns isError when protocols cannot be resolved', async () => {
+    const getBackup = vi.fn().mockResolvedValue([
+      {
+        name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
+        volumeUsageBytes: String(1024 ** 3),
+      },
+    ]);
+    createClientMock.mockReturnValue({ getBackup, createVolume: vi.fn() });
 
     const { restoreBackupHandler } = await import('./backup-handler.js');
-    const result = await restoreBackupHandler({
+    const result = (await restoreBackupHandler({
       projectId: 'p1',
       location: 'us-central1',
       backupVaultId: 'bv1',
@@ -370,41 +500,20 @@ describe('backup-handler', () => {
       targetStoragePoolId: 'sp1',
       targetVolumeId: 'vol2',
       restoreOption: 'CREATE_NEW_VOLUME',
-    });
+    })) as any;
 
-    expect(restoreVolumeBackup).toHaveBeenCalledWith({
-      name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
-      targetVolumeName: 'projects/p1/locations/us-central1/storagePools/sp1/volumes/vol2',
-    });
-    expect(result.structuredContent).toEqual({
-      name: 'projects/p1/locations/us-central1/storagePools/sp1/volumes/vol2',
-      operationId: 'op-restore2',
-    });
-  });
-
-  it('restoreBackupHandler returns isError when no restore method exists on client', async () => {
-    createClientMock.mockReturnValue({});
-
-    const { restoreBackupHandler } = await import('./backup-handler.js');
-    const result = await restoreBackupHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      backupVaultId: 'bv1',
-      backupId: 'b1',
-      targetStoragePoolId: 'sp1',
-      targetVolumeId: 'vol2',
-      restoreOption: 'CREATE_NEW_VOLUME',
-    });
-
-    expect((result as any).isError).toBe(true);
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('protocols is required');
   });
 
   it('covers error-code branches for restoreBackupHandler and updateBackupHandler', async () => {
     const mkErr = (code: number) => Object.assign(new Error('boom'), { code });
     const { restoreBackupHandler, updateBackupHandler } = await import('./backup-handler.js');
 
-    for (const code of [5, 7, 6, 9]) {
-      createClientMock.mockReturnValue({ restoreBackup: vi.fn().mockRejectedValue(mkErr(code)) });
+    for (const code of [5, 7, 6, 9, 3]) {
+      createClientMock.mockReturnValue({
+        getBackup: vi.fn().mockRejectedValue(mkErr(code)),
+      });
       const res = (await restoreBackupHandler({
         projectId: 'p1',
         location: 'us-central1',
@@ -412,7 +521,9 @@ describe('backup-handler', () => {
         backupId: 'b1',
         targetStoragePoolId: 'sp1',
         targetVolumeId: 'vol2',
-        restoreOption: 'OVERWRITE_EXISTING_VOLUME',
+        restoreOption: 'CREATE_NEW_VOLUME',
+        capacityGib: 10,
+        protocols: ['NFSV3'],
       })) as any;
       expect(res.isError).toBe(true);
     }

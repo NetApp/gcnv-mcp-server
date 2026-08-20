@@ -136,17 +136,37 @@ export const listBackupsTool: ToolConfig = {
 export const restoreBackupTool: ToolConfig = {
   name: 'gcnv_backup_restore',
   title: 'Restore Backup',
-  description: 'Restores a backup to a new or existing volume',
+  description:
+    'Creates a new volume from a backup (full restore). Uses volumes.create with restoreParameters.sourceBackup. For selective/single-file restore use gcnv_backup_restore_files instead. OVERWRITE_EXISTING_VOLUME is not supported by the GCNV API for DEFAULT-mode volumes.',
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
     location: z.string().describe('The location of the backup'),
     backupVaultId: z.string().describe('The ID of the backup vault containing the backup'),
     backupId: z.string().describe('The ID of the backup to restore'),
     targetStoragePoolId: z.string().describe('The ID of the storage pool to restore to'),
-    targetVolumeId: z.string().describe('The ID of the target volume to create or overwrite'),
+    targetVolumeId: z.string().describe('The ID of the new volume to create from the backup'),
     restoreOption: z
-      .enum(['CREATE_NEW_VOLUME', 'OVERWRITE_EXISTING_VOLUME'])
-      .describe('Whether to create a new volume or overwrite an existing one'),
+      .literal('CREATE_NEW_VOLUME')
+      .describe('Creates a new volume from the backup.'),
+    capacityGib: z
+      .number()
+      .optional()
+      .describe(
+        'Capacity for the new volume in GiB. Optional when the source volume still exists (copied from it). When the source is gone, must be larger than the backup volume usage size (docs recommend at least 20% larger).'
+      ),
+    protocols: z
+      .array(z.string())
+      .optional()
+      .describe(
+        'Protocols for the new volume (NFSV3, NFSV4, SMB, ISCSI). Optional when the source volume still exists (copied from it); required when the source volume is gone.'
+      ),
+    shareName: z
+      .string()
+      .optional()
+      .describe(
+        'Share name for the new volume. Defaults to the source volume share name when available, otherwise targetVolumeId.'
+      ),
+    description: z.string().optional().describe('Optional description for the new volume'),
   },
   outputSchema: {
     name: z.string().describe('The name of the target volume'),
