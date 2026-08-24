@@ -312,7 +312,7 @@ export const restoreBackupHandler: ToolHandler = async (args: { [key: string]: a
     const client = netAppClient as any;
 
     const name = `projects/${projectId}/locations/${location}/backupVaults/${backupVaultId}/backups/${backupId}`;
-    const targetVolumeName = `projects/${projectId}/locations/${location}/storagePools/${targetStoragePoolId}/volumes/${targetVolumeId}`;
+    const targetVolumeName = `projects/${projectId}/locations/${location}/volumes/${targetVolumeId}`;
 
     let operation;
     if (restoreOption === 'CREATE_NEW_VOLUME') {

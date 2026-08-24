@@ -360,7 +360,7 @@ describe('backup-handler', () => {
       },
     });
     expect(result.structuredContent).toEqual({
-      name: 'projects/p1/locations/us-central1/storagePools/sp1/volumes/vol2',
+      name: 'projects/p1/locations/us-central1/volumes/vol2',
       operationId: 'op-restore',
     });
   });
@@ -382,11 +382,11 @@ describe('backup-handler', () => {
 
     expect(restoreBackup).toHaveBeenCalledWith({
       name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
-      targetVolumeName: 'projects/p1/locations/us-central1/storagePools/sp1/volumes/vol2',
+      targetVolumeName: 'projects/p1/locations/us-central1/volumes/vol2',
       overwriteExistingVolume: true,
     });
     expect(result.structuredContent).toEqual({
-      name: 'projects/p1/locations/us-central1/storagePools/sp1/volumes/vol2',
+      name: 'projects/p1/locations/us-central1/volumes/vol2',
       operationId: 'op-restore',
     });
   });
@@ -408,11 +408,11 @@ describe('backup-handler', () => {
 
     expect(restoreVolumeBackup).toHaveBeenCalledWith({
       name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
-      targetVolumeName: 'projects/p1/locations/us-central1/storagePools/sp1/volumes/vol2',
+      targetVolumeName: 'projects/p1/locations/us-central1/volumes/vol2',
       overwriteExistingVolume: true,
     });
     expect(result.structuredContent).toEqual({
-      name: 'projects/p1/locations/us-central1/storagePools/sp1/volumes/vol2',
+      name: 'projects/p1/locations/us-central1/volumes/vol2',
       operationId: 'op-restore2',
     });
   });
