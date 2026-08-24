@@ -211,7 +211,7 @@ For complex workflows (SnapMirror setup, FlexCache peering prep on ONTAP-mode po
     - **Volumes:** name/volumeId, state, capacityGib, usedGib, protocols, serviceLevel, **encryptionType**, **throughputMibps** (or availableThroughputMibps), **coldTierSizeGib**, **hotTierSizeUsedGib** (or hotTierSizeGib), tieringPolicy, createTime, storagePool.
     - **Snapshots:** name/snapshotId, volumeId, state, createTime, description.
     - **Backups:** backupId, backupVaultId, state, sourceVolume, backupType, volumeUsagebytes, chainStoragebytes, createTime, retentionDays.
-    - **Backup vaults:** backupVaultId, state, backupVaultType, sourceRegion, backupRegion, createTime.
+    - **Backup vaults:** backupVaultId, state, backupVaultType, sourceRegion, backupRegion, kmsConfig, encryptionState, backupsCryptoKeyVersion, createTime.
     - **Backup policies:** backupPolicyId, state, enabled, dailyBackupLimit, weeklyBackupLimit, monthlyBackupLimit, assignedVolumeCount, createTime.
     - **Host groups:** hostGroupId, type, state, hosts (count or summary), osType, createTime.
     - **KMS configs:** kmsConfigId, state, cryptoKeyName, stateDetails, createTime.
@@ -352,6 +352,13 @@ Notes:
 
 - Backup vault immutability: use `backupRetentionPolicy` (for example `dailyBackupImmutable`, `weeklyBackupImmutable`, `monthlyBackupImmutable`, `manualBackupImmutable`) on create/update to make backups immutable per policy.
 - Backup create source: you can create a backup from either a `sourceVolumeName` or a `sourceSnapshotName` (provide exactly one).
+- Cross-region backup vaults (`gcnv_backup_vault_create`):
+  - `backupVaultType` is optional and defaults to `IN_REGION`. Supported values are `IN_REGION` and `CROSS_REGION`.
+  - For `IN_REGION`, omit `backupRegion` or set it to the same region as `location`.
+  - For `CROSS_REGION`, `location` is the source region and `backupRegion` is the required destination region. The regions must differ, and GCNV creates the paired destination vault.
+  - `backupRegion` accepts either a region ID or a full location resource name.
+  - `kmsConfig`, when provided, must be a full KMS config resource name in `location` for `IN_REGION` or `backupRegion` for `CROSS_REGION`.
+- Backup vault get/list responses may include `kmsConfig`, `encryptionState`, and `backupsCryptoKeyVersion`. Do not infer omitted region or cross-region linkage fields.
 - Always clarify retention rules, correct region, and correct target volume/storage pool before creating/restoring.
 - For `gcnv_backup_restore_files`, confirm:
   - Destination `volumeId`
