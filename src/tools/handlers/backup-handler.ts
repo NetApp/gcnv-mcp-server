@@ -308,60 +308,42 @@ export const restoreBackupHandler: ToolHandler = async (args: { [key: string]: a
       restoreOption,
     } = args;
 
-    // Create a new NetApp client using the factory
     const netAppClient = NetAppClientFactory.createClient();
+    const client = netAppClient as any;
 
-    // Format the name for the backup
     const name = `projects/${projectId}/locations/${location}/backupVaults/${backupVaultId}/backups/${backupId}`;
-
-    // Format the target volume name
     const targetVolumeName = `projects/${projectId}/locations/${location}/storagePools/${targetStoragePoolId}/volumes/${targetVolumeId}`;
 
-    // Create restore options
-    let requestOptions = {};
+    let operation;
     if (restoreOption === 'CREATE_NEW_VOLUME') {
-      requestOptions = {
-        targetVolumeName: targetVolumeName,
-      };
+      // @google-cloud/netapp has no restoreBackup RPC; create a volume from backup instead.
+      [operation] = await client.createVolume({
+        parent: `projects/${projectId}/locations/${location}`,
+        volumeId: targetVolumeId,
+        volume: {
+          storagePool: targetStoragePoolId,
+          capacityGib: 100,
+          protocols: [1],
+          shareName: targetVolumeId,
+          restoreParameters: {
+            sourceBackup: name,
+          },
+        },
+      });
     } else if (restoreOption === 'OVERWRITE_EXISTING_VOLUME') {
-      requestOptions = {
-        targetVolumeName: targetVolumeName,
+      const requestOptions = {
+        targetVolumeName,
         overwriteExistingVolume: true,
       };
-    }
-
-    // Get the available methods from the client for debugging
-    log.debug(
-      {
-        methods: Object.keys(netAppClient).filter(
-          (k) => typeof netAppClient[k as keyof typeof netAppClient] === 'function'
-        ),
-      },
-      'Available NetApp client methods'
-    );
-
-    // Attempt to use the backup client - we'll use a safe approach with any to avoid compile errors
-    // and log a proper error if the method doesn't exist
-    let operation;
-    try {
-      // Try the method that seems most likely
-      const client = netAppClient as any;
       if (typeof client.restoreBackup === 'function') {
-        [operation] = await client.restoreBackup({
-          name,
-          ...requestOptions,
-        });
+        [operation] = await client.restoreBackup({ name, ...requestOptions });
       } else if (typeof client.restoreVolumeBackup === 'function') {
-        [operation] = await client.restoreVolumeBackup({
-          name,
-          ...requestOptions,
-        });
+        [operation] = await client.restoreVolumeBackup({ name, ...requestOptions });
       } else {
         throw new Error('restoreBackup method not found on NetApp client');
       }
-    } catch (restoreError: any) {
-      log.error({ err: restoreError }, 'Error in restore operation');
-      throw restoreError;
+    } else {
+      throw new Error('Invalid restoreOption');
     }
 
     return {
