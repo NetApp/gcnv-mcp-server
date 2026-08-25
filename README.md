@@ -337,7 +337,7 @@ These flags require `protocols` to include `SMB`. `CONTINUOUSLY_AVAILABLE` is **
 | `gcnv_backup_get`           | Get backup details                        |
 | `gcnv_backup_list`          | List backups in a vault                   |
 | `gcnv_backup_update`        | Update backup description or labels       |
-| `gcnv_backup_restore`       | Restore a backup to a volume              |
+| `gcnv_backup_restore`       | Create a new volume from a backup         |
 | `gcnv_backup_restore_files` | Restore specific files from a backup      |
 
 ### Backup Policy Tools

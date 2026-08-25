@@ -345,7 +345,7 @@ Notes:
 
 - `gcnv_backup_vault_create`, `..._get`, `..._list`, `..._update`
 - `gcnv_backup_create`, `..._get`, `..._list`, `..._update`
-- `gcnv_backup_restore` (restore a backup to a new/existing volume)
+- `gcnv_backup_restore` (create a new volume from a backup; requires `capacityGib` and `protocols`)
 - `gcnv_backup_restore_files` (restore specific files from a backup into a destination volume)
 
 Notes:

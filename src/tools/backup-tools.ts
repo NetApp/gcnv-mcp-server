@@ -136,17 +136,61 @@ export const listBackupsTool: ToolConfig = {
 export const restoreBackupTool: ToolConfig = {
   name: 'gcnv_backup_restore',
   title: 'Restore Backup',
-  description: 'Restores a backup to a new or existing volume',
+  description:
+    'Creates a new volume from a backup (full restore) using volumes.create with restoreParameters.sourceBackup. For selective/single-file restore use gcnv_backup_restore_files instead.',
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
     location: z.string().describe('The location of the backup'),
     backupVaultId: z.string().describe('The ID of the backup vault containing the backup'),
     backupId: z.string().describe('The ID of the backup to restore'),
     targetStoragePoolId: z.string().describe('The ID of the storage pool to restore to'),
-    targetVolumeId: z.string().describe('The ID of the target volume to create or overwrite'),
-    restoreOption: z
-      .enum(['CREATE_NEW_VOLUME', 'OVERWRITE_EXISTING_VOLUME'])
-      .describe('Whether to create a new volume or overwrite an existing one'),
+    targetVolumeId: z.string().describe('The ID of the new volume to create from the backup'),
+    capacityGib: z
+      .number()
+      .describe(
+        'The capacity of the new volume in GiB. Must be larger than the backup volume usage size (docs recommend at least 20% larger).'
+      ),
+    protocols: z
+      .array(z.enum(['NFSV3', 'NFSV4', 'SMB', 'ISCSI']))
+      .min(1)
+      .describe(
+        'The protocols to enable on the new volume. Use the same protocols as the source volume.'
+      ),
+    hostGroups: z
+      .array(z.string())
+      .min(1)
+      .optional()
+      .describe(
+        'Host group IDs or fully-qualified resource names to attach to iSCSI block device(s) (e.g. "hg1" or "projects/.../locations/.../hostGroups/hg1"). Required when protocols includes ISCSI.'
+      ),
+    hostGroup: z
+      .string()
+      .optional()
+      .describe(
+        'Single host group ID or fully-qualified resource name (shorthand for hostGroups=[...]).'
+      ),
+    blockDevice: z
+      .object({
+        identifier: z
+          .string()
+          .optional()
+          .describe('Optional block device identifier (defaults to "<targetVolumeId>-lun0")'),
+        osType: z
+          .union([
+            z.enum(['OS_TYPE_UNSPECIFIED', 'LINUX', 'WINDOWS', 'ESXI']),
+            z.enum(['os_type_unspecified', 'linux', 'windows', 'esxi']),
+            z.number(),
+          ])
+          .optional()
+          .describe('Optional OS type for the iSCSI block device'),
+      })
+      .optional()
+      .describe('iSCSI block device configuration (used when protocols includes ISCSI)'),
+    shareName: z
+      .string()
+      .optional()
+      .describe('Share name for the new volume. Defaults to targetVolumeId.'),
+    description: z.string().optional().describe('Optional description for the new volume'),
   },
   outputSchema: {
     name: z.string().describe('The name of the target volume'),
