@@ -213,14 +213,12 @@ export const revertVolumeToSnapshotHandler: ToolHandler = async (args: { [key: s
     // Create a new NetApp client using the factory
     const netAppClient = NetAppClientFactory.createClient();
 
-    // Format the name for the snapshot
-    const snapshot = `projects/${projectId}/locations/${location}/volumes/${volumeId}/snapshots/${snapshotId}`;
     const volume = `projects/${projectId}/locations/${location}/volumes/${volumeId}`;
 
     // Call the API to revert to snapshot
     const request = {
       name: volume,
-      snapshot,
+      snapshotId,
     };
 
     log.info({ request }, 'Revert to Snapshot request');
@@ -249,9 +247,6 @@ export const revertVolumeToSnapshotHandler: ToolHandler = async (args: { [key: s
           text: `Error reverting to snapshot: ${error.message || 'Unknown error'}`,
         },
       ],
-      structuredContent: {
-        success: false,
-      },
     };
   }
 };
