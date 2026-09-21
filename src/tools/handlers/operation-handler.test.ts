@@ -119,7 +119,7 @@ describe('operation-handler', () => {
     const result = await listOperationsHandler({ projectId: 'p1', location: 'us-central1' });
 
     expect(listOperationsAsync).toHaveBeenCalledWith({
-      name: 'projects/p1/locations/us-central1/operations',
+      name: 'projects/p1/locations/us-central1',
     });
     expect(result.structuredContent).toMatchObject({
       operations: [
@@ -241,14 +241,16 @@ describe('operation-handler', () => {
     expect((result as any).content?.[0]?.text).toContain('Unknown error');
   });
 
-  it('listOperationsHandler returns error structuredContent on listOperationsAsync failure', async () => {
+  it('listOperationsHandler returns isError on listOperationsAsync failure', async () => {
     const listOperationsAsync = vi.fn().mockReturnValue(failingAsyncIterable(new Error('net')));
     createClientMock.mockReturnValue({ listOperationsAsync });
 
     const { listOperationsHandler } = await import('./operation-handler.js');
     const result = await listOperationsHandler({ projectId: 'p1', location: 'us-central1' });
 
-    expect(result.structuredContent).toMatchObject({ operations: [], error: 'net' });
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toBeUndefined();
+    expect((result as any).content?.[0]?.text).toContain('net');
   });
 
   it('listOperationsHandler formats operations with no metadata (covers false branches)', async () => {
@@ -280,7 +282,7 @@ describe('operation-handler', () => {
     });
 
     expect(listOperationsAsync).toHaveBeenCalledWith({
-      name: 'projects/p1/locations/us-central1/operations',
+      name: 'projects/p1/locations/us-central1',
       filter: 'done=true',
       pageSize: 10,
       pageToken: 'pt',
@@ -346,7 +348,8 @@ describe('operation-handler', () => {
     const { listOperationsHandler } = await import('./operation-handler.js');
     const result = await listOperationsHandler({ projectId: 'p1', location: 'us-central1' });
 
-    expect(result.structuredContent).toMatchObject({ error: 'Unknown error' });
+    expect(result.isError).toBe(true);
+    expect((result as any).content?.[0]?.text).toContain('Unknown error');
   });
 
   it('getOperationHandler returns Unknown error when thrown error has no message', async () => {
@@ -367,7 +370,7 @@ describe('operation-handler', () => {
     await listOperationsHandler({ projectId: 'p1' });
 
     expect(listOperationsAsync).toHaveBeenCalledWith({
-      name: 'projects/p1/locations/-/operations',
+      name: 'projects/p1/locations/-',
     });
   });
 
