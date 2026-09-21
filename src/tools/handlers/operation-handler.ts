@@ -222,13 +222,16 @@ export const listOperationsHandler: ToolHandler = async (args: { [key: string]: 
   } catch (error: any) {
     log.error({ err: error }, 'Error listing operations');
     return {
-      isError: true,
       content: [
         {
           type: 'text' as const,
           text: `Error listing operations: ${error.message || 'Unknown error'}`,
         },
       ],
+      structuredContent: {
+        operations: [],
+        error: error.message || 'Unknown error',
+      },
     };
   }
 };
