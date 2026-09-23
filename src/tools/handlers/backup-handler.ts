@@ -67,7 +67,12 @@ function formatBackupData(backup: any): any {
 
   // Format timestamps if they exist
   if (backup.createTime) {
-    result.createTime = new Date(backup.createTime.seconds * 1000).toISOString();
+    result.createTime = new Date(Number(backup.createTime.seconds ?? 0) * 1000).toISOString();
+  }
+  if (backup.enforcedRetentionEndTime) {
+    result.enforcedRetentionEndTime = new Date(
+      Number(backup.enforcedRetentionEndTime.seconds ?? 0) * 1000
+    ).toISOString();
   }
 
   // Copy optional properties according to schema
@@ -78,8 +83,6 @@ function formatBackupData(backup: any): any {
   if (backup.satisfiesPzi !== undefined) result.satisfiesPzi = backup.satisfiesPzi;
   if (backup.volumeRegion) result.volumeRegion = backup.volumeRegion;
   if (backup.backupRegion) result.backupRegion = backup.backupRegion;
-  if (backup.enforcedRetentionEndTime)
-    result.enforcedRetentionEndTime = backup.enforcedRetentionEndTime;
   result.sourceSnapshot = backup.sourceSnapshot;
   if (backup.labels) result.labels = backup.labels;
 

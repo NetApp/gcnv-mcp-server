@@ -180,7 +180,7 @@ describe('backup-handler', () => {
         satisfiesPzi: false,
         volumeRegion: 'r1',
         backupRegion: 'r2',
-        enforcedRetentionEndTime: 't',
+        enforcedRetentionEndTime: { seconds: 1234567890 },
         sourceSnapshot: 'snap',
         labels: { a: 'b' },
       },
@@ -207,7 +207,7 @@ describe('backup-handler', () => {
       satisfiesPzi: false,
       volumeRegion: 'r1',
       backupRegion: 'r2',
-      enforcedRetentionEndTime: 't',
+      enforcedRetentionEndTime: '2009-02-13T23:31:30.000Z',
       sourceSnapshot: 'snap',
       labels: { a: 'b' },
     });
@@ -253,6 +253,33 @@ describe('backup-handler', () => {
       })) as any;
       expect(res.isError).toBe(true);
     }
+  });
+
+  it('listBackupsHandler formats enforcedRetentionEndTime timestamps', async () => {
+    const listBackups = vi.fn().mockResolvedValue([
+      [
+        {
+          name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
+          sourceVolume: 'projects/p1/locations/us-central1/volumes/vol1',
+          state: 'READY',
+          enforcedRetentionEndTime: { seconds: 1234567890, nanos: 0 },
+        },
+      ],
+      undefined,
+      undefined,
+    ]);
+    createClientMock.mockReturnValue({ listBackups });
+
+    const { listBackupsHandler } = await import('./backup-handler.js');
+    const result = await listBackupsHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+    });
+
+    expect((result.structuredContent as any).backups[0].enforcedRetentionEndTime).toBe(
+      '2009-02-13T23:31:30.000Z'
+    );
   });
 
   it('listBackupsHandler calls listBackups and returns formatted backups + nextPageToken', async () => {

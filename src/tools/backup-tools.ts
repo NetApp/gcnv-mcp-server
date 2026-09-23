@@ -62,9 +62,9 @@ export const getBackupTool: ToolConfig = {
     volumeRegion: z.string().optional().describe('The region of the source volume'),
     backupRegion: z.string().optional().describe('The region where the backup is stored'),
     enforcedRetentionEndTime: z
-      .number()
+      .string()
       .optional()
-      .describe('The number of days the backup is retained'),
+      .describe('The time until which the backup is not deletable (ISO 8601)'),
     sourceSnapshot: z
       .string()
       .optional()
@@ -117,9 +117,9 @@ export const listBackupsTool: ToolConfig = {
           volumeRegion: z.string().optional().describe('The region of the source volume'),
           backupRegion: z.string().optional().describe('The region where the backup is stored'),
           enforcedRetentionEndTime: z
-            .number()
+            .string()
             .optional()
-            .describe('The number of days the backup is retained'),
+            .describe('The time until which the backup is not deletable (ISO 8601)'),
           sourceSnapshot: z
             .string()
             .optional()
