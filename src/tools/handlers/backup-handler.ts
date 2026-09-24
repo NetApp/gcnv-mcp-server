@@ -35,6 +35,17 @@ function parseBlockDeviceOsType(input: any): { value?: number; error?: string } 
   return { error: 'blockDevice.osType must be a string enum name or enum number' };
 }
 
+function formatProtobufTimestamp(timestamp: any): string | undefined {
+  if (!timestamp) return undefined;
+
+  const seconds = Number(timestamp.seconds ?? 0);
+  const nanos = Number(timestamp.nanos ?? 0);
+  if (!Number.isFinite(seconds)) return undefined;
+
+  const millis = seconds * 1000 + Math.floor(nanos / 1_000_000);
+  return new Date(millis).toISOString();
+}
+
 // Helper to format backup data for responses
 function formatBackupData(backup: any): any {
   const result: any = {};
@@ -66,14 +77,11 @@ function formatBackupData(backup: any): any {
   result.volumeUsagebytes = backup.volumeUsagebytes; // Keep original for compatibility
 
   // Format timestamps if they exist
-  if (backup.createTime) {
-    result.createTime = new Date(Number(backup.createTime.seconds ?? 0) * 1000).toISOString();
-  }
-  if (backup.enforcedRetentionEndTime) {
-    result.enforcedRetentionEndTime = new Date(
-      Number(backup.enforcedRetentionEndTime.seconds ?? 0) * 1000
-    ).toISOString();
-  }
+  const createTime = formatProtobufTimestamp(backup.createTime);
+  if (createTime) result.createTime = createTime;
+
+  const enforcedRetentionEndTime = formatProtobufTimestamp(backup.enforcedRetentionEndTime);
+  if (enforcedRetentionEndTime) result.enforcedRetentionEndTime = enforcedRetentionEndTime;
 
   // Copy optional properties according to schema
   if (backup.description) result.description = backup.description;

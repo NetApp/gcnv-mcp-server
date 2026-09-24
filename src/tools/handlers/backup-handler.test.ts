@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
+import { listBackupsTool } from '../backup-tools.js';
 
 const createClientMock = vi.fn();
 
@@ -255,6 +257,33 @@ describe('backup-handler', () => {
     }
   });
 
+  it('listBackupsHandler preserves protobuf Timestamp nanos in enforcedRetentionEndTime', async () => {
+    const listBackups = vi.fn().mockResolvedValue([
+      [
+        {
+          name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
+          sourceVolume: 'projects/p1/locations/us-central1/volumes/vol1',
+          state: 'READY',
+          enforcedRetentionEndTime: { seconds: 1234567890, nanos: 500_000_000 },
+        },
+      ],
+      undefined,
+      undefined,
+    ]);
+    createClientMock.mockReturnValue({ listBackups });
+
+    const { listBackupsHandler } = await import('./backup-handler.js');
+    const result = await listBackupsHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+    });
+
+    expect((result.structuredContent as any).backups[0].enforcedRetentionEndTime).toBe(
+      '2009-02-13T23:31:30.500Z'
+    );
+  });
+
   it('listBackupsHandler formats enforcedRetentionEndTime timestamps', async () => {
     const listBackups = vi.fn().mockResolvedValue([
       [
@@ -280,6 +309,33 @@ describe('backup-handler', () => {
     expect((result.structuredContent as any).backups[0].enforcedRetentionEndTime).toBe(
       '2009-02-13T23:31:30.000Z'
     );
+  });
+
+  it('listBackupsHandler structuredContent passes MCP output schema validation', async () => {
+    const listBackups = vi.fn().mockResolvedValue([
+      [
+        {
+          name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
+          sourceVolume: 'projects/p1/locations/us-central1/volumes/vol1',
+          state: 'READY',
+          createTime: { seconds: 1234567890, nanos: 0 },
+          enforcedRetentionEndTime: { seconds: 1234567890, nanos: 500_000_000 },
+        },
+      ],
+      undefined,
+      undefined,
+    ]);
+    createClientMock.mockReturnValue({ listBackups });
+
+    const listOutputSchema = z.object(listBackupsTool.outputSchema);
+    const { listBackupsHandler } = await import('./backup-handler.js');
+    const result = await listBackupsHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+    });
+
+    expect(() => listOutputSchema.parse(result.structuredContent)).not.toThrow();
   });
 
   it('listBackupsHandler calls listBackups and returns formatted backups + nextPageToken', async () => {
