@@ -185,10 +185,9 @@ export const listOperationsHandler: ToolHandler = async (args: { [key: string]: 
     const location = args.location ?? '-';
 
     const netAppClient = NetAppClientFactory.createClient();
-    // REST list is GET .../v1/{name=projects/*/locations/*}/operations — {name} is the
-    // location parent only. Do not append /operations here; NetAppClient.listOperationsAsync
-    // delegates to google-gax's operationsClient, which adds the /operations collection suffix
-    // when building the CCFE request (same as the REST URL template).
+    // ListOperationsRequest.name is the location parent only — never append /operations.
+    // gRPC (default): ListOperations RPC; no URL path. REST: google.api.http maps to
+    // GET .../v1/{name=projects/*/locations/*}/operations; google-gax applies that in fallback mode.
     const name = `projects/${projectId}/locations/${location}`;
 
     const request: { name: string; filter?: string; pageSize?: number; pageToken?: string } = {
