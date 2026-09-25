@@ -21,12 +21,7 @@ const typeCheckedWithProject = tseslint.configs.recommendedTypeChecked.map((conf
 
 export default [
   {
-    ignores: [
-      'build/**',
-      'node_modules/**',
-      '.vitest-coverage/**',
-      'eslint.config.mjs',
-    ],
+    ignores: ['build/**', 'node_modules/**', '.vitest-coverage/**', 'eslint.config.mjs'],
   },
   js.configs.recommended,
   ...typeCheckedWithProject,
