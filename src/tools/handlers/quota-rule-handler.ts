@@ -1,12 +1,13 @@
 import { ToolHandler } from '../../types/tool.js';
 import { NetAppClientFactory } from '../../utils/netapp-client-factory.js';
+import {
+  formatProtobufTimestamp,
+  normalizeQuotaType,
+  normalizeStringEnum,
+} from '../../utils/proto-format-utils.js';
 import { logger } from '../../logger.js';
 
 const log = logger.child({ module: 'quota-rule-handler' });
-
-function normalizeStringEnum(value: any): string {
-  return typeof value === 'string' ? value : 'UNKNOWN';
-}
 
 // Basic runtime validation so we fail fast before calling the NetApp API
 function validatePathArgs(
@@ -60,13 +61,11 @@ function formatQuotaRuleData(rule: any): any {
   }
 
   if (rule.target) result.target = rule.target;
-  if (rule.type) {
-    result.type = rule.type;
-    result.quotaType = rule.type;
-  } else if (rule.quotaType) {
-    // fallback if API ever returns legacy field name
-    result.quotaType = rule.quotaType;
-    result.type = rule.quotaType;
+  const quotaTypeInput = rule.type ?? rule.quotaType;
+  const normalizedQuotaType = normalizeQuotaType(quotaTypeInput);
+  if (normalizedQuotaType !== undefined) {
+    result.type = normalizedQuotaType;
+    result.quotaType = normalizedQuotaType;
   }
   if (rule.diskLimitMib !== undefined) {
     const mib = Number(rule.diskLimitMib);
@@ -74,9 +73,8 @@ function formatQuotaRuleData(rule: any): any {
   }
   if (rule.state !== undefined) result.state = normalizeStringEnum(rule.state);
 
-  if (rule.createTime) {
-    result.createTime = new Date(rule.createTime.seconds * 1000).toISOString();
-  }
+  const createTime = formatProtobufTimestamp(rule.createTime);
+  if (createTime) result.createTime = createTime;
 
   if (rule.description) result.description = rule.description;
   if (rule.labels) result.labels = rule.labels;

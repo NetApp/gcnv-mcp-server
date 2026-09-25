@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { listBackupsTool } from '../backup-tools.js';
+import { getBackupTool, listBackupsTool } from '../backup-tools.js';
 
 const createClientMock = vi.fn();
 
@@ -182,7 +182,7 @@ describe('backup-handler', () => {
         satisfiesPzi: false,
         volumeRegion: 'r1',
         backupRegion: 'r2',
-        enforcedRetentionEndTime: { seconds: 1234567890 },
+        enforcedRetentionEndTime: { seconds: 1234567890, nanos: 500_000_000 },
         sourceSnapshot: 'snap',
         labels: { a: 'b' },
       },
@@ -209,7 +209,7 @@ describe('backup-handler', () => {
       satisfiesPzi: false,
       volumeRegion: 'r1',
       backupRegion: 'r2',
-      enforcedRetentionEndTime: '2009-02-13T23:31:30.000Z',
+      enforcedRetentionEndTime: '2009-02-13T23:31:30.500Z',
       sourceSnapshot: 'snap',
       labels: { a: 'b' },
     });
@@ -284,14 +284,15 @@ describe('backup-handler', () => {
     );
   });
 
-  it('listBackupsHandler formats enforcedRetentionEndTime timestamps', async () => {
+  it('listBackupsHandler coerces string int64 byte fields to numbers', async () => {
     const listBackups = vi.fn().mockResolvedValue([
       [
         {
           name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
           sourceVolume: 'projects/p1/locations/us-central1/volumes/vol1',
           state: 'READY',
-          enforcedRetentionEndTime: { seconds: 1234567890, nanos: 0 },
+          volumeUsagebytes: '12345',
+          chainStoragebytes: '67890',
         },
       ],
       undefined,
@@ -306,8 +307,34 @@ describe('backup-handler', () => {
       backupVaultId: 'bv1',
     });
 
-    expect((result.structuredContent as any).backups[0].enforcedRetentionEndTime).toBe(
-      '2009-02-13T23:31:30.000Z'
+    expect((result.structuredContent as any).backups[0]).toMatchObject({
+      volumeUsagebytes: 12345,
+      chainStoragebytes: 67890,
+    });
+  });
+
+  it('listBackupsHandler fills sourceVolume placeholder when missing', async () => {
+    const listBackups = vi.fn().mockResolvedValue([
+      [
+        {
+          name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
+          state: 'READY',
+        },
+      ],
+      undefined,
+      undefined,
+    ]);
+    createClientMock.mockReturnValue({ listBackups });
+
+    const { listBackupsHandler } = await import('./backup-handler.js');
+    const result = await listBackupsHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+    });
+
+    expect((result.structuredContent as any).backups[0].sourceVolume).toBe(
+      'projects/p1/locations/us-central1/storagePools/unknown/volumes/unknown'
     );
   });
 
@@ -320,6 +347,7 @@ describe('backup-handler', () => {
           state: 'READY',
           createTime: { seconds: 1234567890, nanos: 0 },
           enforcedRetentionEndTime: { seconds: 1234567890, nanos: 500_000_000 },
+          volumeUsagebytes: '100',
         },
       ],
       undefined,
@@ -336,6 +364,9 @@ describe('backup-handler', () => {
     });
 
     expect(() => listOutputSchema.parse(result.structuredContent)).not.toThrow();
+    expect(() =>
+      z.object(getBackupTool.outputSchema).parse(result.structuredContent.backups[0])
+    ).not.toThrow();
   });
 
   it('listBackupsHandler calls listBackups and returns formatted backups + nextPageToken', async () => {

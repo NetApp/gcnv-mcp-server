@@ -1,12 +1,9 @@
 import { ToolHandler } from '../../types/tool.js';
 import { NetAppClientFactory } from '../../utils/netapp-client-factory.js';
+import { formatProtobufTimestamp, normalizeStringEnum } from '../../utils/proto-format-utils.js';
 import { logger } from '../../logger.js';
 
 const log = logger.child({ module: 'backup-vault-handler' });
-
-function normalizeStringEnum(value: any): string {
-  return typeof value === 'string' ? value : 'UNKNOWN';
-}
 
 function locationId(value: unknown): string {
   if (typeof value !== 'string') return '';
@@ -47,14 +44,11 @@ function formatBackupVaultData(backupVault: any): any {
   // Copy basic properties
   if (backupVault.state !== undefined) result.state = normalizeStringEnum(backupVault.state);
 
-  // Format timestamps if they exist
-  if (backupVault.createTime) {
-    result.createTime = new Date(backupVault.createTime.seconds * 1000).toISOString();
-  }
+  const createTime = formatProtobufTimestamp(backupVault.createTime);
+  if (createTime) result.createTime = createTime;
 
-  if (backupVault.updateTime) {
-    result.updateTime = new Date(backupVault.updateTime.seconds * 1000).toISOString();
-  }
+  const updateTime = formatProtobufTimestamp(backupVault.updateTime);
+  if (updateTime) result.updateTime = updateTime;
 
   // Copy required properties according to the schema
   if (backupVault.backupVaultType !== undefined) {
@@ -88,6 +82,10 @@ function formatBackupVaultData(backupVault: any): any {
   if (backupVault.backupsCryptoKeyVersion) {
     result.backupsCryptoKeyVersion = backupVault.backupsCryptoKeyVersion;
   }
+
+  if (!result.state) result.state = 'UNKNOWN';
+  if (!result.backupVaultType) result.backupVaultType = 'BACKUP_VAULT_TYPE_UNSPECIFIED';
+  if (!result.createTime) result.createTime = '';
 
   return result;
 }
