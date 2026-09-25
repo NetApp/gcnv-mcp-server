@@ -26,7 +26,6 @@ export default [
       'node_modules/**',
       '.vitest-coverage/**',
       'eslint.config.mjs',
-      'scripts/**',
     ],
   },
   js.configs.recommended,
