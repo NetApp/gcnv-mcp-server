@@ -223,17 +223,16 @@ export const listOperationsHandler: ToolHandler = async (args: { [key: string]: 
     };
   } catch (error: any) {
     log.error({ err: error }, 'Error listing operations');
+    // isError distinguishes API failure from a successful empty list ({ operations: [] }).
+    // Omit structuredContent so clients surface the text error instead of a fake empty list.
     return {
+      isError: true,
       content: [
         {
           type: 'text' as const,
           text: `Error listing operations: ${error.message || 'Unknown error'}`,
         },
       ],
-      structuredContent: {
-        operations: [],
-        error: error.message || 'Unknown error',
-      },
     };
   }
 };

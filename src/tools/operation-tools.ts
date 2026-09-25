@@ -70,6 +70,5 @@ export const listOperationsTool: ToolConfig = {
       )
       .describe('List of operations'),
     nextPageToken: z.string().optional().describe('Token to retrieve the next page of results'),
-    error: z.string().optional().describe('Error message when the list request fails'),
   },
 };
