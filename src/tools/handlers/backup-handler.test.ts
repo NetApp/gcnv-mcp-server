@@ -334,7 +334,7 @@ describe('backup-handler', () => {
     });
 
     expect((result.structuredContent as any).backups[0].sourceVolume).toBe(
-      'projects/p1/locations/us-central1/storagePools/unknown/volumes/unknown'
+      'projects/p1/locations/us-central1/volumes/unknown'
     );
   });
 

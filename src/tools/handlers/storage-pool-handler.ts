@@ -1,6 +1,10 @@
 import { ToolHandler } from '../../types/tool.js';
 import { NetAppClientFactory } from '../../utils/netapp-client-factory.js';
-import { formatProtobufTimestamp, normalizeNamedEnum } from '../../utils/proto-format-utils.js';
+import {
+  formatProtobufTimestamp,
+  normalizeNamedEnum,
+  toInt64Number,
+} from '../../utils/proto-format-utils.js';
 import { logger } from '../../logger.js';
 
 const log = logger.child({ module: 'storage-pool-handler' });
@@ -433,7 +437,7 @@ export const getStoragePoolHandler: ToolHandler = async (args: { [key: string]: 
       storagePoolId: storagePoolId,
       capacityGib: Number(storagePool.capacityGib) || 0,
       volumeCapacityGib: Number(storagePool.volumeCapacityGib) || 0,
-      volumecount: storagePool.volumeCount || 0,
+      volumecount: toInt64Number(storagePool.volumeCount, 0),
       serviceLevel: normalizePoolServiceLevel(storagePool.serviceLevel),
       state: normalizeStoragePoolState(storagePool.state),
       createTime: formatProtobufTimestamp(storagePool.createTime),
@@ -523,7 +527,7 @@ export const listStoragePoolsHandler: ToolHandler = async (args: { [key: string]
         serviceLevel: normalizePoolServiceLevel(pool.serviceLevel),
         capacityGib: Number(pool.capacityGib) || 0,
         volumeCapacityGib: Number(pool.volumeCapacityGib) || 0,
-        volumecount: pool.volumeCount || 0,
+        volumecount: toInt64Number(pool.volumeCount, 0),
         state: normalizeStoragePoolState(pool.state),
         createTime: formatProtobufTimestamp(pool.createTime),
         description: pool.description || '',

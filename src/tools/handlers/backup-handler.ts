@@ -42,7 +42,7 @@ function ensureBackupRequiredFields(
 ): any {
   if (!result.state) result.state = 'UNKNOWN';
   if (!result.sourceVolume && context?.projectId && context?.location) {
-    result.sourceVolume = `projects/${context.projectId}/locations/${context.location}/storagePools/unknown/volumes/unknown`;
+    result.sourceVolume = `projects/${context.projectId}/locations/${context.location}/volumes/unknown`;
   }
   return result;
 }
