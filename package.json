@@ -43,6 +43,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:live": "node test/live/mcp-backup-list-live.mjs build/index.js",
     "start": "node build/index.js",
     "start:stdio": "node build/index.js --transport stdio",
     "start:http": "node build/index.js --transport http",
