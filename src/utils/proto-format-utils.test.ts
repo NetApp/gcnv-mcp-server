@@ -5,6 +5,7 @@ import {
   normalizeQuotaType,
   normalizeStringEnum,
   toInt64Number,
+  toInt64String,
 } from './proto-format-utils.js';
 
 describe('proto-format-utils', () => {
@@ -17,6 +18,13 @@ describe('proto-format-utils', () => {
   it('toInt64Number coerces string int64 values', () => {
     expect(toInt64Number('12345')).toBe(12345);
     expect(toInt64Number(undefined, 7)).toBe(7);
+  });
+
+  it('toInt64String preserves decimal int64 strings beyond MAX_SAFE_INTEGER', () => {
+    expect(toInt64String('9007199254740993')).toBe('9007199254740993');
+    expect(toInt64String('12345')).toBe('12345');
+    expect(toInt64String(undefined, '7')).toBe('7');
+    expect(toInt64String(42)).toBe('42');
   });
 
   it('normalizeStringEnum coerces non-string enums', () => {

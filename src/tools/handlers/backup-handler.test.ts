@@ -177,7 +177,7 @@ describe('backup-handler', () => {
         createTime: { seconds: 1 },
         description: 'd',
         backupType: 'MANUAL',
-        chainStoragebytes: 0,
+        chainStoragebytes: '0',
         satisfiesPzs: false,
         satisfiesPzi: false,
         volumeRegion: 'r1',
@@ -204,7 +204,7 @@ describe('backup-handler', () => {
       state: 'READY',
       description: 'd',
       backupType: 'MANUAL',
-      chainStoragebytes: 0,
+      chainStoragebytes: '0',
       satisfiesPzs: false,
       satisfiesPzi: false,
       volumeRegion: 'r1',
@@ -284,7 +284,7 @@ describe('backup-handler', () => {
     );
   });
 
-  it('listBackupsHandler coerces string int64 byte fields to numbers', async () => {
+  it('listBackupsHandler preserves string int64 byte fields', async () => {
     const listBackups = vi.fn().mockResolvedValue([
       [
         {
@@ -308,8 +308,37 @@ describe('backup-handler', () => {
     });
 
     expect((result.structuredContent as any).backups[0]).toMatchObject({
-      volumeUsagebytes: 12345,
-      chainStoragebytes: 67890,
+      volumeUsagebytes: '12345',
+      chainStoragebytes: '67890',
+    });
+  });
+
+  it('listBackupsHandler preserves int64 byte fields above MAX_SAFE_INTEGER', async () => {
+    const listBackups = vi.fn().mockResolvedValue([
+      [
+        {
+          name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
+          sourceVolume: 'projects/p1/locations/us-central1/volumes/vol1',
+          state: 'READY',
+          volumeUsagebytes: '9007199254740993',
+          chainStoragebytes: '9007199254740993',
+        },
+      ],
+      undefined,
+      undefined,
+    ]);
+    createClientMock.mockReturnValue({ listBackups });
+
+    const { listBackupsHandler } = await import('./backup-handler.js');
+    const result = await listBackupsHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+    });
+
+    expect((result.structuredContent as any).backups[0]).toMatchObject({
+      volumeUsagebytes: '9007199254740993',
+      chainStoragebytes: '9007199254740993',
     });
   });
 

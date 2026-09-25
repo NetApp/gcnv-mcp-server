@@ -52,11 +52,17 @@ export const getBackupTool: ToolConfig = {
     backupVaultId: z.string().describe('The ID of the backup vault containing the backup'),
     state: z.string().describe('The current state of the backup'),
     description: z.string().optional().describe('Description of the backup'),
-    volumeUsagebytes: z.number().optional().describe('The size of the volume in bytes'),
+    volumeUsagebytes: z
+      .string()
+      .optional()
+      .describe('The size of the volume in bytes (decimal int64 string)'),
     backupType: z.string().optional().describe('The type of the backup'),
     sourceVolume: z.string().describe('The name of the source volume'),
     createTime: z.string().optional().describe('The creation time of the backup'),
-    chainStoragebytes: z.number().optional().describe('The size of the backup chain in bytes'),
+    chainStoragebytes: z
+      .string()
+      .optional()
+      .describe('The size of the backup chain in bytes (decimal int64 string)'),
     satisfiesPzs: z.boolean().optional().describe('Whether the backup satisfies PZS requirements'),
     satisfiesPzi: z.boolean().optional().describe('Whether the backup satisfies PZI requirements'),
     volumeRegion: z.string().optional().describe('The region of the source volume'),
@@ -98,14 +104,17 @@ export const listBackupsTool: ToolConfig = {
           backupVaultId: z.string().describe('The ID of the backup vault containing the backup'),
           state: z.string().describe('The current state of the backup'),
           description: z.string().optional().describe('Description of the backup'),
-          volumeUsagebytes: z.number().optional().describe('The size of the volume in bytes'),
+          volumeUsagebytes: z
+      .string()
+      .optional()
+      .describe('The size of the volume in bytes (decimal int64 string)'),
           backupType: z.string().optional().describe('The type of the backup'),
           sourceVolume: z.string().describe('The name of the source volume'),
           createTime: z.string().optional().describe('The creation time of the backup'),
           chainStoragebytes: z
-            .number()
+            .string()
             .optional()
-            .describe('The size of the backup chain in bytes'),
+            .describe('The size of the backup chain in bytes (decimal int64 string)'),
           satisfiesPzs: z
             .boolean()
             .optional()

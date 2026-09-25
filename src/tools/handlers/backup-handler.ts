@@ -3,7 +3,7 @@ import { NetAppClientFactory } from '../../utils/netapp-client-factory.js';
 import {
   formatProtobufTimestamp,
   normalizeStringEnum,
-  toInt64Number,
+  toInt64String,
 } from '../../utils/proto-format-utils.js';
 import { logger } from '../../logger.js';
 
@@ -74,7 +74,7 @@ function formatBackupData(backup: any, context?: { projectId?: string; location?
   // Copy basic properties
   if (backup.state !== undefined) result.state = normalizeStringEnum(backup.state);
 
-  result.volumeUsagebytes = toInt64Number(backup.volumeUsagebytes, 0);
+  result.volumeUsagebytes = toInt64String(backup.volumeUsagebytes, '0');
 
   // Format timestamps if they exist
   const createTime = formatProtobufTimestamp(backup.createTime);
@@ -86,7 +86,7 @@ function formatBackupData(backup: any, context?: { projectId?: string; location?
   // Copy optional properties according to schema
   if (backup.description) result.description = backup.description;
   if (backup.backupType !== undefined) result.backupType = normalizeStringEnum(backup.backupType);
-  result.chainStoragebytes = toInt64Number(backup.chainStoragebytes, 0);
+  result.chainStoragebytes = toInt64String(backup.chainStoragebytes, '0');
   if (backup.satisfiesPzs !== undefined) result.satisfiesPzs = backup.satisfiesPzs;
   if (backup.satisfiesPzi !== undefined) result.satisfiesPzi = backup.satisfiesPzi;
   if (backup.volumeRegion) result.volumeRegion = backup.volumeRegion;

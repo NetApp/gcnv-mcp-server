@@ -20,6 +20,18 @@ export function toInt64Number(value: unknown, fallback = 0): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+export function toInt64String(value: unknown, fallback = '0'): string {
+  if (value === undefined || value === null) return fallback;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  if (typeof value === 'bigint') return value.toString();
+  if (typeof value === 'object') {
+    const str = String(value);
+    if (/^-?\d+$/.test(str)) return str;
+  }
+  return fallback;
+}
+
 export function normalizeNamedEnum(
   value: unknown,
   nameByNumber: Record<number, string>
