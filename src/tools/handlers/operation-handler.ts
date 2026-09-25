@@ -185,7 +185,7 @@ export const listOperationsHandler: ToolHandler = async (args: { [key: string]: 
     const location = args.location ?? '-';
 
     const netAppClient = NetAppClientFactory.createClient();
-    const name = `projects/${projectId}/locations/${location}/operations`;
+    const name = `projects/${projectId}/locations/${location}`;
 
     const request: { name: string; filter?: string; pageSize?: number; pageToken?: string } = {
       name,
@@ -221,16 +221,13 @@ export const listOperationsHandler: ToolHandler = async (args: { [key: string]: 
   } catch (error: any) {
     log.error({ err: error }, 'Error listing operations');
     return {
+      isError: true,
       content: [
         {
           type: 'text' as const,
           text: `Error listing operations: ${error.message || 'Unknown error'}`,
         },
       ],
-      structuredContent: {
-        operations: [],
-        error: error.message || 'Unknown error',
-      },
     };
   }
 };

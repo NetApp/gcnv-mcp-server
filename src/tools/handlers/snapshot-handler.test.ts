@@ -289,7 +289,7 @@ describe('snapshot-handler', () => {
 
     expect(revertVolume).toHaveBeenCalledWith({
       name: 'projects/p1/locations/us-central1/volumes/vol1',
-      snapshot: 'projects/p1/locations/us-central1/volumes/vol1/snapshots/s1',
+      snapshotId: 's1',
     });
     expect(result.structuredContent).toEqual({ success: true, operationId: 'op-rev' });
   });
@@ -413,16 +413,15 @@ describe('snapshot-handler', () => {
       ).isError
     ).toBe(true);
 
-    expect(
-      (
-        (await revertVolumeToSnapshotHandler({
-          projectId: 'p1',
-          location: 'us-central1',
-          volumeId: 'vol1',
-          snapshotId: 's1',
-        })) as any
-      ).isError
-    ).toBe(true);
+    const revertResult = (await revertVolumeToSnapshotHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+      snapshotId: 's1',
+    })) as any;
+    expect(revertResult.isError).toBe(true);
+    expect(revertResult.structuredContent).toBeUndefined();
+    expect(revertResult.content?.[0]?.text).toContain('boom');
   });
 
   it('returns Unknown error for each handler when the underlying client call throws without message', async () => {
