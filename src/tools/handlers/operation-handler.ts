@@ -185,9 +185,6 @@ export const listOperationsHandler: ToolHandler = async (args: { [key: string]: 
     const location = args.location ?? '-';
 
     const netAppClient = NetAppClientFactory.createClient();
-    // ListOperationsRequest.name is the location parent only — never append /operations.
-    // gRPC (default): ListOperations RPC; no URL path. REST: google.api.http maps to
-    // GET .../v1/{name=projects/*/locations/*}/operations; google-gax applies that in fallback mode.
     const name = `projects/${projectId}/locations/${location}`;
 
     const request: { name: string; filter?: string; pageSize?: number; pageToken?: string } = {
@@ -223,8 +220,6 @@ export const listOperationsHandler: ToolHandler = async (args: { [key: string]: 
     };
   } catch (error: any) {
     log.error({ err: error }, 'Error listing operations');
-    // isError distinguishes API failure from a successful empty list ({ operations: [] }).
-    // Omit structuredContent so clients surface the text error instead of a fake empty list.
     return {
       isError: true,
       content: [
