@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "gcnv-mcp": {
+      "command": "node",
+      "args": ["build/index.js", "--transport", "stdio"]
+    }
+  }
+}

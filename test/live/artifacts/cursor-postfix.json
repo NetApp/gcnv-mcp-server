@@ -1,0 +1,41 @@
+{
+  "client": "Cursor IDE MCP (user-gcnv-mcp)",
+  "serverBinary": "/Users/aryaman/LlmProjects/netapp-cloud-agent/mcp/gcnv-mcp-server/build/index.js",
+  "serverBranch": "fix/backup-enforced-retention-timestamp (post-fix)",
+  "step1_toolCall": {
+    "tool": "gcnv_backup_list",
+    "arguments": {
+      "projectId": "g1p-astral-tst-host-01",
+      "location": "us-central1",
+      "backupVaultId": "r3-vault-005332",
+      "pageSize": 3
+    }
+  },
+  "step3_mcpClientReceives": {
+    "isError": false,
+    "structuredContent": {
+      "backups": [
+        {
+          "name": "projects/g1p-astral-tst-host-01/locations/us-central1/backupVaults/r3-vault-005332/backups/mcp-retention-live-test-2",
+          "backupId": "mcp-retention-live-test-2",
+          "backupVaultId": "r3-vault-005332",
+          "sourceVolume": "projects/644189374367/locations/us-central1/volumes/test-ext-vol-1",
+          "state": "CREATING",
+          "volumeUsagebytes": 0,
+          "createTime": "2026-09-25T05:09:45.000Z",
+          "enforcedRetentionEndTime": "2026-10-09T05:09:45.000Z",
+          "description": "Live MCP schema regression test",
+          "backupType": "MANUAL",
+          "chainStoragebytes": 0,
+          "satisfiesPzs": false,
+          "satisfiesPzi": false,
+          "volumeRegion": "us-central1",
+          "backupRegion": "us-central1",
+          "sourceSnapshot": "",
+          "labels": {}
+        }
+      ]
+    }
+  },
+  "step4_outcome": "PASS — Cursor received validated backup list with ISO enforcedRetentionEndTime"
+}

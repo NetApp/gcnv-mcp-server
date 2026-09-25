@@ -1,0 +1,24 @@
+{
+  "transport": "stdio",
+  "serverEntry": "/tmp/gcnv-mcp-main/build/index.js",
+  "step1_toolCall": {
+    "name": "gcnv_backup_list",
+    "arguments": {
+      "projectId": "g1p-astral-tst-host-01",
+      "location": "us-central1",
+      "backupVaultId": "r3-vault-005332",
+      "pageSize": 5
+    }
+  },
+  "step2_mcpResult": {
+    "isError": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "MCP error -32602: Output validation error: Invalid structured content for tool gcnv_backup_list: Expected number, received object at backups[0].enforcedRetentionEndTime"
+      }
+    ],
+    "structuredContent": null
+  },
+  "step3_outcome": "FAIL — MCP output validation rejected structuredContent"
+}
