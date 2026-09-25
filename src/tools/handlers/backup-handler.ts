@@ -1,12 +1,13 @@
 import { ToolHandler } from '../../types/tool.js';
 import { NetAppClientFactory } from '../../utils/netapp-client-factory.js';
+import {
+  formatProtobufTimestamp,
+  normalizeStringEnum,
+  toInt64String,
+} from '../../utils/proto-format-utils.js';
 import { logger } from '../../logger.js';
 
 const log = logger.child({ module: 'backup-handler' });
-
-function normalizeStringEnum(value: any): string {
-  return typeof value === 'string' ? value : 'UNKNOWN';
-}
 
 function parseBlockDeviceOsType(input: any): { value?: number; error?: string } {
   if (input === undefined || input === null) return {};
@@ -35,8 +36,19 @@ function parseBlockDeviceOsType(input: any): { value?: number; error?: string } 
   return { error: 'blockDevice.osType must be a string enum name or enum number' };
 }
 
+function ensureBackupRequiredFields(
+  result: any,
+  context?: { projectId?: string; location?: string }
+): any {
+  if (!result.state) result.state = 'UNKNOWN';
+  if (!result.sourceVolume && context?.projectId && context?.location) {
+    result.sourceVolume = `projects/${context.projectId}/locations/${context.location}/volumes/unknown`;
+  }
+  return result;
+}
+
 // Helper to format backup data for responses
-function formatBackupData(backup: any): any {
+function formatBackupData(backup: any, context?: { projectId?: string; location?: string }): any {
   const result: any = {};
 
   if (!backup) return result;
@@ -62,28 +74,27 @@ function formatBackupData(backup: any): any {
   // Copy basic properties
   if (backup.state !== undefined) result.state = normalizeStringEnum(backup.state);
 
-  // Map volume usage bytes
-  result.volumeUsagebytes = backup.volumeUsagebytes; // Keep original for compatibility
+  result.volumeUsagebytes = toInt64String(backup.volumeUsagebytes, '0');
 
   // Format timestamps if they exist
-  if (backup.createTime) {
-    result.createTime = new Date(backup.createTime.seconds * 1000).toISOString();
-  }
+  const createTime = formatProtobufTimestamp(backup.createTime);
+  if (createTime) result.createTime = createTime;
+
+  const enforcedRetentionEndTime = formatProtobufTimestamp(backup.enforcedRetentionEndTime);
+  if (enforcedRetentionEndTime) result.enforcedRetentionEndTime = enforcedRetentionEndTime;
 
   // Copy optional properties according to schema
   if (backup.description) result.description = backup.description;
   if (backup.backupType !== undefined) result.backupType = normalizeStringEnum(backup.backupType);
-  result.chainStoragebytes = backup.chainStoragebytes || 0;
+  result.chainStoragebytes = toInt64String(backup.chainStoragebytes, '0');
   if (backup.satisfiesPzs !== undefined) result.satisfiesPzs = backup.satisfiesPzs;
   if (backup.satisfiesPzi !== undefined) result.satisfiesPzi = backup.satisfiesPzi;
   if (backup.volumeRegion) result.volumeRegion = backup.volumeRegion;
   if (backup.backupRegion) result.backupRegion = backup.backupRegion;
-  if (backup.enforcedRetentionEndTime)
-    result.enforcedRetentionEndTime = backup.enforcedRetentionEndTime;
   result.sourceSnapshot = backup.sourceSnapshot;
   if (backup.labels) result.labels = backup.labels;
 
-  return result;
+  return ensureBackupRequiredFields(result, context);
 }
 
 // Create Backup Handler
@@ -209,16 +220,9 @@ export const getBackupHandler: ToolHandler = async (args: { [key: string]: any }
     log.info({ backup }, 'Raw backup data');
 
     // Format the backup data
-    const formattedData = formatBackupData(backup);
+    const formattedData = formatBackupData(backup, { projectId, location });
 
     log.info({ formattedData }, 'Formatted backup data');
-
-    // Ensure all required fields are present
-    if (!formattedData.state) formattedData.state = 'UNKNOWN';
-    if (!formattedData.sourceVolume) {
-      // Create a default source volume name based on the backup name pattern
-      formattedData.sourceVolume = `projects/${projectId}/locations/${location}/storagePools/unknown/volumes/unknown`;
-    }
 
     return {
       content: [
@@ -278,7 +282,12 @@ export const listBackupsHandler: ToolHandler = async (args: { [key: string]: any
     const [backups, , nextPageToken] = await netAppClient.listBackups(options);
     log.info({ backups }, 'Raw backups data');
 
-    const formattedBackups = backups.map((backup: any) => formatBackupData(backup));
+    const formattedBackups = backups.map((backup: any) =>
+      formatBackupData(backup, {
+        projectId,
+        location: location === '-' ? 'unknown' : location,
+      })
+    );
     log.info({ formattedBackups }, 'Formatted backups data');
 
     return {

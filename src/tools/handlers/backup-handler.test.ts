@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
+import { getBackupTool, listBackupsTool } from '../backup-tools.js';
 
 const createClientMock = vi.fn();
 
@@ -175,12 +177,12 @@ describe('backup-handler', () => {
         createTime: { seconds: 1 },
         description: 'd',
         backupType: 'MANUAL',
-        chainStoragebytes: 0,
+        chainStoragebytes: '0',
         satisfiesPzs: false,
         satisfiesPzi: false,
         volumeRegion: 'r1',
         backupRegion: 'r2',
-        enforcedRetentionEndTime: 't',
+        enforcedRetentionEndTime: { seconds: 1234567890, nanos: 500_000_000 },
         sourceSnapshot: 'snap',
         labels: { a: 'b' },
       },
@@ -202,12 +204,12 @@ describe('backup-handler', () => {
       state: 'READY',
       description: 'd',
       backupType: 'MANUAL',
-      chainStoragebytes: 0,
+      chainStoragebytes: '0',
       satisfiesPzs: false,
       satisfiesPzi: false,
       volumeRegion: 'r1',
       backupRegion: 'r2',
-      enforcedRetentionEndTime: 't',
+      enforcedRetentionEndTime: '2009-02-13T23:31:30.500Z',
       sourceSnapshot: 'snap',
       labels: { a: 'b' },
     });
@@ -253,6 +255,147 @@ describe('backup-handler', () => {
       })) as any;
       expect(res.isError).toBe(true);
     }
+  });
+
+  it('listBackupsHandler preserves protobuf Timestamp nanos in enforcedRetentionEndTime', async () => {
+    const listBackups = vi.fn().mockResolvedValue([
+      [
+        {
+          name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
+          sourceVolume: 'projects/p1/locations/us-central1/volumes/vol1',
+          state: 'READY',
+          enforcedRetentionEndTime: { seconds: 1234567890, nanos: 500_000_000 },
+        },
+      ],
+      undefined,
+      undefined,
+    ]);
+    createClientMock.mockReturnValue({ listBackups });
+
+    const { listBackupsHandler } = await import('./backup-handler.js');
+    const result = await listBackupsHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+    });
+
+    expect((result.structuredContent as any).backups[0].enforcedRetentionEndTime).toBe(
+      '2009-02-13T23:31:30.500Z'
+    );
+  });
+
+  it('listBackupsHandler preserves string int64 byte fields', async () => {
+    const listBackups = vi.fn().mockResolvedValue([
+      [
+        {
+          name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
+          sourceVolume: 'projects/p1/locations/us-central1/volumes/vol1',
+          state: 'READY',
+          volumeUsagebytes: '12345',
+          chainStoragebytes: '67890',
+        },
+      ],
+      undefined,
+      undefined,
+    ]);
+    createClientMock.mockReturnValue({ listBackups });
+
+    const { listBackupsHandler } = await import('./backup-handler.js');
+    const result = await listBackupsHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+    });
+
+    expect((result.structuredContent as any).backups[0]).toMatchObject({
+      volumeUsagebytes: '12345',
+      chainStoragebytes: '67890',
+    });
+  });
+
+  it('listBackupsHandler preserves int64 byte fields above MAX_SAFE_INTEGER', async () => {
+    const listBackups = vi.fn().mockResolvedValue([
+      [
+        {
+          name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
+          sourceVolume: 'projects/p1/locations/us-central1/volumes/vol1',
+          state: 'READY',
+          volumeUsagebytes: '9007199254740993',
+          chainStoragebytes: '9007199254740993',
+        },
+      ],
+      undefined,
+      undefined,
+    ]);
+    createClientMock.mockReturnValue({ listBackups });
+
+    const { listBackupsHandler } = await import('./backup-handler.js');
+    const result = await listBackupsHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+    });
+
+    expect((result.structuredContent as any).backups[0]).toMatchObject({
+      volumeUsagebytes: '9007199254740993',
+      chainStoragebytes: '9007199254740993',
+    });
+  });
+
+  it('listBackupsHandler fills sourceVolume placeholder when missing', async () => {
+    const listBackups = vi.fn().mockResolvedValue([
+      [
+        {
+          name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
+          state: 'READY',
+        },
+      ],
+      undefined,
+      undefined,
+    ]);
+    createClientMock.mockReturnValue({ listBackups });
+
+    const { listBackupsHandler } = await import('./backup-handler.js');
+    const result = await listBackupsHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+    });
+
+    expect((result.structuredContent as any).backups[0].sourceVolume).toBe(
+      'projects/p1/locations/us-central1/volumes/unknown'
+    );
+  });
+
+  it('listBackupsHandler structuredContent passes MCP output schema validation', async () => {
+    const listBackups = vi.fn().mockResolvedValue([
+      [
+        {
+          name: 'projects/p1/locations/us-central1/backupVaults/bv1/backups/b1',
+          sourceVolume: 'projects/p1/locations/us-central1/volumes/vol1',
+          state: 'READY',
+          createTime: { seconds: 1234567890, nanos: 0 },
+          enforcedRetentionEndTime: { seconds: 1234567890, nanos: 500_000_000 },
+          volumeUsagebytes: '100',
+        },
+      ],
+      undefined,
+      undefined,
+    ]);
+    createClientMock.mockReturnValue({ listBackups });
+
+    const listOutputSchema = z.object(listBackupsTool.outputSchema);
+    const { listBackupsHandler } = await import('./backup-handler.js');
+    const result = await listBackupsHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      backupVaultId: 'bv1',
+    });
+
+    expect(() => listOutputSchema.parse(result.structuredContent)).not.toThrow();
+    expect(() =>
+      z.object(getBackupTool.outputSchema).parse(result.structuredContent.backups[0])
+    ).not.toThrow();
   });
 
   it('listBackupsHandler calls listBackups and returns formatted backups + nextPageToken', async () => {

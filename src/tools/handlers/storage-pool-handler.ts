@@ -1,5 +1,10 @@
 import { ToolHandler } from '../../types/tool.js';
 import { NetAppClientFactory } from '../../utils/netapp-client-factory.js';
+import {
+  formatProtobufTimestamp,
+  normalizeNamedEnum,
+  toInt64Number,
+} from '../../utils/proto-format-utils.js';
 import { logger } from '../../logger.js';
 
 const log = logger.child({ module: 'storage-pool-handler' });
@@ -77,14 +82,32 @@ function normalizeStoragePoolMode(mode: any): string | undefined {
   return undefined;
 }
 
-function formatCreateTime(createTime: any): string | undefined {
-  const seconds = createTime?.seconds;
-  if (seconds === undefined || seconds === null) return undefined;
+function normalizePoolServiceLevel(value: unknown): string {
+  return (
+    normalizeNamedEnum(value, {
+      0: 'SERVICE_LEVEL_UNSPECIFIED',
+      1: 'PREMIUM',
+      2: 'EXTREME',
+      3: 'STANDARD',
+      4: 'FLEX',
+    }) ?? ''
+  );
+}
 
-  const millis = Number(seconds) * 1000;
-  if (!Number.isFinite(millis)) return undefined;
+function normalizePoolQosType(value: unknown): string | undefined {
+  return normalizeNamedEnum(value, {
+    0: 'QOS_TYPE_UNSPECIFIED',
+    1: 'AUTO',
+    2: 'MANUAL',
+  });
+}
 
-  return new Date(millis).toISOString();
+function normalizePoolEncryptionType(value: unknown): string | undefined {
+  return normalizeNamedEnum(value, {
+    0: 'ENCRYPTION_TYPE_UNSPECIFIED',
+    1: 'SERVICE_MANAGED',
+    2: 'CLOUD_KMS',
+  });
 }
 
 function isOntapPool(pool: { mode?: any }): boolean {
@@ -414,16 +437,16 @@ export const getStoragePoolHandler: ToolHandler = async (args: { [key: string]: 
       storagePoolId: storagePoolId,
       capacityGib: Number(storagePool.capacityGib) || 0,
       volumeCapacityGib: Number(storagePool.volumeCapacityGib) || 0,
-      volumecount: storagePool.volumeCount || 0,
-      serviceLevel: storagePool.serviceLevel || '',
+      volumecount: toInt64Number(storagePool.volumeCount, 0),
+      serviceLevel: normalizePoolServiceLevel(storagePool.serviceLevel),
       state: normalizeStoragePoolState(storagePool.state),
-      createTime: formatCreateTime(storagePool.createTime),
+      createTime: formatProtobufTimestamp(storagePool.createTime),
       description: storagePool.description || '',
       labels: storagePool.labels || {},
       network: storagePool.network,
       activeDirectory: storagePool.activeDirectory,
       kmsConfig: storagePool.kmsConfig,
-      encryptionType: storagePool.encryptionType,
+      encryptionType: normalizePoolEncryptionType(storagePool.encryptionType),
       ldapEnabled: storagePool.ldapEnabled ?? false,
       customPerformanceEnabled:
         typeof storagePool.customPerformanceEnabled === 'boolean'
@@ -433,7 +456,7 @@ export const getStoragePoolHandler: ToolHandler = async (args: { [key: string]: 
         storagePool.totalThroughputMibps !== undefined
           ? Number(storagePool.totalThroughputMibps) || 0
           : undefined,
-      qosType: storagePool.qosType,
+      qosType: normalizePoolQosType(storagePool.qosType),
       allowAutoTiering: storagePool.allowAutoTiering ?? false,
       storagePoolType: storagePool.type,
       mode: normalizeStoragePoolMode((storagePool as any).mode),
@@ -501,18 +524,18 @@ export const listStoragePoolsHandler: ToolHandler = async (args: { [key: string]
       return {
         name: name,
         storagePoolId: extractedId,
-        serviceLevel: pool.serviceLevel || '',
+        serviceLevel: normalizePoolServiceLevel(pool.serviceLevel),
         capacityGib: Number(pool.capacityGib) || 0,
         volumeCapacityGib: Number(pool.volumeCapacityGib) || 0,
-        volumecount: pool.volumeCount || 0,
+        volumecount: toInt64Number(pool.volumeCount, 0),
         state: normalizeStoragePoolState(pool.state),
-        createTime: formatCreateTime(pool.createTime),
+        createTime: formatProtobufTimestamp(pool.createTime),
         description: pool.description || '',
         labels: pool.labels || {},
         network: pool.network,
         activeDirectory: pool.activeDirectory,
         kmsConfig: pool.kmsConfig,
-        encryptionType: pool.encryptionType,
+        encryptionType: normalizePoolEncryptionType(pool.encryptionType),
         ldapEnabled: pool.ldapEnabled ?? false,
         customPerformanceEnabled:
           typeof pool.customPerformanceEnabled === 'boolean'
@@ -522,7 +545,7 @@ export const listStoragePoolsHandler: ToolHandler = async (args: { [key: string]
           pool.totalThroughputMibps !== undefined
             ? Number(pool.totalThroughputMibps) || 0
             : undefined,
-        qosType: pool.qosType,
+        qosType: normalizePoolQosType(pool.qosType),
         allowAutoTiering: pool.allowAutoTiering ?? false,
         storagePoolType: pool.type,
         mode: normalizeStoragePoolMode(pool.mode),

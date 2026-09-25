@@ -1,6 +1,7 @@
 import { ToolHandler } from '../../types/tool.js';
 import { z } from 'zod';
 import { NetAppClientFactory } from '../../utils/netapp-client-factory.js';
+import { formatProtobufTimestamp, normalizeStringEnum } from '../../utils/proto-format-utils.js';
 import { getKmsConfigTool, listKmsConfigsTool } from '../kms-config-tools.js';
 import { logger } from '../../logger.js';
 
@@ -22,14 +23,13 @@ function formatKmsConfigData(config: any): any {
   }
 
   if (config.cryptoKeyName) result.cryptoKeyName = config.cryptoKeyName;
-  if (config.state) result.state = config.state;
+  if (config.state !== undefined) result.state = normalizeStringEnum(config.state);
   if (config.stateDetails) result.stateDetails = config.stateDetails;
   if (config.instructions) result.instructions = config.instructions;
   if (config.serviceAccount) result.serviceAccount = config.serviceAccount;
 
-  if (config.createTime) {
-    result.createTime = new Date(config.createTime.seconds * 1000).toISOString();
-  }
+  const createTime = formatProtobufTimestamp(config.createTime);
+  if (createTime) result.createTime = createTime;
 
   if (config.description) result.description = config.description;
   if (config.labels) result.labels = config.labels;

@@ -1,13 +1,10 @@
 import { ToolHandler } from '../../types/tool.js';
 import { NetAppClientFactory } from '../../utils/netapp-client-factory.js';
+import { formatProtobufTimestamp, normalizeStringEnum } from '../../utils/proto-format-utils.js';
 import { protos } from '@google-cloud/netapp';
 import { logger } from '../../logger.js';
 
 const log = logger.child({ module: 'replication-handler' });
-
-function normalizeStringEnum(value: any): string {
-  return typeof value === 'string' ? value : 'UNKNOWN';
-}
 
 // Helper to format replication data for responses
 function formatReplicationData(replication: any): any {
@@ -28,20 +25,22 @@ function formatReplicationData(replication: any): any {
   if (replication.state !== undefined) result.state = normalizeStringEnum(replication.state);
   if (replication.healthy !== undefined) result.healthy = replication.healthy;
 
-  // Format timestamps if they exist
-  if (replication.createTime) {
-    result.createTime = new Date(replication.createTime.seconds * 1000).toISOString();
-  }
+  const createTime = formatProtobufTimestamp(replication.createTime);
+  if (createTime) result.createTime = createTime;
 
-  if (replication.lastReplicationTime) {
-    result.lastReplicationTime = new Date(
-      replication.lastReplicationTime.seconds * 1000
-    ).toISOString();
-  }
+  const lastReplicationTimestamp =
+    replication.lastReplicationTime ?? replication.transferStats?.lastTransferEndTime;
+  const lastReplicationTime = formatProtobufTimestamp(lastReplicationTimestamp);
+  if (lastReplicationTime) result.lastReplicationTime = lastReplicationTime;
 
   // Copy optional properties
   if (replication.description) result.description = replication.description;
   if (replication.labels) result.labels = replication.labels;
+
+  if (!result.state) result.state = 'UNKNOWN';
+  if (!result.sourceVolume) result.sourceVolume = '';
+  if (!result.destinationVolume) result.destinationVolume = '';
+  if (!result.createTime) result.createTime = '';
 
   return result;
 }

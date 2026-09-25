@@ -1,12 +1,9 @@
 import { ToolHandler } from '../../types/tool.js';
 import { NetAppClientFactory } from '../../utils/netapp-client-factory.js';
+import { formatProtobufTimestamp, normalizeStringEnum } from '../../utils/proto-format-utils.js';
 import { logger } from '../../logger.js';
 
 const log = logger.child({ module: 'snapshot-handler' });
-
-function normalizeStringEnum(value: any): string {
-  return typeof value === 'string' ? value : 'UNKNOWN';
-}
 
 // Helper to format snapshot data for responses
 function formatSnapshotData(snapshot: any): any {
@@ -30,14 +27,16 @@ function formatSnapshotData(snapshot: any): any {
   // Copy basic properties
   if (snapshot.state !== undefined) result.state = normalizeStringEnum(snapshot.state);
 
-  // Format timestamps if they exist
-  if (snapshot.createTime) {
-    result.createTime = new Date(snapshot.createTime.seconds * 1000).toISOString();
-  }
+  const createTime = formatProtobufTimestamp(snapshot.createTime);
+  if (createTime) result.createTime = createTime;
 
   // Copy optional properties
   if (snapshot.description) result.description = snapshot.description;
   if (snapshot.labels) result.labels = snapshot.labels;
+
+  if (!result.state) result.state = 'UNKNOWN';
+  if (!result.volumeId) result.volumeId = 'unknown';
+  if (!result.createTime) result.createTime = '';
 
   return result;
 }
