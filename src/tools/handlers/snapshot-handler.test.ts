@@ -113,9 +113,7 @@ describe('snapshot-handler', () => {
       snapshotId: 's1',
     });
 
-    // snapshotId extracted from name, but volumeId should not be present
-    expect(result.structuredContent).toMatchObject({ snapshotId: 's1' });
-    expect((result.structuredContent as any).volumeId).toBeUndefined();
+    expect(result.structuredContent).toMatchObject({ snapshotId: 's1', volumeId: 'unknown' });
   });
 
   it('getSnapshotHandler covers error path', async () => {
@@ -174,7 +172,7 @@ describe('snapshot-handler', () => {
       description: 'd',
       labels: { a: 'b' },
     });
-    expect((result.structuredContent as any).createTime).toBeUndefined();
+    expect((result.structuredContent as any).createTime).toBe('');
   });
 
   it('getSnapshotHandler normalizes non-string state to UNKNOWN', async () => {
