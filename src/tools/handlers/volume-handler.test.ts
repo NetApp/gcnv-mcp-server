@@ -1228,6 +1228,10 @@ describe('volume-handler', () => {
         kmsConfig: 'kms',
         encryptionType: 'CMEK',
         backupConfig: { scheduledBackupEnabled: false },
+        snapshotPolicy: {
+          enabled: true,
+          dailySchedule: { snapshotsToKeep: 3, hour: 2, minute: 0 },
+        },
         tieringPolicy: { policy: 'AUTO' },
         hybridReplicationParameters: {
           replicationSchedule: 'HOURLY',
@@ -1279,6 +1283,10 @@ describe('volume-handler', () => {
       hasReplication: false,
       restrictedActions: [],
       exportPolicy: { rules: [] },
+      snapshotPolicy: {
+        enabled: true,
+        dailySchedule: { snapshotsToKeep: 3, hour: 2, minute: 0 },
+      },
       smbSettings: ['ENCRYPT_DATA'],
       hybridReplicationParameters: {
         replicationSchedule: 'HOURLY',

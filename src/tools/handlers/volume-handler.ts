@@ -230,6 +230,7 @@ function formatVolumeData(volume: any): any {
   if (volume.kmsConfig) result.kmsConfig = volume.kmsConfig;
   if (volume.encryptionType) result.encryptionType = volume.encryptionType;
   if (volume.backupConfig) result.backupConfig = volume.backupConfig;
+  if (volume.snapshotPolicy) result.snapshotPolicy = volume.snapshotPolicy;
   if (volume.tieringPolicy) result.tieringPolicy = volume.tieringPolicy;
   if (volume.hybridReplicationParameters)
     result.hybridReplicationParameters = volume.hybridReplicationParameters;
