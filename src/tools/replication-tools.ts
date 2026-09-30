@@ -48,11 +48,11 @@ export const getReplicationTool: ToolConfig = {
     createTime: z.string().describe('The timestamp when the replication was created'),
     description: z.string().optional().describe('The description of the replication'),
     labels: z.record(z.string()).optional().describe('Labels applied to the replication'),
-    healthy: z.boolean().describe('Whether the replication is healthy'),
+    healthy: z.boolean().optional().describe('Whether the replication is healthy'),
     lastReplicationTime: z
-      .date()
+      .string()
       .optional()
-      .describe('The timestamp of the last successful replication'),
+      .describe('The timestamp of the last successful replication (ISO 8601)'),
   },
 };
 
@@ -84,11 +84,11 @@ export const listReplicationsTool: ToolConfig = {
           createTime: z.string().describe('The timestamp when the replication was created'),
           description: z.string().optional().describe('The description of the replication'),
           labels: z.record(z.string()).optional().describe('Labels applied to the replication'),
-          healthy: z.boolean().describe('Whether the replication is healthy'),
+          healthy: z.boolean().optional().describe('Whether the replication is healthy'),
           lastReplicationTime: z
-            .date()
+            .string()
             .optional()
-            .describe('The timestamp of the last successful replication'),
+            .describe('The timestamp of the last successful replication (ISO 8601)'),
         })
       )
       .describe('List of replications'),

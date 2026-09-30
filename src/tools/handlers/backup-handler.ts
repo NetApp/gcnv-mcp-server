@@ -1,12 +1,13 @@
 import { ToolHandler } from '../../types/tool.js';
 import { NetAppClientFactory } from '../../utils/netapp-client-factory.js';
+import {
+  formatProtobufTimestamp,
+  normalizeStringEnum,
+  toInt64String,
+} from '../../utils/proto-format-utils.js';
 import { logger } from '../../logger.js';
 
 const log = logger.child({ module: 'backup-handler' });
-
-function normalizeStringEnum(value: any): string {
-  return typeof value === 'string' ? value : 'UNKNOWN';
-}
 
 function parseBlockDeviceOsType(input: any): { value?: number; error?: string } {
   if (input === undefined || input === null) return {};
@@ -42,46 +43,44 @@ function formatBackupData(backup: any): any {
   if (!backup) return result;
 
   if (backup.name) {
-    // Extract backupId from name (last part after last slash)
     const nameParts = backup.name.split('/');
     result.name = backup.name;
     result.backupId = nameParts[nameParts.length - 1];
 
-    // Extract backupVaultId from name
     const backupVaultMatch = backup.name.match(/\/backupVaults\/([^/]+)\/backups\//);
     if (backupVaultMatch && backupVaultMatch[1]) {
       result.backupVaultId = backupVaultMatch[1];
     }
   }
-
-  // Map source volume
-  if (backup.sourceVolume) {
-    result.sourceVolume = backup.sourceVolume; // Map sourceName to sourceVolume for schema consistency
+  if (!result.backupId && backup.backupId) {
+    result.backupId = String(backup.backupId);
   }
 
-  // Copy basic properties
+  if (backup.sourceVolume) {
+    result.sourceVolume = backup.sourceVolume;
+  }
+
   if (backup.state !== undefined) result.state = normalizeStringEnum(backup.state);
 
-  // Map volume usage bytes
-  result.volumeUsagebytes = backup.volumeUsagebytes; // Keep original for compatibility
+  result.volumeUsagebytes = toInt64String(backup.volumeUsagebytes, '0');
 
-  // Format timestamps if they exist
-  if (backup.createTime) {
-    result.createTime = new Date(backup.createTime.seconds * 1000).toISOString();
-  }
+  const createTime = formatProtobufTimestamp(backup.createTime);
+  if (createTime) result.createTime = createTime;
 
-  // Copy optional properties according to schema
+  const enforcedRetentionEndTime = formatProtobufTimestamp(backup.enforcedRetentionEndTime);
+  if (enforcedRetentionEndTime) result.enforcedRetentionEndTime = enforcedRetentionEndTime;
+
   if (backup.description) result.description = backup.description;
   if (backup.backupType !== undefined) result.backupType = normalizeStringEnum(backup.backupType);
-  result.chainStoragebytes = backup.chainStoragebytes || 0;
+  result.chainStoragebytes = toInt64String(backup.chainStoragebytes, '0');
   if (backup.satisfiesPzs !== undefined) result.satisfiesPzs = backup.satisfiesPzs;
   if (backup.satisfiesPzi !== undefined) result.satisfiesPzi = backup.satisfiesPzi;
   if (backup.volumeRegion) result.volumeRegion = backup.volumeRegion;
   if (backup.backupRegion) result.backupRegion = backup.backupRegion;
-  if (backup.enforcedRetentionEndTime)
-    result.enforcedRetentionEndTime = backup.enforcedRetentionEndTime;
   result.sourceSnapshot = backup.sourceSnapshot;
   if (backup.labels) result.labels = backup.labels;
+
+  if (!result.state) result.state = 'UNKNOWN';
 
   return result;
 }
@@ -212,13 +211,6 @@ export const getBackupHandler: ToolHandler = async (args: { [key: string]: any }
     const formattedData = formatBackupData(backup);
 
     log.info({ formattedData }, 'Formatted backup data');
-
-    // Ensure all required fields are present
-    if (!formattedData.state) formattedData.state = 'UNKNOWN';
-    if (!formattedData.sourceVolume) {
-      // Create a default source volume name based on the backup name pattern
-      formattedData.sourceVolume = `projects/${projectId}/locations/${location}/storagePools/unknown/volumes/unknown`;
-    }
 
     return {
       content: [

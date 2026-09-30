@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
+import { getReplicationTool, listReplicationsTool } from '../replication-tools.js';
 
 const createClientMock = vi.fn();
 
@@ -182,6 +184,64 @@ describe('replication-handler', () => {
     });
 
     expect((result.structuredContent as any).lastReplicationTime).toMatch(/^\d{4}-/);
+  });
+
+  it('getReplicationHandler maps transferStats.lastTransferEndTime to lastReplicationTime', async () => {
+    const getReplication = vi.fn().mockResolvedValue([
+      {
+        name: 'projects/p1/locations/us-central1/volumes/vol1/replications/r1',
+        sourceVolume: 'src',
+        destinationVolume: 'dst',
+        state: 'READY',
+        transferStats: { lastTransferEndTime: { seconds: 1234567890, nanos: 0 } },
+      },
+    ]);
+    createClientMock.mockReturnValue({ getReplication });
+
+    const getOutputSchema = z.object(getReplicationTool.outputSchema);
+    const { getReplicationHandler } = await import('./replication-handler.js');
+    const result = await getReplicationHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+      replicationId: 'r1',
+    });
+
+    expect((result.structuredContent as any).lastReplicationTime).toBe('2009-02-13T23:31:30.000Z');
+    expect(() => getOutputSchema.parse(result.structuredContent)).not.toThrow();
+  });
+
+  it('listReplicationsHandler structuredContent passes MCP output schema validation', async () => {
+    const listReplications = vi.fn().mockResolvedValue([
+      [
+        {
+          name: 'projects/p1/locations/us-central1/volumes/vol1/replications/r1',
+          sourceVolume: 'src',
+          destinationVolume: 'dst',
+          state: 'READY',
+          createTime: { seconds: 1 },
+          transferStats: { lastTransferEndTime: { seconds: 2 } },
+        },
+      ],
+      undefined,
+      'next',
+    ]);
+    createClientMock.mockReturnValue({ listReplications });
+
+    const listOutputSchema = z.object(listReplicationsTool.outputSchema);
+    const { listReplicationsHandler } = await import('./replication-handler.js');
+    const result = await listReplicationsHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+    });
+
+    expect(() =>
+      listOutputSchema.parse({
+        ...result.structuredContent,
+        nextPageToken: result.structuredContent.nextPageToken || undefined,
+      })
+    ).not.toThrow();
   });
 
   it('getReplicationHandler formats all optional fields', async () => {

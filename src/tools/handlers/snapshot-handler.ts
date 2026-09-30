@@ -1,12 +1,9 @@
 import { ToolHandler } from '../../types/tool.js';
 import { NetAppClientFactory } from '../../utils/netapp-client-factory.js';
+import { formatProtobufTimestamp, normalizeStringEnum } from '../../utils/proto-format-utils.js';
 import { logger } from '../../logger.js';
 
 const log = logger.child({ module: 'snapshot-handler' });
-
-function normalizeStringEnum(value: any): string {
-  return typeof value === 'string' ? value : 'UNKNOWN';
-}
 
 // Helper to format snapshot data for responses
 function formatSnapshotData(snapshot: any): any {
@@ -15,29 +12,30 @@ function formatSnapshotData(snapshot: any): any {
   if (!snapshot) return result;
 
   if (snapshot.name) {
-    // Extract snapshotId from name (last part after last slash)
     const nameParts = snapshot.name.split('/');
     result.name = snapshot.name;
     result.snapshotId = nameParts[nameParts.length - 1];
 
-    // Extract volumeId from name
     const volumeMatch = snapshot.name.match(/\/volumes\/([^/]+)\/snapshots\//);
     if (volumeMatch && volumeMatch[1]) {
       result.volumeId = volumeMatch[1];
     }
   }
-
-  // Copy basic properties
-  if (snapshot.state !== undefined) result.state = normalizeStringEnum(snapshot.state);
-
-  // Format timestamps if they exist
-  if (snapshot.createTime) {
-    result.createTime = new Date(snapshot.createTime.seconds * 1000).toISOString();
+  if (!result.snapshotId && snapshot.snapshotId) {
+    result.snapshotId = String(snapshot.snapshotId);
   }
 
-  // Copy optional properties
+  if (snapshot.state !== undefined) result.state = normalizeStringEnum(snapshot.state);
+
+  const createTime = formatProtobufTimestamp(snapshot.createTime);
+  if (createTime) result.createTime = createTime;
+
   if (snapshot.description) result.description = snapshot.description;
   if (snapshot.labels) result.labels = snapshot.labels;
+
+  if (!result.state) result.state = 'UNKNOWN';
+  if (!result.volumeId) result.volumeId = 'unknown';
+  if (!result.createTime) result.createTime = '';
 
   return result;
 }

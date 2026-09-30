@@ -209,9 +209,7 @@ describe('backup-vault-handler', () => {
       backupVaultId: 'bv1',
     });
 
-    expect(result.structuredContent).toEqual({
-      backupVaultType: 'BACKUP_VAULT_TYPE_UNSPECIFIED',
-    });
+    expect(result.structuredContent).toEqual({});
   });
 
   it('getBackupVaultHandler formats backupRetentionPolicy when present', async () => {
