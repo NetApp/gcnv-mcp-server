@@ -63,6 +63,9 @@ import {
   restoreBackupTool,
   restoreBackupFilesTool,
   updateBackupTool,
+  listStoragePoolBackupConfigsTool,
+  updateStoragePoolBackupConfigTool,
+  restoreStoragePoolVolumeTool,
 } from '../tools/backup-tools.js';
 import {
   createBackupHandler,
@@ -71,6 +74,9 @@ import {
   restoreBackupHandler,
   restoreBackupFilesHandler,
   updateBackupHandler,
+  listStoragePoolBackupConfigsHandler,
+  updateStoragePoolBackupConfigHandler,
+  restoreStoragePoolVolumeHandler,
 } from '../tools/handlers/backup-handler.js';
 import {
   getOperationTool,
@@ -284,6 +290,9 @@ export function registerAllTools(mcpServer: McpServer) {
   registerTool(restoreBackupTool, restoreBackupHandler);
   registerTool(restoreBackupFilesTool, restoreBackupFilesHandler);
   registerTool(updateBackupTool, updateBackupHandler);
+  registerTool(listStoragePoolBackupConfigsTool, listStoragePoolBackupConfigsHandler);
+  registerTool(updateStoragePoolBackupConfigTool, updateStoragePoolBackupConfigHandler);
+  registerTool(restoreStoragePoolVolumeTool, restoreStoragePoolVolumeHandler);
 
   // Register operation tools
   registerTool(getOperationTool, getOperationHandler);

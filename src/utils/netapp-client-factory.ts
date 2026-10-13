@@ -59,7 +59,7 @@ export class NetAppClientFactory {
     if (requestAccessToken) {
       const authClient = new OAuth2Client();
       authClient.setCredentials({ access_token: requestAccessToken });
-      clientOptions.authClient = authClient as unknown as ClientOptions['authClient'];
+      clientOptions.authClient = authClient;
     }
 
     const client = new NetAppClient(clientOptions);

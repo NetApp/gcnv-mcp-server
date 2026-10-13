@@ -10,7 +10,7 @@ A [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server for man
 | **Volumes**           | create, get, list, update                                                           |
 | **Snapshots**         | create, get, list, update, revert                                                   |
 | **Backup Vaults**     | create, get, list, update                                                           |
-| **Backups**           | create, get, list, update, restore, restore files                                   |
+| **Backups**           | create, get, list, update, restore, restore files, ONTAP-mode backup config/restore |
 | **Backup Policies**   | create, get, list, update                                                           |
 | **Replications**      | create, get, list, update, stop, resume, reverse direction, sync, establish peering |
 | **Active Directory**  | create, get, list, update                                                           |
@@ -331,14 +331,17 @@ These flags require `protocols` to include `SMB`. `CONTINUOUSLY_AVAILABLE` is **
 
 ### Backup Tools
 
-| Tool                        | Description                               |
-| --------------------------- | ----------------------------------------- |
-| `gcnv_backup_create`        | Create a backup from a volume or snapshot |
-| `gcnv_backup_get`           | Get backup details                        |
-| `gcnv_backup_list`          | List backups in a vault                   |
-| `gcnv_backup_update`        | Update backup description or labels       |
-| `gcnv_backup_restore`       | Create a new volume from a backup         |
-| `gcnv_backup_restore_files` | Restore specific files from a backup      |
+| Tool                                     | Description                                                                   |
+| ---------------------------------------- | ----------------------------------------------------------------------------- |
+| `gcnv_backup_create`                     | Create a backup from a volume or snapshot (incl. ONTAP-mode volumes)          |
+| `gcnv_backup_get`                        | Get backup details                                                            |
+| `gcnv_backup_list`                       | List backups in a vault                                                       |
+| `gcnv_backup_update`                     | Update backup description or labels                                           |
+| `gcnv_backup_restore`                    | Create a new volume from a backup                                             |
+| `gcnv_backup_restore_files`              | Restore specific files from a backup                                          |
+| `gcnv_storage_pool_backup_config_list`   | List backup vault/policy assignments of ONTAP-mode volumes                    |
+| `gcnv_storage_pool_backup_config_update` | Assign, pause, resume, or unassign scheduled backups for an ONTAP-mode volume |
+| `gcnv_storage_pool_restore_volume`       | Restore a backup (full or selected files) into an ONTAP-mode volume           |
 
 ### Backup Policy Tools
 

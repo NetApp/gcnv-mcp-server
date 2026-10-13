@@ -347,11 +347,22 @@ Notes:
 - `gcnv_backup_create`, `..._get`, `..._list`, `..._update`
 - `gcnv_backup_restore` (create a new volume from a backup; requires `capacityGib` and `protocols`)
 - `gcnv_backup_restore_files` (restore specific files from a backup into a destination volume)
+- `gcnv_storage_pool_backup_config_list`, `gcnv_storage_pool_backup_config_update` (ONTAP-mode scheduled backups)
+- `gcnv_storage_pool_restore_volume` (ONTAP-mode restore into an existing ONTAP volume)
 
 Notes:
 
 - Backup vault immutability: use `backupRetentionPolicy` (for example `dailyBackupImmutable`, `weeklyBackupImmutable`, `monthlyBackupImmutable`, `manualBackupImmutable`) on create/update to make backups immutable per policy.
-- Backup create source: you can create a backup from either a `sourceVolumeName` or a `sourceSnapshotName` (provide exactly one).
+- Backup create source: provide exactly one of `sourceVolumeName`, `sourceSnapshotName`, or (ONTAP-mode) `ontapStoragePool` + `ontapVolumeUuid`.
+- ONTAP-mode backups:
+  - Backups, backup vaults, and backup policies for ONTAP-mode pools are Google Cloud control-plane features. Use the `gcnv_*` backup tools above, not `ontap_execute`; ONTAP REST has no vault backup endpoint.
+  - ONTAP volumes are identified by UUID (from `ontap_volume_list`), not by a GCNV volume name, so `sourceVolumeName` does not work for them.
+  - Manual backup: `gcnv_backup_create` with `ontapStoragePool` (pool ID or full resource name) and `ontapVolumeUuid`; optional `ontapSnapshotUuid` backs up an existing ONTAP snapshot. A pool ID is resolved under the backup `location`; pass the full pool resource name when the pool location differs (for example a zonal pool such as `us-east4-a` with a regional vault in `us-east4`).
+  - Cross-region backup vaults are not supported for ONTAP-mode; use an `IN_REGION` vault.
+  - Scheduled backups: `gcnv_storage_pool_backup_config_update` assigns `backupVault` / `backupPolicies` and pauses or resumes with `scheduledBackupEnabled`. Pass `backupPolicies: []` to unassign the policy. Only provided fields are changed. Use `gcnv_storage_pool_backup_config_list` to view current assignments.
+  - Restore: `gcnv_storage_pool_restore_volume` restores into an existing ONTAP volume by UUID. Omit `fileList` for a full restore (the target must be a DP-type volume created through ONTAP first); pass `fileList` (absolute paths) and optional `restoreDestinationPath` for a selective restore. Set `backupLocation` when the vault location differs from the pool location.
+  - Backup get/list responses for ONTAP-mode backups return `ontapSource` instead of `sourceVolume`.
+  - If the API rejects the storage pool name, retry with the numeric project number in the pool resource name.
 - Cross-region backup vaults (`gcnv_backup_vault_create`):
   - `backupVaultType` is optional and defaults to `IN_REGION`. Supported values are `IN_REGION` and `CROSS_REGION`.
   - For `IN_REGION`, omit `backupRegion` or set it to the same region as `location`.
@@ -361,7 +372,7 @@ Notes:
 - Backup vault get/list responses may include `kmsConfig`, `encryptionState`, and `backupsCryptoKeyVersion`. Do not infer omitted region or cross-region linkage fields.
 - Always clarify retention rules, correct region, and correct target volume/storage pool before creating/restoring.
 - For a full restore into a `DEFAULT`-mode pool, always use `gcnv_backup_restore`; never substitute `gcnv_volume_create`, which creates an empty volume without restoring backup data.
-- A full restore creates a new volume. `targetVolumeId` must be unused; overwriting an existing volume is not supported, and `gcnv_backup_restore` has no `restoreOption`.
+- A Default-mode full restore (`gcnv_backup_restore`) creates a new volume. `targetVolumeId` must be unused; overwriting an existing volume is not supported, and `gcnv_backup_restore` has no `restoreOption`.
 - Before proposing a full restore, read the backup to identify its source volume, then read the source volume and storage pool. Pass the source volume's capacity as `capacityGib` and its protocols as `protocols`.
 - The full-restore handler creates the volume with `restoreParameters.sourceBackup`. `shareName` and `description` are optional.
 - For `gcnv_backup_restore_files`, confirm:
