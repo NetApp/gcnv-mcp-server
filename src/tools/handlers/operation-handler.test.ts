@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { protos } from '@google-cloud/netapp';
 
 const createClientMock = vi.fn();
 
@@ -393,5 +394,85 @@ describe('operation-handler', () => {
     expect((result.structuredContent as any).operations[0].createTime).toBe(
       '1970-01-01T00:00:01.000Z'
     );
+  });
+
+  describe('packed protobuf Any metadata/response', () => {
+    const v1 = protos.google.cloud.netapp.v1;
+    const packedMetadata = (typeUrlVersion: 'v1' | 'v1beta1') => ({
+      type_url: `type.googleapis.com/google.cloud.netapp.${typeUrlVersion}.OperationMetadata`,
+      value: Buffer.from(
+        v1.OperationMetadata.encode({
+          createTime: { seconds: 1 },
+          target: 'projects/p/locations/l/volumes/v1',
+          verb: 'create',
+        }).finish()
+      ),
+    });
+
+    it.each(['v1', 'v1beta1'] as const)(
+      'getOperationHandler decodes %s metadata and response instead of returning bytes',
+      async (version) => {
+        const getOperation = vi.fn().mockResolvedValue([
+          {
+            name: 'operations/op1',
+            done: true,
+            metadata: packedMetadata(version),
+            response: {
+              type_url: `type.googleapis.com/google.cloud.netapp.${version}.Snapshot`,
+              value: Buffer.from(v1.Snapshot.encode({ name: 'snap1', state: 1 }).finish()),
+            },
+          },
+        ]);
+        createClientMock.mockReturnValue({ getOperation });
+
+        const { getOperationHandler } = await import('./operation-handler.js');
+        const result = await getOperationHandler({ operationName: 'operations/op1' });
+        const sc = result.structuredContent as any;
+
+        expect(sc).toMatchObject({
+          target: 'projects/p/locations/l/volumes/v1',
+          verb: 'create',
+          createTime: '1970-01-01T00:00:01.000Z',
+          response: { name: 'snap1', state: 'READY' },
+        });
+        expect(JSON.stringify(sc)).not.toContain('"data"');
+      }
+    );
+
+    it('getOperationHandler drops bytes for unknown packed types', async () => {
+      const getOperation = vi.fn().mockResolvedValue([
+        {
+          name: 'operations/op1',
+          done: true,
+          response: { type_url: 'type.googleapis.com/other.Thing', value: Buffer.from([1, 2]) },
+        },
+      ]);
+      createClientMock.mockReturnValue({ getOperation });
+
+      const { getOperationHandler } = await import('./operation-handler.js');
+      const result = await getOperationHandler({ operationName: 'operations/op1' });
+
+      expect((result.structuredContent as any).response).toEqual({
+        type: 'type.googleapis.com/other.Thing',
+      });
+    });
+
+    it('listOperationsHandler decodes packed metadata', async () => {
+      const listOperationsAsync = vi
+        .fn()
+        .mockReturnValue(
+          asyncIterable([{ name: 'operations/op1', done: true, metadata: packedMetadata('v1') }])
+        );
+      createClientMock.mockReturnValue({ listOperationsAsync });
+
+      const { listOperationsHandler } = await import('./operation-handler.js');
+      const result = await listOperationsHandler({ projectId: 'p1', location: 'us-central1' });
+
+      expect((result.structuredContent as any).operations[0]).toMatchObject({
+        target: 'projects/p/locations/l/volumes/v1',
+        verb: 'create',
+        createTime: '1970-01-01T00:00:01.000Z',
+      });
+    });
   });
 });

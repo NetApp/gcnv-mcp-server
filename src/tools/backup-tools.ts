@@ -1,6 +1,15 @@
 import { z } from 'zod';
 import { ToolConfig } from '../types/tool.js';
 
+const ontapSourceOutputSchema = z
+  .object({
+    storagePool: z.string().optional().describe('ONTAP-mode storage pool resource name'),
+    volumeUuid: z.string().optional().describe('UUID of the ONTAP source volume'),
+    snapshotUuid: z.string().optional().describe('UUID of the ONTAP source snapshot'),
+  })
+  .optional()
+  .describe('Source details for backups of ONTAP-mode volumes');
+
 // Create Backup Tool
 export const createBackupTool: ToolConfig = {
   name: 'gcnv_backup_create',
@@ -16,13 +25,31 @@ export const createBackupTool: ToolConfig = {
       .string()
       .optional()
       .describe(
-        'The full name of the volume to back up (projects/{project}/locations/{location}/storagePools/{storage_pool}/volumes/{volume}). Provide either sourceVolumeName or sourceSnapshotName.'
+        'The full name of the volume to back up (projects/{project}/locations/{location}/storagePools/{storage_pool}/volumes/{volume}). Provide exactly one source: sourceVolumeName, sourceSnapshotName, or ontapStoragePool + ontapVolumeUuid.'
       ),
     sourceSnapshotName: z
       .string()
       .optional()
       .describe(
-        'The full name of the snapshot to back up (projects/{project}/locations/{location}/volumes/{volume}/snapshots/{snapshot}). Provide either sourceVolumeName or sourceSnapshotName.'
+        'The full name of the snapshot to back up (projects/{project}/locations/{location}/volumes/{volume}/snapshots/{snapshot}). Provide exactly one source: sourceVolumeName, sourceSnapshotName, or ontapStoragePool + ontapVolumeUuid.'
+      ),
+    ontapStoragePool: z
+      .string()
+      .optional()
+      .describe(
+        'ONTAP-mode only. Storage pool ID or full resource name (projects/{project}/locations/{location}/storagePools/{pool}). An ID is resolved under `location`; pass the full name when the pool location differs from the vault location (e.g. zonal pool, regional vault). Requires ontapVolumeUuid.'
+      ),
+    ontapVolumeUuid: z
+      .string()
+      .optional()
+      .describe(
+        'ONTAP-mode only. UUID of the ONTAP volume to back up (from ontap_volume_list). Requires ontapStoragePool.'
+      ),
+    ontapSnapshotUuid: z
+      .string()
+      .optional()
+      .describe(
+        'ONTAP-mode only. Optional UUID of an ONTAP snapshot to back up instead of the current volume state.'
       ),
     description: z.string().optional().describe('Optional description of the backup'),
     labels: z.record(z.string()).optional().describe('Optional labels to apply to the backup'),
@@ -54,7 +81,11 @@ export const getBackupTool: ToolConfig = {
     description: z.string().optional().describe('Description of the backup'),
     volumeUsagebytes: z.string().optional().describe('The size of the volume in bytes'),
     backupType: z.string().optional().describe('The type of the backup'),
-    sourceVolume: z.string().describe('The name of the source volume'),
+    sourceVolume: z
+      .string()
+      .optional()
+      .describe('The name of the source volume (absent for ONTAP-mode backups)'),
+    ontapSource: ontapSourceOutputSchema,
     createTime: z.string().optional().describe('The creation time of the backup'),
     chainStoragebytes: z.string().optional().describe('The size of the backup chain in bytes'),
     satisfiesPzs: z.boolean().optional().describe('Whether the backup satisfies PZS requirements'),
@@ -100,7 +131,11 @@ export const listBackupsTool: ToolConfig = {
           description: z.string().optional().describe('Description of the backup'),
           volumeUsagebytes: z.string().optional().describe('The size of the volume in bytes'),
           backupType: z.string().optional().describe('The type of the backup'),
-          sourceVolume: z.string().describe('The name of the source volume'),
+          sourceVolume: z
+            .string()
+            .optional()
+            .describe('The name of the source volume (absent for ONTAP-mode backups)'),
+          ontapSource: ontapSourceOutputSchema,
           createTime: z.string().optional().describe('The creation time of the backup'),
           chainStoragebytes: z
             .string()
@@ -252,5 +287,113 @@ export const updateBackupTool: ToolConfig = {
     operationId: z
       .string()
       .describe('The ID of the long-running operation for updating the backup'),
+  },
+};
+
+// List ONTAP-mode Volume Backup Configs Tool
+export const listStoragePoolBackupConfigsTool: ToolConfig = {
+  name: 'gcnv_storage_pool_backup_config_list',
+  title: 'List ONTAP-mode Backup Configs',
+  description:
+    'Lists the backup configuration (vault, policies, scheduled backups) of every volume in an ONTAP-mode storage pool',
+  inputSchema: {
+    projectId: z.string().describe('The ID of the Google Cloud project'),
+    location: z.string().describe('The location of the ONTAP-mode storage pool'),
+    storagePoolId: z.string().describe('The ID of the ONTAP-mode storage pool'),
+    filter: z.string().optional().describe('Filter expression for filtering results'),
+    pageSize: z.number().optional().describe('Maximum number of configs to return per page'),
+    pageToken: z.string().optional().describe('Page token from a previous list request'),
+  },
+  outputSchema: {
+    volumeBackupConfigs: z
+      .array(
+        z.object({
+          volumeUuid: z.string().describe('UUID of the ONTAP volume'),
+          backupVault: z.string().optional().describe('Backup vault resource name'),
+          backupPolicies: z.array(z.string()).describe('Attached backup policy resource names'),
+          scheduledBackupEnabled: z
+            .boolean()
+            .optional()
+            .describe('Whether scheduled backups are enabled'),
+          backupChainBytes: z
+            .string()
+            .optional()
+            .describe('Total size of the backup chain in bytes'),
+        })
+      )
+      .describe('Backup configuration per ONTAP volume'),
+    nextPageToken: z.string().optional().describe('Token for fetching the next page'),
+  },
+};
+
+// Update ONTAP-mode Volume Backup Config Tool
+export const updateStoragePoolBackupConfigTool: ToolConfig = {
+  name: 'gcnv_storage_pool_backup_config_update',
+  title: 'Update ONTAP-mode Backup Config',
+  description:
+    'Assigns, changes, pauses, resumes, or unassigns the backup vault and backup policy of an ONTAP-mode volume (identified by UUID). Only the provided fields are updated.',
+  inputSchema: {
+    projectId: z.string().describe('The ID of the Google Cloud project'),
+    location: z.string().describe('The location of the ONTAP-mode storage pool'),
+    storagePoolId: z.string().describe('The ID of the ONTAP-mode storage pool'),
+    volumeUuid: z.string().describe('UUID of the ONTAP volume (from ontap_volume_list)'),
+    backupVault: z
+      .string()
+      .optional()
+      .describe(
+        'Backup vault resource name (projects/{project}/locations/{location}/backupVaults/{vault})'
+      ),
+    backupPolicies: z
+      .array(z.string())
+      .optional()
+      .describe(
+        'Backup policy resource names (projects/{project}/locations/{location}/backupPolicies/{policy}). Pass an empty array to unassign the policy.'
+      ),
+    scheduledBackupEnabled: z
+      .boolean()
+      .optional()
+      .describe('true to enable (resume) scheduled backups, false to pause them'),
+  },
+  outputSchema: {
+    name: z.string().describe('The storage pool resource name'),
+    operationId: z
+      .string()
+      .describe('The ID of the long-running operation for updating the backup config'),
+  },
+};
+
+// Restore Backup to ONTAP-mode Volume Tool
+export const restoreStoragePoolVolumeTool: ToolConfig = {
+  name: 'gcnv_storage_pool_restore_volume',
+  title: 'Restore Backup to ONTAP-mode Volume',
+  description:
+    'Restores a backup into an existing ONTAP-mode volume (identified by UUID). Omit fileList for a full restore (target must be a DP-type volume created through ONTAP); provide fileList for a selective file restore.',
+  inputSchema: {
+    projectId: z.string().describe('The ID of the Google Cloud project'),
+    location: z.string().describe('The location of the ONTAP-mode storage pool'),
+    storagePoolId: z.string().describe('The ID of the ONTAP-mode storage pool'),
+    backupVaultId: z.string().describe('The ID of the backup vault containing the backup'),
+    backupId: z.string().describe('The ID of the backup to restore'),
+    backupLocation: z
+      .string()
+      .optional()
+      .describe('The location of the backup vault; defaults to `location`'),
+    volumeUuid: z.string().describe('UUID of the target ONTAP volume (from ontap_volume_list)'),
+    fileList: z
+      .array(z.string().startsWith('/', 'fileList paths must be absolute (start with /)'))
+      .min(1)
+      .optional()
+      .describe('Absolute source paths of files to restore. Omit for a full restore.'),
+    restoreDestinationPath: z
+      .string()
+      .startsWith('/', 'restoreDestinationPath must be absolute (start with /)')
+      .optional()
+      .describe('Absolute directory path in the target volume (for selective file restore)'),
+  },
+  outputSchema: {
+    name: z.string().describe('The storage pool resource name'),
+    operationId: z
+      .string()
+      .describe('The ID of the long-running operation for restoring the backup'),
   },
 };

@@ -9,6 +9,16 @@ import { logger } from '../../logger.js';
 
 const log = logger.child({ module: 'backup-handler' });
 
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim() !== '';
+}
+
+function storagePoolName(projectId: string, location: string, pool: string): string {
+  return pool.includes('/')
+    ? pool
+    : `projects/${projectId}/locations/${location}/storagePools/${pool}`;
+}
+
 function parseBlockDeviceOsType(input: any): { value?: number; error?: string } {
   if (input === undefined || input === null) return {};
 
@@ -59,6 +69,14 @@ function formatBackupData(backup: any): any {
   if (backup.sourceVolume) {
     result.sourceVolume = backup.sourceVolume;
   }
+  if (backup.ontapSource) {
+    const { storagePool, volumeUuid, snapshotUuid } = backup.ontapSource;
+    result.ontapSource = {
+      ...(storagePool ? { storagePool } : {}),
+      ...(volumeUuid ? { volumeUuid } : {}),
+      ...(snapshotUuid ? { snapshotUuid } : {}),
+    };
+  }
 
   if (backup.state !== undefined) result.state = normalizeStringEnum(backup.state);
 
@@ -95,23 +113,32 @@ export const createBackupHandler: ToolHandler = async (args: { [key: string]: an
       backupId,
       sourceVolumeName,
       sourceSnapshotName,
+      ontapStoragePool,
+      ontapVolumeUuid,
+      ontapSnapshotUuid,
       backupRegion,
       description,
       labels,
     } = args;
 
-    const hasSourceVolume = typeof sourceVolumeName === 'string' && sourceVolumeName.length > 0;
-    const hasSourceSnapshot =
-      typeof sourceSnapshotName === 'string' && sourceSnapshotName.length > 0;
-    if ((hasSourceVolume && hasSourceSnapshot) || (!hasSourceVolume && !hasSourceSnapshot)) {
+    const hasSourceVolume = isNonEmptyString(sourceVolumeName);
+    const hasSourceSnapshot = isNonEmptyString(sourceSnapshotName);
+    const hasOntapPool = isNonEmptyString(ontapStoragePool);
+    const hasOntapVolume = isNonEmptyString(ontapVolumeUuid);
+    const hasOntapSnapshot = isNonEmptyString(ontapSnapshotUuid);
+    const hasOntapSource = hasOntapPool || hasOntapVolume || hasOntapSnapshot;
+
+    let sourceError: string | undefined;
+    if ([hasSourceVolume, hasSourceSnapshot, hasOntapSource].filter(Boolean).length !== 1) {
+      sourceError =
+        'provide exactly one source: sourceVolumeName, sourceSnapshotName, or ontapStoragePool + ontapVolumeUuid (ONTAP-mode).';
+    } else if (hasOntapSource && !(hasOntapPool && hasOntapVolume)) {
+      sourceError = 'ONTAP-mode backups require both ontapStoragePool and ontapVolumeUuid.';
+    }
+    if (sourceError) {
       return {
         isError: true,
-        content: [
-          {
-            type: 'text' as const,
-            text: 'Error creating backup: provide exactly one of sourceVolumeName or sourceSnapshotName.',
-          },
-        ],
+        content: [{ type: 'text' as const, text: `Error creating backup: ${sourceError}` }],
       };
     }
 
@@ -131,6 +158,15 @@ export const createBackupHandler: ToolHandler = async (args: { [key: string]: an
         name: backupName,
         ...(hasSourceVolume ? { sourceVolume: sourceVolumeName } : {}),
         ...(hasSourceSnapshot ? { sourceSnapshot: sourceSnapshotName } : {}),
+        ...(hasOntapSource
+          ? {
+              ontapSource: {
+                storagePool: storagePoolName(projectId, location, ontapStoragePool),
+                volumeUuid: ontapVolumeUuid,
+                ...(hasOntapSnapshot ? { snapshotUuid: ontapSnapshotUuid } : {}),
+              },
+            }
+          : {}),
         backupRegion,
         description,
         labels,
@@ -671,5 +707,189 @@ export const updateBackupHandler: ToolHandler = async (args: { [key: string]: an
         },
       ],
     };
+  }
+};
+
+function ontapErrorResult(action: string, notFound: string, error: any) {
+  let errorMessage = `Failed to ${action}: ${error.message || 'Unknown error'}`;
+  if (error.code === 5) {
+    errorMessage = `${notFound} not found`;
+  } else if (error.code === 7) {
+    errorMessage = 'Permission denied. Please check your credentials and access rights.';
+  } else if (error.code === 9) {
+    errorMessage = `Failed precondition: ${error.message}`;
+  } else if (error.code === 3) {
+    errorMessage = `Invalid argument: ${error.message}`;
+  }
+  return { isError: true, content: [{ type: 'text' as const, text: errorMessage }] };
+}
+
+// List ONTAP-mode Volume Backup Configs Handler
+export const listStoragePoolBackupConfigsHandler: ToolHandler = async (args: {
+  [key: string]: any;
+}) => {
+  try {
+    const { projectId, location, storagePoolId, filter, pageSize, pageToken } = args;
+    const netAppClient = NetAppClientFactory.createClient();
+    const parent = storagePoolName(projectId, location, storagePoolId);
+
+    const [configs, , response] = await netAppClient.listBackupConfigs(
+      { parent, filter, pageSize, pageToken },
+      { autoPaginate: false }
+    );
+
+    const volumeBackupConfigs = (configs ?? []).map((entry: any) => {
+      const config = entry.backupConfig ?? {};
+      return {
+        volumeUuid: entry.volumeUuid ?? '',
+        ...(config.backupVault ? { backupVault: config.backupVault } : {}),
+        backupPolicies: config.backupPolicies ?? [],
+        ...(config.scheduledBackupEnabled !== undefined && config.scheduledBackupEnabled !== null
+          ? { scheduledBackupEnabled: config.scheduledBackupEnabled }
+          : {}),
+        ...(config.backupChainBytes !== undefined && config.backupChainBytes !== null
+          ? { backupChainBytes: toInt64String(config.backupChainBytes) }
+          : {}),
+      };
+    });
+
+    const structuredContent = {
+      volumeBackupConfigs,
+      nextPageToken: response?.nextPageToken || undefined,
+    };
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(structuredContent, null, 2) }],
+      structuredContent,
+    };
+  } catch (error: any) {
+    log.error({ err: error }, 'Error listing ONTAP-mode backup configs');
+    return ontapErrorResult('list backup configs', 'Storage pool', error);
+  }
+};
+
+// Update ONTAP-mode Volume Backup Config Handler
+export const updateStoragePoolBackupConfigHandler: ToolHandler = async (args: {
+  [key: string]: any;
+}) => {
+  try {
+    const {
+      projectId,
+      location,
+      storagePoolId,
+      volumeUuid,
+      backupVault,
+      backupPolicies,
+      scheduledBackupEnabled,
+    } = args;
+
+    const backupConfig: Record<string, unknown> = {};
+    const paths: string[] = [];
+    if (backupVault !== undefined) {
+      backupConfig.backupVault = backupVault;
+      paths.push('backup_config.backup_vault');
+    }
+    if (backupPolicies !== undefined) {
+      backupConfig.backupPolicies = backupPolicies;
+      paths.push('backup_config.backup_policies');
+    }
+    if (scheduledBackupEnabled !== undefined) {
+      backupConfig.scheduledBackupEnabled = scheduledBackupEnabled;
+      paths.push('backup_config.scheduled_backup_enabled');
+    }
+    if (paths.length === 0) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error updating backup config: provide at least one of backupVault, backupPolicies, or scheduledBackupEnabled.',
+          },
+        ],
+      };
+    }
+
+    const netAppClient = NetAppClientFactory.createClient();
+    const name = storagePoolName(projectId, location, storagePoolId);
+    const request = { name, volumeUuid, backupConfig, updateMask: { paths } };
+
+    log.info({ request }, 'Update ONTAP-mode backup config request');
+    const [operation] = await netAppClient.updateBackupConfig(request);
+
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Backup config update initiated for volume ${volumeUuid}. Operation ID: ${operation.name || ''}`,
+        },
+      ],
+      structuredContent: { name, operationId: operation.name || '' },
+    };
+  } catch (error: any) {
+    log.error({ err: error }, 'Error updating ONTAP-mode backup config');
+    return ontapErrorResult(
+      'update backup config',
+      'Storage pool, volume, vault, or policy',
+      error
+    );
+  }
+};
+
+// Restore Backup to ONTAP-mode Volume Handler
+export const restoreStoragePoolVolumeHandler: ToolHandler = async (args: {
+  [key: string]: any;
+}) => {
+  try {
+    const {
+      projectId,
+      location,
+      storagePoolId,
+      backupVaultId,
+      backupId,
+      backupLocation,
+      volumeUuid,
+      fileList,
+      restoreDestinationPath,
+    } = args;
+
+    const hasFileList = Array.isArray(fileList) && fileList.length > 0;
+    if (hasFileList && fileList.some((path: unknown) => !isNonEmptyString(path))) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error restoring backup: fileList must contain only non-empty strings.',
+          },
+        ],
+      };
+    }
+
+    const netAppClient = NetAppClientFactory.createClient();
+    const name = storagePoolName(projectId, location, storagePoolId);
+    const backup = `projects/${projectId}/locations/${backupLocation || location}/backupVaults/${backupVaultId}/backups/${backupId}`;
+    const request = {
+      name,
+      backupSource: { backup, ...(hasFileList ? { fileList } : {}) },
+      ontapVolumeTarget: {
+        volumeUuid,
+        ...(isNonEmptyString(restoreDestinationPath) ? { restoreDestinationPath } : {}),
+      },
+    };
+
+    log.info({ request }, 'Restore ONTAP-mode volume request');
+    const [operation] = await netAppClient.restoreVolume(request);
+
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `${hasFileList ? 'File' : 'Full'} restore initiated into ONTAP volume ${volumeUuid}. Operation ID: ${operation.name || ''}`,
+        },
+      ],
+      structuredContent: { name, operationId: operation.name || '' },
+    };
+  } catch (error: any) {
+    log.error({ err: error }, 'Error restoring backup to ONTAP-mode volume');
+    return ontapErrorResult('restore backup', 'Backup, storage pool, or volume', error);
   }
 };

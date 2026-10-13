@@ -1,7 +1,8 @@
 import { NetAppClient } from '@google-cloud/netapp';
 import { OAuth2Client } from 'google-auth-library';
-import { ClientOptions } from 'google-gax';
 import { currentRequestAccessToken } from '../auth/access-token-context.js';
+
+type ClientOptions = NonNullable<ConstructorParameters<typeof NetAppClient>[0]>;
 
 /**
  * Factory class for creating NetAppClient instances
@@ -58,7 +59,7 @@ export class NetAppClientFactory {
     if (requestAccessToken) {
       const authClient = new OAuth2Client();
       authClient.setCredentials({ access_token: requestAccessToken });
-      clientOptions.authClient = authClient as unknown as ClientOptions['authClient'];
+      clientOptions.authClient = authClient;
     }
 
     const client = new NetAppClient(clientOptions);

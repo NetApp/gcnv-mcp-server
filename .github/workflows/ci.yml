@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: ['20.19.0', '24']
+        node-version: ['22', '24']
 
     steps:
       - name: Harden the runner (Audit all outbound calls)

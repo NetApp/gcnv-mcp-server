@@ -1,8 +1,21 @@
+import { protos } from '@google-cloud/netapp';
 import { ToolHandler } from '../../types/tool.js';
 import { NetAppClientFactory } from '../../utils/netapp-client-factory.js';
 import { logger } from '../../logger.js';
 
 const log = logger.child({ module: 'operation-handler' });
+
+/**
+ * Operation metadata/response arrive as packed google.protobuf.Any ({ type_url, value: bytes }).
+ * Decode NetApp types (v1 and v1beta1 share wire layout) and never return the raw bytes.
+ */
+function unpackAny(packed: any): any {
+  if (!packed?.type_url || !packed.value) return packed;
+  const typeName = /google\.cloud\.netapp\.v1(?:beta1)?\.(\w+)$/.exec(packed.type_url)?.[1];
+  const Type = typeName ? (protos.google.cloud.netapp.v1 as any)[typeName] : undefined;
+  if (!Type?.decode) return { type: packed.type_url };
+  return Type.toObject(Type.decode(packed.value), { longs: String, enums: String });
+}
 
 /**
  * Parse metadata from a Google Cloud operation
@@ -20,11 +33,8 @@ function parseOperationMetadata(operation: any): Record<string, any> {
   // Try to get metadata from the operation
   if (operation.metadata) {
     try {
-      // Add metadata as-is to the result
-      result.metadata = operation.metadata;
-
-      // Try to extract specific fields that might be useful
-      const metadata = operation.metadata;
+      const metadata = unpackAny(operation.metadata);
+      result.metadata = metadata;
 
       if (metadata.createTime) {
         result.createTime =
@@ -56,7 +66,11 @@ function parseOperationMetadata(operation: any): Record<string, any> {
 
   // Add response data if operation succeeded
   if (operation.done && operation.response) {
-    result.response = operation.response;
+    try {
+      result.response = unpackAny(operation.response);
+    } catch (err) {
+      log.warn({ err }, 'Error decoding operation response');
+    }
   }
 
   return result;
@@ -70,16 +84,22 @@ function formatOperationForList(op: any): Record<string, any> {
     done,
     success: done,
   };
-  if (op.metadata) {
-    if (op.metadata.createTime) {
+  let metadata: any;
+  try {
+    metadata = unpackAny(op.metadata);
+  } catch (err) {
+    log.warn({ err }, 'Error decoding operation metadata');
+  }
+  if (metadata) {
+    if (metadata.createTime) {
       result.createTime =
-        typeof op.metadata.createTime === 'string'
-          ? op.metadata.createTime
-          : new Date(Number(op.metadata.createTime.seconds ?? 0) * 1000).toISOString();
+        typeof metadata.createTime === 'string'
+          ? metadata.createTime
+          : new Date(Number(metadata.createTime.seconds ?? 0) * 1000).toISOString();
     }
-    if (op.metadata.target) result.target = op.metadata.target;
-    if (op.metadata.verb) result.verb = op.metadata.verb;
-    if (op.metadata.statusMessage) result.statusMessage = op.metadata.statusMessage;
+    if (metadata.target) result.target = metadata.target;
+    if (metadata.verb) result.verb = metadata.verb;
+    if (metadata.statusMessage) result.statusMessage = metadata.statusMessage;
   }
   return result;
 }
