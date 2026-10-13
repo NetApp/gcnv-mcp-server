@@ -1063,7 +1063,9 @@ describe('backup-handler ONTAP-mode', () => {
       name: 'projects/p1/locations/us-east4-a/storagePools/pool1',
       volumeUuid: 'vol-uuid',
       backupConfig: { backupPolicies: [], scheduledBackupEnabled: false },
-      updateMask: { paths: ['backup_policies', 'scheduled_backup_enabled'] },
+      updateMask: {
+        paths: ['backup_config.backup_policies', 'backup_config.scheduled_backup_enabled'],
+      },
     });
     expect(result.structuredContent).toEqual({
       name: 'projects/p1/locations/us-east4-a/storagePools/pool1',

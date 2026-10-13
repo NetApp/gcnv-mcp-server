@@ -788,15 +788,15 @@ export const updateStoragePoolBackupConfigHandler: ToolHandler = async (args: {
     const paths: string[] = [];
     if (backupVault !== undefined) {
       backupConfig.backupVault = backupVault;
-      paths.push('backup_vault');
+      paths.push('backup_config.backup_vault');
     }
     if (backupPolicies !== undefined) {
       backupConfig.backupPolicies = backupPolicies;
-      paths.push('backup_policies');
+      paths.push('backup_config.backup_policies');
     }
     if (scheduledBackupEnabled !== undefined) {
       backupConfig.scheduledBackupEnabled = scheduledBackupEnabled;
-      paths.push('scheduled_backup_enabled');
+      paths.push('backup_config.scheduled_backup_enabled');
     }
     if (paths.length === 0) {
       return {
