@@ -380,12 +380,13 @@ export const restoreStoragePoolVolumeTool: ToolConfig = {
       .describe('The location of the backup vault; defaults to `location`'),
     volumeUuid: z.string().describe('UUID of the target ONTAP volume (from ontap_volume_list)'),
     fileList: z
-      .array(z.string())
+      .array(z.string().startsWith('/', 'fileList paths must be absolute (start with /)'))
       .min(1)
       .optional()
       .describe('Absolute source paths of files to restore. Omit for a full restore.'),
     restoreDestinationPath: z
       .string()
+      .startsWith('/', 'restoreDestinationPath must be absolute (start with /)')
       .optional()
       .describe('Absolute directory path in the target volume (for selective file restore)'),
   },

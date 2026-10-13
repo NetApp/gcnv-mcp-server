@@ -733,12 +733,10 @@ export const listStoragePoolBackupConfigsHandler: ToolHandler = async (args: {
     const netAppClient = NetAppClientFactory.createClient();
     const parent = storagePoolName(projectId, location, storagePoolId);
 
-    const [configs, , response] = await netAppClient.listBackupConfigs({
-      parent,
-      filter,
-      pageSize,
-      pageToken,
-    });
+    const [configs, , response] = await netAppClient.listBackupConfigs(
+      { parent, filter, pageSize, pageToken },
+      { autoPaginate: false }
+    );
 
     const volumeBackupConfigs = (configs ?? []).map((entry: any) => {
       const config = entry.backupConfig ?? {};

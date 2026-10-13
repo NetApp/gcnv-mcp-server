@@ -4,6 +4,7 @@ import {
   getBackupTool,
   listBackupsTool,
   listStoragePoolBackupConfigsTool,
+  restoreStoragePoolVolumeTool,
 } from '../backup-tools.js';
 
 const createClientMock = vi.fn();
@@ -1027,6 +1028,7 @@ describe('backup-handler ONTAP-mode', () => {
       parent: 'projects/p1/locations/us-east4-a/storagePools/pool1',
       pageSize: 10,
     });
+    expect(listBackupConfigs.mock.calls[0]?.[1]).toEqual({ autoPaginate: false });
     expect(result.structuredContent).toEqual({
       volumeBackupConfigs: [
         {
@@ -1043,6 +1045,23 @@ describe('backup-handler ONTAP-mode', () => {
     expect(() =>
       z.object(listStoragePoolBackupConfigsTool.outputSchema).parse(result.structuredContent)
     ).not.toThrow();
+  });
+
+  it('restoreStoragePoolVolumeTool schema requires absolute paths', () => {
+    const schema = z.object(restoreStoragePoolVolumeTool.inputSchema);
+    const base = {
+      projectId: 'p1',
+      location: 'us-east4',
+      storagePoolId: 'pool1',
+      backupVaultId: 'bv1',
+      backupId: 'b1',
+      volumeUuid: 'vol-uuid',
+    };
+    expect(
+      schema.safeParse({ ...base, fileList: ['/dir/a.txt'], restoreDestinationPath: '/r' }).success
+    ).toBe(true);
+    expect(schema.safeParse({ ...base, fileList: ['dir/a.txt'] }).success).toBe(false);
+    expect(schema.safeParse({ ...base, restoreDestinationPath: 'restore' }).success).toBe(false);
   });
 
   it('updateStoragePoolBackupConfigHandler masks only provided fields (empty policies unassigns)', async () => {
