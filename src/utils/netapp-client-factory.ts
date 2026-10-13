@@ -1,7 +1,8 @@
 import { NetAppClient } from '@google-cloud/netapp';
 import { OAuth2Client } from 'google-auth-library';
-import { ClientOptions } from 'google-gax';
 import { currentRequestAccessToken } from '../auth/access-token-context.js';
+
+type ClientOptions = NonNullable<ConstructorParameters<typeof NetAppClient>[0]>;
 
 /**
  * Factory class for creating NetAppClient instances
