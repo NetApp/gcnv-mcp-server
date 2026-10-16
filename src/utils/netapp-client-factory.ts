@@ -5,6 +5,30 @@ import { currentRequestAccessToken } from '../auth/access-token-context.js';
 type ClientOptions = NonNullable<ConstructorParameters<typeof NetAppClient>[0]>;
 
 /**
+ * Builds google-gax ClientOptions from a trimmed {@link process.env.GCNV_API_ENDPOINT}.
+ *
+ * Empty input leaves NetApp client defaults unchanged. HTTPS URLs and bare
+ * hostnames are passed through as {@code apiEndpoint}. HTTP URLs set host, port,
+ * and REST fallback for non-TLS API stand-ins used in development or tests.
+ */
+export function clientOptionsFromGcnvApiEndpoint(trimmed: string): ClientOptions {
+  if (!trimmed) {
+    return {};
+  }
+  if (trimmed.toLowerCase().startsWith('http://')) {
+    const url = new URL(trimmed);
+    const port = url.port ? Number.parseInt(url.port, 10) : 80;
+    return {
+      apiEndpoint: url.hostname,
+      port,
+      fallback: 'rest',
+      protocol: 'http',
+    };
+  }
+  return { apiEndpoint: trimmed };
+}
+
+/**
  * Factory class for creating NetAppClient instances
  * This centralizes client creation and allows for easier testing and configuration
  */
@@ -37,9 +61,11 @@ export class NetAppClientFactory {
       return this.clientCache[cacheKey];
     }
 
-    // Only pass apiEndpoint when GCNV_API_ENDPOINT is set (e.g. for lower envs)
+    // Apply GCNV_API_ENDPOINT when set (custom or sandbox API host).
     const envEndpoint = process.env.GCNV_API_ENDPOINT?.trim();
-    const envOptions: ClientOptions = envEndpoint ? { apiEndpoint: envEndpoint } : {};
+    const envOptions: ClientOptions = envEndpoint
+      ? clientOptionsFromGcnvApiEndpoint(envEndpoint)
+      : {};
 
     // Merge default config, env-based apiEndpoint (if set), and provided options; options take precedence
     let mergedOptions: ClientOptions | undefined;
