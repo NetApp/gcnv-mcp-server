@@ -94,6 +94,30 @@ describe('NetAppClientFactory', () => {
     expect((client as any).__opts).toMatchObject({ apiEndpoint: 'https://example-endpoint' });
   });
 
+  it('uses HTTP REST client options for http:// GCNV_API_ENDPOINT', async () => {
+    const { NetAppClientFactory } = await import('./netapp-client-factory.js');
+    process.env.GCNV_API_ENDPOINT = 'http://api.example.com:8080';
+
+    const client = NetAppClientFactory.createClient();
+    expect((client as any).__opts).toMatchObject({
+      apiEndpoint: 'api.example.com',
+      port: 8080,
+      fallback: 'rest',
+      protocol: 'http',
+    });
+  });
+
+  it('passes bare hostname through unchanged', async () => {
+    const { NetAppClientFactory } = await import('./netapp-client-factory.js');
+    process.env.GCNV_API_ENDPOINT = 'sandbox-api.example.com';
+
+    const client = NetAppClientFactory.createClient();
+    expect((client as any).__opts).toMatchObject({
+      apiEndpoint: 'sandbox-api.example.com',
+    });
+    expect((client as any).__opts).not.toHaveProperty('fallback');
+  });
+
   it('ignores env GCNV_API_ENDPOINT when only whitespace', async () => {
     const { NetAppClientFactory } = await import('./netapp-client-factory.js');
     process.env.GCNV_API_ENDPOINT = '   ';
@@ -119,5 +143,22 @@ describe('NetAppClientFactory', () => {
     expect(NetAppClientCtor).toHaveBeenCalledTimes(2);
     expect((c1 as any).__opts.authClient).toBeDefined();
     expect((c2 as any).__opts.authClient).toBeDefined();
+  });
+});
+
+describe('clientOptionsFromGcnvApiEndpoint', () => {
+  it('returns empty options for empty string', async () => {
+    const { clientOptionsFromGcnvApiEndpoint } = await import('./netapp-client-factory.js');
+    expect(clientOptionsFromGcnvApiEndpoint('')).toEqual({});
+  });
+
+  it('parses http:// host and port for REST', async () => {
+    const { clientOptionsFromGcnvApiEndpoint } = await import('./netapp-client-factory.js');
+    expect(clientOptionsFromGcnvApiEndpoint('http://api.example.com:8080')).toEqual({
+      apiEndpoint: 'api.example.com',
+      port: 8080,
+      fallback: 'rest',
+      protocol: 'http',
+    });
   });
 });
