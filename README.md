@@ -278,11 +278,11 @@ HTTP endpoint: `http://localhost:<port>/message`
 
 ### Volume Tools
 
-| Tool                 | Description                                                                 |
-| -------------------- | --------------------------------------------------------------------------- |
-| `gcnv_volume_create` | Create a volume (NFS, SMB, or iSCSI)                                        |
-| `gcnv_volume_get`    | Get volume details including mount points                                   |
-| `gcnv_volume_list`   | List volumes with pagination and filtering                                  |
+| Tool                 | Description                                                                                  |
+| -------------------- | -------------------------------------------------------------------------------------------- |
+| `gcnv_volume_create` | Create a volume (NFS, SMB, or iSCSI)                                                         |
+| `gcnv_volume_get`    | Get volume details including mount points                                                    |
+| `gcnv_volume_list`   | List volumes with pagination and filtering                                                   |
 | `gcnv_volume_update` | Update capacity, description, labels, export policy, snapshot policy, tiering, backup config |
 
 **iSCSI notes:** Protocols must be `["ISCSI"]` only (no mixing). Requires `hostGroup` or `hostGroups`. Optional `blockDevice` object with `identifier`, `osType` (`LINUX` / `WINDOWS` / `ESXI`), and `sizeGib`.
