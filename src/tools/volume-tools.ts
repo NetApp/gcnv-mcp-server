@@ -44,6 +44,114 @@ const cacheParametersSchema = z
   })
   .describe('FlexCache cache-volume parameters (not hybridReplicationParameters)');
 
+// GCNV volume snapshotPolicy — shared by gcnv_volume_create and gcnv_volume_update.
+const snapshotPolicySchema = z
+  .object({
+    enabled: z.boolean().optional().describe('Enable scheduled snapshots for this volume'),
+    hourlySchedule: z
+      .object({
+        snapshotsToKeep: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe('Number of hourly snapshots to retain'),
+        minute: z
+          .number()
+          .int()
+          .min(0)
+          .max(59)
+          .optional()
+          .describe('Minute of the hour to take the snapshot (0-59)'),
+      })
+      .optional()
+      .describe('Hourly snapshot schedule'),
+    dailySchedule: z
+      .object({
+        snapshotsToKeep: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe('Number of daily snapshots to retain'),
+        minute: z
+          .number()
+          .int()
+          .min(0)
+          .max(59)
+          .optional()
+          .describe('Minute of the hour to take the snapshot (0-59)'),
+        hour: z
+          .number()
+          .int()
+          .min(0)
+          .max(23)
+          .optional()
+          .describe('Hour of the day to take the snapshot (0-23)'),
+      })
+      .optional()
+      .describe('Daily snapshot schedule'),
+    weeklySchedule: z
+      .object({
+        snapshotsToKeep: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe('Number of weekly snapshots to retain'),
+        minute: z
+          .number()
+          .int()
+          .min(0)
+          .max(59)
+          .optional()
+          .describe('Minute of the hour to take the snapshot (0-59)'),
+        hour: z
+          .number()
+          .int()
+          .min(0)
+          .max(23)
+          .optional()
+          .describe('Hour of the day to take the snapshot (0-23)'),
+        day: z
+          .string()
+          .optional()
+          .describe('Day of the week to take the snapshot (API expects a string)'),
+      })
+      .optional()
+      .describe('Weekly snapshot schedule'),
+    monthlySchedule: z
+      .object({
+        snapshotsToKeep: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe('Number of monthly snapshots to retain'),
+        minute: z
+          .number()
+          .int()
+          .min(0)
+          .max(59)
+          .optional()
+          .describe('Minute of the hour to take the snapshot (0-59)'),
+        hour: z
+          .number()
+          .int()
+          .min(0)
+          .max(23)
+          .optional()
+          .describe('Hour of the day to take the snapshot (0-23)'),
+        daysOfMonth: z
+          .string()
+          .optional()
+          .describe('Days of month to take the snapshot (API expects a string)'),
+      })
+      .optional()
+      .describe('Monthly snapshot schedule'),
+  })
+  .describe('Snapshot scheduling policy for the volume');
+
 // Create Volume Tool
 export const createVolumeTool: ToolConfig = {
   name: 'gcnv_volume_create',
@@ -105,113 +213,7 @@ export const createVolumeTool: ToolConfig = {
       })
       .optional()
       .describe('Backup configuration'),
-    snapshotPolicy: z
-      .object({
-        enabled: z.boolean().optional().describe('Enable scheduled snapshots for this volume'),
-        hourlySchedule: z
-          .object({
-            snapshotsToKeep: z
-              .number()
-              .int()
-              .positive()
-              .optional()
-              .describe('Number of hourly snapshots to retain'),
-            minute: z
-              .number()
-              .int()
-              .min(0)
-              .max(59)
-              .optional()
-              .describe('Minute of the hour to take the snapshot (0-59)'),
-          })
-          .optional()
-          .describe('Hourly snapshot schedule'),
-        dailySchedule: z
-          .object({
-            snapshotsToKeep: z
-              .number()
-              .int()
-              .positive()
-              .optional()
-              .describe('Number of daily snapshots to retain'),
-            minute: z
-              .number()
-              .int()
-              .min(0)
-              .max(59)
-              .optional()
-              .describe('Minute of the hour to take the snapshot (0-59)'),
-            hour: z
-              .number()
-              .int()
-              .min(0)
-              .max(23)
-              .optional()
-              .describe('Hour of the day to take the snapshot (0-23)'),
-          })
-          .optional()
-          .describe('Daily snapshot schedule'),
-        weeklySchedule: z
-          .object({
-            snapshotsToKeep: z
-              .number()
-              .int()
-              .positive()
-              .optional()
-              .describe('Number of weekly snapshots to retain'),
-            minute: z
-              .number()
-              .int()
-              .min(0)
-              .max(59)
-              .optional()
-              .describe('Minute of the hour to take the snapshot (0-59)'),
-            hour: z
-              .number()
-              .int()
-              .min(0)
-              .max(23)
-              .optional()
-              .describe('Hour of the day to take the snapshot (0-23)'),
-            day: z
-              .string()
-              .optional()
-              .describe('Day of the week to take the snapshot (API expects a string)'),
-          })
-          .optional()
-          .describe('Weekly snapshot schedule'),
-        monthlySchedule: z
-          .object({
-            snapshotsToKeep: z
-              .number()
-              .int()
-              .positive()
-              .optional()
-              .describe('Number of monthly snapshots to retain'),
-            minute: z
-              .number()
-              .int()
-              .min(0)
-              .max(59)
-              .optional()
-              .describe('Minute of the hour to take the snapshot (0-59)'),
-            hour: z
-              .number()
-              .int()
-              .min(0)
-              .max(23)
-              .optional()
-              .describe('Hour of the day to take the snapshot (0-23)'),
-            daysOfMonth: z
-              .string()
-              .optional()
-              .describe('Days of month to take the snapshot (API expects a string)'),
-          })
-          .optional()
-          .describe('Monthly snapshot schedule'),
-      })
-      .optional()
-      .describe('Snapshot scheduling policy for the volume'),
+    snapshotPolicy: snapshotPolicySchema.optional(),
     tieringPolicy: z
       .object({
         tierAction: z
@@ -460,6 +462,7 @@ export const updateVolumeTool: ToolConfig = {
       })
       .optional()
       .describe('Backup configuration'),
+    snapshotPolicy: snapshotPolicySchema.optional(),
     tieringPolicy: z
       .object({
         tierAction: z

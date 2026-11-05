@@ -208,7 +208,7 @@ For complex workflows (SnapMirror setup, FlexCache peering prep on ONTAP-mode po
   - **Include details that vary between resources.** Add columns for fields that differ across items (e.g. state, capacity, service level, location, protocol, backup state) so the table is informative and each row is distinguishable. Avoid a one-size-fits-all set of columns—tailor columns to the resource type and to what actually varies in the response.
   - **Include these bare-minimum columns when present in the response** (so the table is always useful). Add any additional columns that vary and are relevant.
     - **Storage pools:** name/ID, state, serviceLevel, capacityGib, **volumeCapacityGib**, **volumeCount** (or volumecount), **mode** (DEFAULT or ONTAP), **encryptionType**, **allowAutoTiering**, **totalThroughputMibps**, qosType, zone, replicaZone, createTime.
-    - **Volumes:** name/volumeId, state, capacityGib, usedGib, protocols, serviceLevel, **encryptionType**, **throughputMibps** (or availableThroughputMibps), **coldTierSizeGib**, **hotTierSizeUsedGib** (or hotTierSizeGib), tieringPolicy, createTime, storagePool.
+    - **Volumes:** name/volumeId, state, capacityGib, usedGib, protocols, serviceLevel, **encryptionType**, **throughputMibps** (or availableThroughputMibps), **coldTierSizeGib**, **hotTierSizeUsedGib** (or hotTierSizeGib), tieringPolicy, **snapshotPolicy**, createTime, storagePool.
     - **Snapshots:** name/snapshotId, volumeId, state, createTime, description.
     - **Backups:** backupId, backupVaultId, state, sourceVolume, backupType, volumeUsagebytes, chainStoragebytes, createTime, retentionDays.
     - **Backup vaults:** backupVaultId, state, backupVaultType, sourceRegion, backupRegion, kmsConfig, encryptionState, backupsCryptoKeyVersion, createTime.
@@ -303,6 +303,7 @@ Notes:
 - Auto-tiering is a two-step enablement:
   - Pool: set `allowAutoTiering: true` when creating the storage pool.
   - Volume: set `tieringPolicy` on the volume (for example `tierAction: ENABLED`, optional `coolingThresholdDays`, optional `hotTierBypassModeEnabled`).
+- **Scheduled volume snapshots:** optional `snapshotPolicy` on `gcnv_volume_create` and `gcnv_volume_update` (set `enabled` and optional `hourlySchedule`, `dailySchedule`, `weeklySchedule`, `monthlySchedule`). To change schedules on an existing default-mode volume, use `gcnv_volume_update`. Ad-hoc snapshots use `gcnv_snapshot_*`; volumes on ONTAP-mode pools use `ontap_*`, not `gcnv_volume_*`.
 - Hybrid replication (SnapMirror cross-cloud / on-prem): set `hybridReplicationParameters` (e.g. `replicationSchedule: HOURLY`, `hybridReplicationType: CONTINUOUS_REPLICATION`, peer cluster/SVM/IPs). **Not for FlexCache** — use `cacheParameters` instead.
 - **FlexCache (cache ONTAP volumes):**
   - **Cache in a default-mode pool** (origin may be ONTAP-mode or default-mode): `gcnv_volume_create` on the **destination** pool with `cacheParameters` — `peerVolumeName`, `peerClusterName`, `peerSvmName`, `peerIpAddresses` (origin intercluster LIFs), optional `cacheConfig` / `enableGlobalFileLock`. Cross-mode (default cache + ONTAP origin) **is supported**. Monitor with `gcnv_operation_get`; volume `cacheState` progresses through peering states to `PEERED`.
