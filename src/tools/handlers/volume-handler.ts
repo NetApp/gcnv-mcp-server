@@ -773,6 +773,23 @@ export const updateVolumeHandler: ToolHandler = async (args: { [key: string]: an
     }
 
     if (snapshotPolicy !== undefined) {
+      const hasSnapshotPolicyContent =
+        snapshotPolicy.enabled !== undefined ||
+        snapshotPolicy.hourlySchedule !== undefined ||
+        snapshotPolicy.dailySchedule !== undefined ||
+        snapshotPolicy.weeklySchedule !== undefined ||
+        snapshotPolicy.monthlySchedule !== undefined;
+      if (!hasSnapshotPolicyContent) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text' as const,
+              text: 'Error updating volume: snapshotPolicy must include enabled and/or at least one schedule (hourly, daily, weekly, monthly).',
+            },
+          ],
+        };
+      }
       volume.snapshotPolicy = snapshotPolicy;
       updateMask.push('snapshot_policy');
     }

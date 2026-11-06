@@ -1558,6 +1558,25 @@ describe('volume-handler', () => {
     });
   });
 
+  it('updateVolumeHandler returns error when snapshotPolicy is an empty object (bypassing zod)', async () => {
+    const updateVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-upd-snap-empty' }]);
+    createClientMock.mockReturnValue({ updateVolume });
+
+    const { updateVolumeHandler } = await import('./volume-handler.js');
+    const result = await updateVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+      snapshotPolicy: {},
+    });
+
+    expect(updateVolume).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
+    expect((result.content as { type: string; text: string }[])[0]?.text).toMatch(
+      /snapshotPolicy must include/
+    );
+  });
+
   it('updateVolumeHandler supports updating hybridReplicationParameters', async () => {
     const updateVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-upd-hybrid' }]);
     createClientMock.mockReturnValue({ updateVolume });
