@@ -20,7 +20,10 @@ export const getHostGroupTool: ToolConfig = {
     hosts: z.array(z.string()).optional().describe('List of hosts/initiators in the group'),
     osType: z.union([z.string(), z.number()]).optional().describe('OS type (enum)'),
     description: z.string().optional().describe('Description of the host group'),
-    labels: z.record(z.string(), z.string()).optional().describe('Labels applied to the host group'),
+    labels: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('Labels applied to the host group'),
   },
 };
 
@@ -52,7 +55,10 @@ export const listHostGroupsTool: ToolConfig = {
           hosts: z.array(z.string()).optional().describe('List of hosts/initiators in the group'),
           osType: z.union([z.string(), z.number()]).optional().describe('OS type (enum)'),
           description: z.string().optional().describe('Description of the host group'),
-          labels: z.record(z.string(), z.string()).optional().describe('Labels applied to the host group'),
+          labels: z
+            .record(z.string(), z.string())
+            .optional()
+            .describe('Labels applied to the host group'),
         })
       )
       .describe('List of host groups'),
@@ -85,7 +91,10 @@ export const createHostGroupTool: ToolConfig = {
       .describe('OS type for initiators in this host group'),
     hosts: z.array(z.string()).min(1).describe('List of initiators/hosts to include in the group'),
     description: z.string().optional().describe('Optional description of the host group'),
-    labels: z.record(z.string(), z.string()).optional().describe('Optional labels to apply to the host group'),
+    labels: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('Optional labels to apply to the host group'),
   },
   outputSchema: {
     name: z.string().describe('The name of the created host group'),
@@ -120,7 +129,10 @@ export const updateHostGroupTool: ToolConfig = {
       .describe('OS type for initiators in this host group'),
     hosts: z.array(z.string()).optional().describe('New list of initiators/hosts'),
     description: z.string().optional().describe('New description of the host group'),
-    labels: z.record(z.string(), z.string()).optional().describe('New labels to apply to the host group'),
+    labels: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('New labels to apply to the host group'),
   },
   outputSchema: {
     name: z.string().describe('The fully qualified name of the host group'),

@@ -106,7 +106,10 @@ export const getBackupVaultTool: ToolConfig = {
     createTime: z.string().describe('The creation time of the backup vault'),
     updateTime: z.string().optional().describe('The last update time of the backup vault'),
     description: z.string().optional().describe('Description of the backup vault'),
-    labels: z.record(z.string(), z.string()).optional().describe('Labels applied to the backup vault'),
+    labels: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('Labels applied to the backup vault'),
     kmsConfig: z.string().optional().describe('KMS config used to encrypt backups'),
     encryptionState: z.string().optional().describe('Current backup encryption state'),
     backupsCryptoKeyVersion: z
@@ -165,7 +168,10 @@ export const listBackupVaultsTool: ToolConfig = {
           createTime: z.string().describe('The creation time of the backup vault'),
           updateTime: z.string().optional().describe('The last update time of the backup vault'),
           description: z.string().optional().describe('Description of the backup vault'),
-          labels: z.record(z.string(), z.string()).optional().describe('Labels applied to the backup vault'),
+          labels: z
+            .record(z.string(), z.string())
+            .optional()
+            .describe('Labels applied to the backup vault'),
           kmsConfig: z.string().optional().describe('KMS config used to encrypt backups'),
           encryptionState: z.string().optional().describe('Current backup encryption state'),
           backupsCryptoKeyVersion: z
@@ -214,7 +220,10 @@ export const updateBackupVaultTool: ToolConfig = {
       })
       .optional()
       .describe('Backup retention policy, including immutability flags'),
-    labels: z.record(z.string(), z.string()).optional().describe('New labels to apply to the backup vault'),
+    labels: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('New labels to apply to the backup vault'),
   },
   outputSchema: {
     name: z.string().describe('The fully qualified name of the updated backup vault'),

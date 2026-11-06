@@ -198,7 +198,10 @@ export const createVolumeTool: ToolConfig = {
       .describe('iSCSI block device configuration (used when protocols includes ISCSI)'),
     description: z.string().optional().describe('Optional description of the volume'),
     shareName: z.string().optional().describe('Optional name of the file share'),
-    labels: z.record(z.string(), z.string()).optional().describe('Optional labels to apply to the volume'),
+    labels: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('Optional labels to apply to the volume'),
     backupConfig: z
       .object({
         backupPolicies: z
@@ -449,7 +452,10 @@ export const updateVolumeTool: ToolConfig = {
     volumeId: z.string().describe('The ID of the volume to update'),
     capacityGib: z.number().optional().describe('The new capacity of the volume in GiB'),
     description: z.string().optional().describe('New description of the volume'),
-    labels: z.record(z.string(), z.string()).optional().describe('New labels to apply to the volume'),
+    labels: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('New labels to apply to the volume'),
     backupConfig: z
       .object({
         backupPolicies: z

@@ -14,8 +14,14 @@ export const getOperationTool: ToolConfig = {
     done: z.boolean().describe('Whether the operation is complete'),
     success: z.boolean().describe('True when done is true; done determines the final result'),
     metadata: z.record(z.string(), z.any()).optional().describe('Metadata about the operation'),
-    error: z.record(z.string(), z.any()).optional().describe('Error details if the operation failed'),
-    response: z.record(z.string(), z.any()).optional().describe('The response if the operation succeeded'),
+    error: z
+      .record(z.string(), z.any())
+      .optional()
+      .describe('Error details if the operation failed'),
+    response: z
+      .record(z.string(), z.any())
+      .optional()
+      .describe('The response if the operation succeeded'),
     createTime: z.string().optional().describe('When the operation was created'),
     target: z.string().optional().describe('The target resource of the operation'),
     verb: z.string().optional().describe('The operation verb (create, update, delete)'),
