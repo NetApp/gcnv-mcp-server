@@ -16,7 +16,7 @@ export const createBackupPolicyTool: ToolConfig = {
     description: z.string().optional().describe('Optional description of the backup policy'),
     enabled: z.boolean().optional().describe('Whether the backup policy is enabled'),
     labels: z
-      .record(z.string())
+      .record(z.string(), z.string())
       .optional()
       .describe('Optional labels to apply to the backup policy'),
   },
@@ -52,7 +52,7 @@ export const getBackupPolicyTool: ToolConfig = {
       .describe('Number of volumes assigned to this policy'),
     state: z.string().describe('The current state of the backup policy'),
     createTime: z.string().optional().describe('The creation time of the backup policy'),
-    labels: z.record(z.string()).optional().describe('Labels applied to the backup policy'),
+    labels: z.record(z.string(), z.string()).optional().describe('Labels applied to the backup policy'),
   },
 };
 
@@ -101,7 +101,7 @@ export const listBackupPoliciesTool: ToolConfig = {
             .describe('Number of volumes assigned to this policy'),
           state: z.string().describe('The current state of the backup policy'),
           createTime: z.string().optional().describe('The creation time of the backup policy'),
-          labels: z.record(z.string()).optional().describe('Labels applied to the backup policy'),
+          labels: z.record(z.string(), z.string()).optional().describe('Labels applied to the backup policy'),
         })
       )
       .describe('List of backup policies'),
@@ -123,7 +123,7 @@ export const updateBackupPolicyTool: ToolConfig = {
     monthlyBackupLimit: z.number().optional().describe('Maximum number of monthly backups to keep'),
     description: z.string().optional().describe('New description for the backup policy'),
     enabled: z.boolean().optional().describe('Whether the backup policy is enabled'),
-    labels: z.record(z.string()).optional().describe('New labels to apply to the backup policy'),
+    labels: z.record(z.string(), z.string()).optional().describe('New labels to apply to the backup policy'),
   },
   outputSchema: {
     name: z.string().describe('The fully qualified name of the updated backup policy'),

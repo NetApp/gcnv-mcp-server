@@ -41,7 +41,7 @@ export const createQuotaRuleTool: ToolConfig = {
       .describe('Quota rule type (enum name or number)'),
     diskLimitMib: z.number().describe('Quota size in MiB'),
     description: z.string().optional().describe('Optional description'),
-    labels: z.record(z.string()).optional().describe('Optional labels'),
+    labels: z.record(z.string(), z.string()).optional().describe('Optional labels'),
   },
   outputSchema: {
     name: z.string().describe('The name of the created quota rule'),
@@ -70,7 +70,7 @@ export const getQuotaRuleTool: ToolConfig = {
     state: z.string().optional().describe('The current state'),
     createTime: z.string().optional().describe('The creation timestamp'),
     description: z.string().optional().describe('Description'),
-    labels: z.record(z.string()).optional().describe('Labels'),
+    labels: z.record(z.string(), z.string()).optional().describe('Labels'),
   },
 };
 
@@ -104,7 +104,7 @@ export const listQuotaRulesTool: ToolConfig = {
           state: z.string().optional().describe('The current state'),
           createTime: z.string().optional().describe('The creation timestamp'),
           description: z.string().optional().describe('Description'),
-          labels: z.record(z.string()).optional().describe('Labels'),
+          labels: z.record(z.string(), z.string()).optional().describe('Labels'),
         })
       )
       .describe('List of quota rules'),
@@ -151,7 +151,7 @@ export const updateQuotaRuleTool: ToolConfig = {
       .describe('Type of quota rule (enum name or number)'),
     diskLimitMib: z.number().optional().describe('Quota size in MiB'),
     description: z.string().optional().describe('New description'),
-    labels: z.record(z.string()).optional().describe('New labels'),
+    labels: z.record(z.string(), z.string()).optional().describe('New labels'),
   },
   outputSchema: {
     name: z.string().describe('The name of the updated quota rule'),

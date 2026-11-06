@@ -198,7 +198,7 @@ export const createVolumeTool: ToolConfig = {
       .describe('iSCSI block device configuration (used when protocols includes ISCSI)'),
     description: z.string().optional().describe('Optional description of the volume'),
     shareName: z.string().optional().describe('Optional name of the file share'),
-    labels: z.record(z.string()).optional().describe('Optional labels to apply to the volume'),
+    labels: z.record(z.string(), z.string()).optional().describe('Optional labels to apply to the volume'),
     backupConfig: z
       .object({
         backupPolicies: z
@@ -245,7 +245,7 @@ export const createVolumeTool: ToolConfig = {
           .describe('Peer IP addresses for hybrid replication'),
         clusterLocation: z.string().optional().describe('Cluster location'),
         description: z.string().optional().describe('Description'),
-        labels: z.record(z.string()).optional().describe('Labels'),
+        labels: z.record(z.string(), z.string()).optional().describe('Labels'),
         replicationSchedule: z
           .enum(['HYBRID_REPLICATION_SCHEDULE_UNSPECIFIED', 'EVERY_10_MINUTES', 'HOURLY', 'DAILY'])
           .optional()
@@ -411,7 +411,7 @@ export const getVolumeTool: ToolConfig = {
   },
   // Allow any additional fields from the API
   outputSchema: {
-    volume: z.record(z.any()).describe('Volume details'),
+    volume: z.record(z.string(), z.any()).describe('Volume details'),
   },
 };
 
@@ -433,7 +433,7 @@ export const listVolumesTool: ToolConfig = {
     pageToken: z.string().optional().describe('Page token from a previous list request'),
   },
   outputSchema: {
-    volumes: z.array(z.record(z.any())).describe('List of volumes'),
+    volumes: z.array(z.record(z.string(), z.any())).describe('List of volumes'),
     nextPageToken: z.string().optional().describe('Token to retrieve the next page of results'),
   },
 };
@@ -449,7 +449,7 @@ export const updateVolumeTool: ToolConfig = {
     volumeId: z.string().describe('The ID of the volume to update'),
     capacityGib: z.number().optional().describe('The new capacity of the volume in GiB'),
     description: z.string().optional().describe('New description of the volume'),
-    labels: z.record(z.string()).optional().describe('New labels to apply to the volume'),
+    labels: z.record(z.string(), z.string()).optional().describe('New labels to apply to the volume'),
     backupConfig: z
       .object({
         backupPolicies: z
@@ -494,7 +494,7 @@ export const updateVolumeTool: ToolConfig = {
           .describe('Peer IP addresses for hybrid replication'),
         clusterLocation: z.string().optional().describe('Cluster location'),
         description: z.string().optional().describe('Description'),
-        labels: z.record(z.string()).optional().describe('Labels'),
+        labels: z.record(z.string(), z.string()).optional().describe('Labels'),
         replicationSchedule: z
           .enum(['HYBRID_REPLICATION_SCHEDULE_UNSPECIFIED', 'EVERY_10_MINUTES', 'HOURLY', 'DAILY'])
           .optional()

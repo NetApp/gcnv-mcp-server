@@ -28,13 +28,13 @@ export const ontapExecuteTool: ToolConfig = {
         'ONTAP REST API path starting with /api/ (e.g. "/api/storage/qos/policies"). Get this from ontap_discover.'
       ),
     body: z
-      .union([z.string(), z.record(z.any())])
+      .union([z.string(), z.record(z.string(), z.any())])
       .optional()
       .describe(
         'Request body for POST/PATCH operations, either as a JSON string or object. Auto-wrapped in body:{} envelope. Example: {"name":"vol1","svm":{"name":"vs0"},"size":"2GB"}'
       ),
     queryParams: z
-      .union([z.string(), z.record(z.string())])
+      .union([z.string(), z.record(z.string(), z.string())])
       .optional()
       .describe(
         'Query parameters, either as a JSON string or an object with string values. Example: {"max_records":"50","ontap_fields":"name,uuid"}. ' +
