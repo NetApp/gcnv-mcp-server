@@ -12,7 +12,10 @@ export const createSnapshotTool: ToolConfig = {
     volumeId: z.string().describe('The ID of the volume to snapshot'),
     snapshotId: z.string().describe('The ID to assign to the snapshot'),
     description: z.string().optional().describe('Optional description of the snapshot'),
-    labels: z.record(z.string()).optional().describe('Optional labels to apply to the snapshot'),
+    labels: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('Optional labels to apply to the snapshot'),
   },
   outputSchema: {
     name: z.string().describe('The name of the created snapshot'),
@@ -40,7 +43,7 @@ export const getSnapshotTool: ToolConfig = {
     state: z.string().describe('The current state of the snapshot'),
     createTime: z.string().describe('The timestamp when the snapshot was created'),
     description: z.string().optional().describe('The description of the snapshot'),
-    labels: z.record(z.string()).optional().describe('Labels applied to the snapshot'),
+    labels: z.record(z.string(), z.string()).optional().describe('Labels applied to the snapshot'),
   },
 };
 
@@ -72,7 +75,10 @@ export const listSnapshotsTool: ToolConfig = {
           state: z.string().describe('The current state of the snapshot'),
           createTime: z.string().describe('The timestamp when the snapshot was created'),
           description: z.string().optional().describe('The description of the snapshot'),
-          labels: z.record(z.string()).optional().describe('Labels applied to the snapshot'),
+          labels: z
+            .record(z.string(), z.string())
+            .optional()
+            .describe('Labels applied to the snapshot'),
         })
       )
       .describe('List of snapshots'),
@@ -110,7 +116,10 @@ export const updateSnapshotTool: ToolConfig = {
     volumeId: z.string().describe('The ID of the volume containing the snapshot'),
     snapshotId: z.string().describe('The ID of the snapshot to update'),
     description: z.string().optional().describe('New description of the snapshot'),
-    labels: z.record(z.string()).optional().describe('New labels to apply to the snapshot'),
+    labels: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('New labels to apply to the snapshot'),
   },
   outputSchema: {
     name: z.string().describe('The name of the updated snapshot'),

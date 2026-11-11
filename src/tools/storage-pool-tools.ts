@@ -19,7 +19,7 @@ export const createStoragePoolTool: ToolConfig = {
       .describe('The service level of the storage pool'),
     description: z.string().optional().describe('Optional description of the storage pool'),
     labels: z
-      .record(z.string())
+      .record(z.string(), z.string())
       .optional()
       .describe('Optional labels to apply to the storage pool'),
     network: z
@@ -129,7 +129,10 @@ export const getStoragePoolTool: ToolConfig = {
     state: z.string().describe('The current state of the storage pool'),
     createTime: z.string().optional().describe('The timestamp when the storage pool was created'),
     description: z.string().optional().describe('The description of the storage pool'),
-    labels: z.record(z.string()).optional().describe('Labels applied to the storage pool'),
+    labels: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('Labels applied to the storage pool'),
     network: z.string().optional().describe('The VPC network used by the storage pool'),
     activeDirectory: z
       .string()
@@ -198,7 +201,10 @@ export const listStoragePoolsTool: ToolConfig = {
             .optional()
             .describe('The timestamp when the storage pool was created'),
           description: z.string().optional().describe('The description of the storage pool'),
-          labels: z.record(z.string()).optional().describe('Labels applied to the storage pool'),
+          labels: z
+            .record(z.string(), z.string())
+            .optional()
+            .describe('Labels applied to the storage pool'),
           network: z.string().optional().describe('The VPC network used by the storage pool'),
           activeDirectory: z
             .string()
@@ -251,7 +257,10 @@ export const updateStoragePoolTool: ToolConfig = {
     storagePoolId: z.string().describe('The ID of the storage pool to update'),
     capacityGib: z.number().optional().describe('The new capacity of the storage pool in GiB'),
     description: z.string().optional().describe('New description of the storage pool'),
-    labels: z.record(z.string()).optional().describe('New labels to apply to the storage pool'),
+    labels: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('New labels to apply to the storage pool'),
     qosType: z
       .union([z.enum(['AUTO', 'MANUAL']), z.enum(['auto', 'manual'])])
       .optional()

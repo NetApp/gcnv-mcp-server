@@ -12,7 +12,7 @@ export const createKmsConfigTool: ToolConfig = {
     kmsConfigId: z.string().describe('The ID to assign to the KMS config'),
     cryptoKeyName: z.string().describe('The full name of the crypto key'),
     description: z.string().optional().describe('Optional description'),
-    labels: z.record(z.string()).optional().describe('Optional labels'),
+    labels: z.record(z.string(), z.string()).optional().describe('Optional labels'),
   },
   outputSchema: {
     name: z.string().describe('The name of the created KMS config'),
@@ -48,7 +48,7 @@ export const getKmsConfigTool: ToolConfig = {
       .describe('Additional state details when the KMS config is not ready'),
     createTime: z.string().optional().describe('The creation timestamp'),
     description: z.string().optional().describe('Description'),
-    labels: z.record(z.string()).optional().describe('Labels'),
+    labels: z.record(z.string(), z.string()).optional().describe('Labels'),
     serviceAccount: z
       .string()
       .optional()
@@ -90,7 +90,7 @@ export const listKmsConfigsTool: ToolConfig = {
             .describe('Additional state details when the KMS config is not ready'),
           createTime: z.string().optional().describe('The creation timestamp'),
           description: z.string().optional().describe('Description'),
-          labels: z.record(z.string()).optional().describe('Labels'),
+          labels: z.record(z.string(), z.string()).optional().describe('Labels'),
           serviceAccount: z
             .string()
             .optional()
@@ -113,7 +113,7 @@ export const updateKmsConfigTool: ToolConfig = {
     kmsConfigId: z.string().describe('The ID of the KMS config to update'),
     cryptoKeyName: z.string().optional().describe('The name of the crypto key'),
     description: z.string().optional().describe('New description'),
-    labels: z.record(z.string()).optional().describe('New labels'),
+    labels: z.record(z.string(), z.string()).optional().describe('New labels'),
   },
   outputSchema: {
     name: z.string().describe('The name of the updated KMS config'),

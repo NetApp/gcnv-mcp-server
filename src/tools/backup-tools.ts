@@ -52,7 +52,10 @@ export const createBackupTool: ToolConfig = {
         'ONTAP-mode only. Optional UUID of an ONTAP snapshot to back up instead of the current volume state.'
       ),
     description: z.string().optional().describe('Optional description of the backup'),
-    labels: z.record(z.string()).optional().describe('Optional labels to apply to the backup'),
+    labels: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('Optional labels to apply to the backup'),
   },
   outputSchema: {
     name: z.string().describe('The name of the created backup'),
@@ -100,7 +103,7 @@ export const getBackupTool: ToolConfig = {
       .string()
       .optional()
       .describe('The name of the source snapshot if the backup was created from a snapshot'),
-    labels: z.record(z.string()).optional().describe('Labels applied to the backup'),
+    labels: z.record(z.string(), z.string()).optional().describe('Labels applied to the backup'),
   },
 };
 
@@ -159,7 +162,10 @@ export const listBackupsTool: ToolConfig = {
             .string()
             .optional()
             .describe('The name of the source snapshot if the backup was created from a snapshot'),
-          labels: z.record(z.string()).optional().describe('Labels applied to the backup'),
+          labels: z
+            .record(z.string(), z.string())
+            .optional()
+            .describe('Labels applied to the backup'),
         })
       )
       .describe('List of backups'),
@@ -280,7 +286,10 @@ export const updateBackupTool: ToolConfig = {
     backupVaultId: z.string().describe('The ID of the backup vault containing the backup'),
     backupId: z.string().describe('The ID of the backup to update'),
     description: z.string().optional().describe('New description of the backup'),
-    labels: z.record(z.string()).optional().describe('New labels to apply to the backup'),
+    labels: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('New labels to apply to the backup'),
   },
   outputSchema: {
     name: z.string().describe('The name of the updated backup'),

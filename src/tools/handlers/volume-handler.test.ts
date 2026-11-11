@@ -1228,6 +1228,10 @@ describe('volume-handler', () => {
         kmsConfig: 'kms',
         encryptionType: 'CMEK',
         backupConfig: { scheduledBackupEnabled: false },
+        snapshotPolicy: {
+          enabled: true,
+          dailySchedule: { snapshotsToKeep: 7, hour: 6, minute: 0 },
+        },
         tieringPolicy: { policy: 'AUTO' },
         hybridReplicationParameters: {
           replicationSchedule: 'HOURLY',
@@ -1280,6 +1284,10 @@ describe('volume-handler', () => {
       restrictedActions: [],
       exportPolicy: { rules: [] },
       smbSettings: ['ENCRYPT_DATA'],
+      snapshotPolicy: {
+        enabled: true,
+        dailySchedule: { snapshotsToKeep: 7, hour: 6, minute: 0 },
+      },
       hybridReplicationParameters: {
         replicationSchedule: 'HOURLY',
         hybridReplicationType: 'CONTINUOUS_REPLICATION',
@@ -1519,6 +1527,54 @@ describe('volume-handler', () => {
       },
       updateMask: { paths: ['tiering_policy'] },
     });
+  });
+
+  it('updateVolumeHandler supports updating snapshotPolicy', async () => {
+    const updateVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-upd-snap' }]);
+    createClientMock.mockReturnValue({ updateVolume });
+
+    const { updateVolumeHandler } = await import('./volume-handler.js');
+    await updateVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+      snapshotPolicy: {
+        enabled: true,
+        hourlySchedule: { snapshotsToKeep: 24, minute: 5 },
+        dailySchedule: { snapshotsToKeep: 7, hour: 2, minute: 0 },
+      },
+    });
+
+    expect(updateVolume.mock.calls[0]?.[0]).toMatchObject({
+      volume: {
+        name: 'projects/p1/locations/us-central1/volumes/vol1',
+        snapshotPolicy: {
+          enabled: true,
+          hourlySchedule: { snapshotsToKeep: 24, minute: 5 },
+          dailySchedule: { snapshotsToKeep: 7, hour: 2, minute: 0 },
+        },
+      },
+      updateMask: { paths: ['snapshot_policy'] },
+    });
+  });
+
+  it('updateVolumeHandler returns error when snapshotPolicy is an empty object (bypassing zod)', async () => {
+    const updateVolume = vi.fn().mockResolvedValue([{ name: 'operations/op-upd-snap-empty' }]);
+    createClientMock.mockReturnValue({ updateVolume });
+
+    const { updateVolumeHandler } = await import('./volume-handler.js');
+    const result = await updateVolumeHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+      snapshotPolicy: {},
+    });
+
+    expect(updateVolume).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
+    expect((result.content as { type: string; text: string }[])[0]?.text).toMatch(
+      /snapshotPolicy must include/
+    );
   });
 
   it('updateVolumeHandler supports updating hybridReplicationParameters', async () => {

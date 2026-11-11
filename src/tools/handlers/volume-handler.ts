@@ -230,6 +230,7 @@ function formatVolumeData(volume: any): any {
   if (volume.kmsConfig) result.kmsConfig = volume.kmsConfig;
   if (volume.encryptionType) result.encryptionType = volume.encryptionType;
   if (volume.backupConfig) result.backupConfig = volume.backupConfig;
+  if (volume.snapshotPolicy) result.snapshotPolicy = volume.snapshotPolicy;
   if (volume.tieringPolicy) result.tieringPolicy = volume.tieringPolicy;
   if (volume.hybridReplicationParameters)
     result.hybridReplicationParameters = volume.hybridReplicationParameters;
@@ -721,6 +722,7 @@ export const updateVolumeHandler: ToolHandler = async (args: { [key: string]: an
       description,
       labels,
       backupConfig,
+      snapshotPolicy,
       tieringPolicy,
       hybridReplicationParameters,
       cacheParameters,
@@ -768,6 +770,28 @@ export const updateVolumeHandler: ToolHandler = async (args: { [key: string]: an
     if (tieringPolicy !== undefined) {
       volume.tieringPolicy = tieringPolicy;
       updateMask.push('tiering_policy');
+    }
+
+    if (snapshotPolicy !== undefined) {
+      const hasSnapshotPolicyContent =
+        snapshotPolicy.enabled !== undefined ||
+        snapshotPolicy.hourlySchedule !== undefined ||
+        snapshotPolicy.dailySchedule !== undefined ||
+        snapshotPolicy.weeklySchedule !== undefined ||
+        snapshotPolicy.monthlySchedule !== undefined;
+      if (!hasSnapshotPolicyContent) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text' as const,
+              text: 'Error updating volume: snapshotPolicy must include enabled and/or at least one schedule (hourly, daily, weekly, monthly).',
+            },
+          ],
+        };
+      }
+      volume.snapshotPolicy = snapshotPolicy;
+      updateMask.push('snapshot_policy');
     }
 
     if (hybridReplicationParameters !== undefined) {
