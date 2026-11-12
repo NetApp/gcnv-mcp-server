@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
+import { runWithRequestAccessToken } from '../auth/access-token-context.js';
 
 const NetAppClientCtor = vi.fn();
 
@@ -61,7 +62,7 @@ describe('NetAppClientFactory', () => {
     const client = NetAppClientFactory.createClient();
 
     expect(NetAppClientCtor).toHaveBeenCalledTimes(1);
-    expect((client as any).__opts).toBeUndefined();
+    expect((client as any).__opts).toEqual({});
   });
 
   it('merges options even when defaultConfig is unset (covers spread fallback branch)', async () => {
@@ -93,6 +94,30 @@ describe('NetAppClientFactory', () => {
     expect((client as any).__opts).toMatchObject({ apiEndpoint: 'https://example-endpoint' });
   });
 
+  it('uses HTTP REST client options for http:// GCNV_API_ENDPOINT', async () => {
+    const { NetAppClientFactory } = await import('./netapp-client-factory.js');
+    process.env.GCNV_API_ENDPOINT = 'http://api.example.com:8080';
+
+    const client = NetAppClientFactory.createClient();
+    expect((client as any).__opts).toMatchObject({
+      apiEndpoint: 'api.example.com',
+      port: 8080,
+      fallback: 'rest',
+      protocol: 'http',
+    });
+  });
+
+  it('passes bare hostname through unchanged', async () => {
+    const { NetAppClientFactory } = await import('./netapp-client-factory.js');
+    process.env.GCNV_API_ENDPOINT = 'sandbox-api.example.com';
+
+    const client = NetAppClientFactory.createClient();
+    expect((client as any).__opts).toMatchObject({
+      apiEndpoint: 'sandbox-api.example.com',
+    });
+    expect((client as any).__opts).not.toHaveProperty('fallback');
+  });
+
   it('ignores env GCNV_API_ENDPOINT when only whitespace', async () => {
     const { NetAppClientFactory } = await import('./netapp-client-factory.js');
     process.env.GCNV_API_ENDPOINT = '   ';
@@ -100,5 +125,40 @@ describe('NetAppClientFactory', () => {
     const client = NetAppClientFactory.createClient({ timeout: 123 } as any);
     expect((client as any).__opts).not.toHaveProperty('apiEndpoint');
     expect((client as any).__opts).toMatchObject({ timeout: 123 });
+  });
+
+  it('uses request access token as authClient and skips cache reuse', async () => {
+    const { NetAppClientFactory } = await import('./netapp-client-factory.js');
+
+    let c1: unknown;
+    let c2: unknown;
+    void runWithRequestAccessToken('token-1', () => {
+      c1 = NetAppClientFactory.createClient(undefined, 'k3');
+    });
+    void runWithRequestAccessToken('token-2', () => {
+      c2 = NetAppClientFactory.createClient(undefined, 'k3');
+    });
+
+    expect(c1).not.toBe(c2);
+    expect(NetAppClientCtor).toHaveBeenCalledTimes(2);
+    expect((c1 as any).__opts.authClient).toBeDefined();
+    expect((c2 as any).__opts.authClient).toBeDefined();
+  });
+});
+
+describe('clientOptionsFromGcnvApiEndpoint', () => {
+  it('returns empty options for empty string', async () => {
+    const { clientOptionsFromGcnvApiEndpoint } = await import('./netapp-client-factory.js');
+    expect(clientOptionsFromGcnvApiEndpoint('')).toEqual({});
+  });
+
+  it('parses http:// host and port for REST', async () => {
+    const { clientOptionsFromGcnvApiEndpoint } = await import('./netapp-client-factory.js');
+    expect(clientOptionsFromGcnvApiEndpoint('http://api.example.com:8080')).toEqual({
+      apiEndpoint: 'api.example.com',
+      port: 8080,
+      fallback: 'rest',
+      protocol: 'http',
+    });
   });
 });

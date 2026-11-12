@@ -95,7 +95,7 @@ describe('host-group-handler', () => {
       description: 'd',
       labels: { k: 'v' },
     });
-    expect(result.structuredContent.createTime).toBeInstanceOf(Date);
+    expect(result.structuredContent.createTime).toMatch(/^\d{4}-/);
   });
 
   it('listHostGroupsHandler calls listHostGroups and returns nextPageToken', async () => {
@@ -160,23 +160,6 @@ describe('host-group-handler', () => {
       name: 'projects/p1/locations/us-central1/hostGroups/hg1',
       operationId: 'op-upd',
     });
-  });
-
-  it('deleteHostGroupHandler calls deleteHostGroup and returns operationId', async () => {
-    const deleteHostGroup = vi.fn().mockResolvedValue([{ name: 'op-del' }]);
-    createClientMock.mockReturnValue({ deleteHostGroup });
-
-    const { deleteHostGroupHandler } = await import('./host-group-handler.js');
-    const result = await deleteHostGroupHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      hostGroupId: 'hg1',
-    });
-
-    expect(deleteHostGroup).toHaveBeenCalledWith({
-      name: 'projects/p1/locations/us-central1/hostGroups/hg1',
-    });
-    expect(result.structuredContent).toEqual({ success: true, operationId: 'op-del' });
   });
 
   it('covers error paths (createHostGroupHandler)', async () => {
@@ -287,51 +270,6 @@ describe('host-group-handler', () => {
       type: 'ISCSI_INITIATOR',
       osType: 'LINUX',
       hosts: ['h1'],
-    });
-    expect((unknown as any).content?.[0]?.text).toContain('Unknown error');
-  });
-
-  it('deleteHostGroupHandler validates required fields and handles client errors', async () => {
-    const { deleteHostGroupHandler } = await import('./host-group-handler.js');
-
-    createClientMock.mockReturnValue({ deleteHostGroup: vi.fn() });
-
-    const invalid = await deleteHostGroupHandler({
-      projectId: 'p1',
-      location: '',
-      hostGroupId: '',
-    });
-    expect((invalid as any).isError).toBe(true);
-    expect((invalid as any).content?.[0]?.text).toContain('Invalid input:');
-
-    createClientMock.mockReturnValue({
-      deleteHostGroup: vi.fn().mockRejectedValue(new Error('boom')),
-    });
-    const failed = await deleteHostGroupHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      hostGroupId: 'hg1',
-    });
-    expect((failed as any).isError).toBe(true);
-    expect((failed as any).content?.[0]?.text).toContain('Error deleting host group');
-  });
-
-  it('deleteHostGroupHandler handles empty operation name and unknown-error fallback', async () => {
-    const { deleteHostGroupHandler } = await import('./host-group-handler.js');
-
-    createClientMock.mockReturnValue({ deleteHostGroup: vi.fn().mockResolvedValue([{}]) });
-    const noName = await deleteHostGroupHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      hostGroupId: 'hg1',
-    });
-    expect((noName as any).structuredContent).toEqual({ success: true, operationId: '' });
-
-    createClientMock.mockReturnValue({ deleteHostGroup: vi.fn().mockRejectedValue({}) });
-    const unknown = await deleteHostGroupHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      hostGroupId: 'hg1',
     });
     expect((unknown as any).content?.[0]?.text).toContain('Unknown error');
   });

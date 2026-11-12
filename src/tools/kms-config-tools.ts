@@ -12,27 +12,11 @@ export const createKmsConfigTool: ToolConfig = {
     kmsConfigId: z.string().describe('The ID to assign to the KMS config'),
     cryptoKeyName: z.string().describe('The full name of the crypto key'),
     description: z.string().optional().describe('Optional description'),
-    labels: z.record(z.string()).optional().describe('Optional labels'),
+    labels: z.record(z.string(), z.string()).optional().describe('Optional labels'),
   },
   outputSchema: {
     name: z.string().describe('The name of the created KMS config'),
     operationId: z.string().describe('The ID of the long-running operation'),
-  },
-};
-
-// Delete KMS Config Tool
-export const deleteKmsConfigTool: ToolConfig = {
-  name: 'gcnv_kms_config_delete',
-  title: 'Delete KMS Config',
-  description: 'Deletes a KMS configuration',
-  inputSchema: {
-    projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().describe('The location of the KMS config'),
-    kmsConfigId: z.string().describe('The ID of the KMS config to delete'),
-  },
-  outputSchema: {
-    success: z.boolean().describe('Whether the deletion was successful'),
-    operationId: z.string().optional().describe('The ID of the long-running operation'),
   },
 };
 
@@ -62,9 +46,9 @@ export const getKmsConfigTool: ToolConfig = {
       .string()
       .optional()
       .describe('Additional state details when the KMS config is not ready'),
-    createTime: z.date().optional().describe('The creation timestamp'),
+    createTime: z.string().optional().describe('The creation timestamp'),
     description: z.string().optional().describe('Description'),
-    labels: z.record(z.string()).optional().describe('Labels'),
+    labels: z.record(z.string(), z.string()).optional().describe('Labels'),
     serviceAccount: z
       .string()
       .optional()
@@ -104,9 +88,9 @@ export const listKmsConfigsTool: ToolConfig = {
             .string()
             .optional()
             .describe('Additional state details when the KMS config is not ready'),
-          createTime: z.date().optional().describe('The creation timestamp'),
+          createTime: z.string().optional().describe('The creation timestamp'),
           description: z.string().optional().describe('Description'),
-          labels: z.record(z.string()).optional().describe('Labels'),
+          labels: z.record(z.string(), z.string()).optional().describe('Labels'),
           serviceAccount: z
             .string()
             .optional()
@@ -129,7 +113,7 @@ export const updateKmsConfigTool: ToolConfig = {
     kmsConfigId: z.string().describe('The ID of the KMS config to update'),
     cryptoKeyName: z.string().optional().describe('The name of the crypto key'),
     description: z.string().optional().describe('New description'),
-    labels: z.record(z.string()).optional().describe('New labels'),
+    labels: z.record(z.string(), z.string()).optional().describe('New labels'),
   },
   outputSchema: {
     name: z.string().describe('The name of the updated KMS config'),

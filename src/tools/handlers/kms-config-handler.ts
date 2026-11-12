@@ -1,6 +1,7 @@
 import { ToolHandler } from '../../types/tool.js';
 import { z } from 'zod';
 import { NetAppClientFactory } from '../../utils/netapp-client-factory.js';
+import { formatProtobufTimestamp, normalizeStringEnum } from '../../utils/proto-format-utils.js';
 import { getKmsConfigTool, listKmsConfigsTool } from '../kms-config-tools.js';
 import { logger } from '../../logger.js';
 
@@ -22,14 +23,13 @@ function formatKmsConfigData(config: any): any {
   }
 
   if (config.cryptoKeyName) result.cryptoKeyName = config.cryptoKeyName;
-  if (config.state) result.state = config.state;
+  if (config.state !== undefined) result.state = normalizeStringEnum(config.state);
   if (config.stateDetails) result.stateDetails = config.stateDetails;
   if (config.instructions) result.instructions = config.instructions;
   if (config.serviceAccount) result.serviceAccount = config.serviceAccount;
 
-  if (config.createTime) {
-    result.createTime = new Date(config.createTime.seconds * 1000);
-  }
+  const createTime = formatProtobufTimestamp(config.createTime);
+  if (createTime) result.createTime = createTime;
 
   if (config.description) result.description = config.description;
   if (config.labels) result.labels = config.labels;
@@ -87,49 +87,6 @@ export const createKmsConfigHandler: ToolHandler = async (args: { [key: string]:
         {
           type: 'text' as const,
           text: `Error creating KMS config: ${error.message || 'Unknown error'}`,
-        },
-      ],
-    };
-  }
-};
-
-// Delete KMS Config Handler
-export const deleteKmsConfigHandler: ToolHandler = async (args: { [key: string]: any }) => {
-  try {
-    const { projectId, location, kmsConfigId } = args;
-
-    const netAppClient = NetAppClientFactory.createClient();
-    const name = `projects/${projectId}/locations/${location}/kmsConfigs/${kmsConfigId}`;
-
-    const [operation] = await netAppClient.deleteKmsConfig({ name });
-
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: JSON.stringify(
-            {
-              message: `KMS config ${kmsConfigId} deletion requested`,
-              operation: operation,
-            },
-            null,
-            2
-          ),
-        },
-      ],
-      structuredContent: {
-        success: true,
-        operationId: operation.name || '',
-      },
-    };
-  } catch (error: any) {
-    log.error({ err: error }, 'Error deleting KMS config');
-    return {
-      isError: true,
-      content: [
-        {
-          type: 'text' as const,
-          text: `Error deleting KMS config: ${error.message || 'Unknown error'}`,
         },
       ],
     };

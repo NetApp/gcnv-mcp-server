@@ -1,18 +1,21 @@
 import { z } from 'zod';
-import { ToolConfig } from '../types/tool.js';
+import { ToolConfig, NOT_FOR_ONTAP } from '../types/tool.js';
 
 // Create Snapshot Tool
 export const createSnapshotTool: ToolConfig = {
   name: 'gcnv_snapshot_create',
   title: 'Create Snapshot',
-  description: 'Creates a new snapshot of the specified volume',
+  description: 'Creates a GCNV managed snapshot of the specified volume.' + NOT_FOR_ONTAP,
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
     location: z.string().describe('The location of the volume'),
     volumeId: z.string().describe('The ID of the volume to snapshot'),
     snapshotId: z.string().describe('The ID to assign to the snapshot'),
     description: z.string().optional().describe('Optional description of the snapshot'),
-    labels: z.record(z.string()).optional().describe('Optional labels to apply to the snapshot'),
+    labels: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('Optional labels to apply to the snapshot'),
   },
   outputSchema: {
     name: z.string().describe('The name of the created snapshot'),
@@ -22,28 +25,11 @@ export const createSnapshotTool: ToolConfig = {
   },
 };
 
-// Delete Snapshot Tool
-export const deleteSnapshotTool: ToolConfig = {
-  name: 'gcnv_snapshot_delete',
-  title: 'Delete Snapshot',
-  description: 'Deletes a snapshot of a volume',
-  inputSchema: {
-    projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().describe('The location of the volume'),
-    volumeId: z.string().describe('The ID of the volume containing the snapshot'),
-    snapshotId: z.string().describe('The ID of the snapshot to delete'),
-  },
-  outputSchema: {
-    success: z.boolean().describe('Whether the deletion was successful'),
-    operationId: z.string().optional().describe('The ID of the long-running operation'),
-  },
-};
-
 // Get Snapshot Tool
 export const getSnapshotTool: ToolConfig = {
   name: 'gcnv_snapshot_get',
   title: 'Get Snapshot',
-  description: 'Gets details of a specific snapshot',
+  description: 'Gets details of a GCNV managed snapshot of a volume.' + NOT_FOR_ONTAP,
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
     location: z.string().describe('The location of the volume'),
@@ -55,9 +41,9 @@ export const getSnapshotTool: ToolConfig = {
     snapshotId: z.string().describe('The ID of the snapshot'),
     volumeId: z.string().describe('The ID of the source volume'),
     state: z.string().describe('The current state of the snapshot'),
-    createTime: z.date().describe('The timestamp when the snapshot was created'),
+    createTime: z.string().describe('The timestamp when the snapshot was created'),
     description: z.string().optional().describe('The description of the snapshot'),
-    labels: z.record(z.string()).optional().describe('Labels applied to the snapshot'),
+    labels: z.record(z.string(), z.string()).optional().describe('Labels applied to the snapshot'),
   },
 };
 
@@ -65,7 +51,9 @@ export const getSnapshotTool: ToolConfig = {
 export const listSnapshotsTool: ToolConfig = {
   name: 'gcnv_snapshot_list',
   title: 'List Snapshots',
-  description: 'Lists all snapshots for a specified volume (omit location for all locations)',
+  description:
+    'Lists GCNV managed snapshots for a specified volume (omit location for all locations).' +
+    NOT_FOR_ONTAP,
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
     location: z
@@ -85,9 +73,12 @@ export const listSnapshotsTool: ToolConfig = {
           snapshotId: z.string().describe('The ID of the snapshot'),
           volumeId: z.string().describe('The ID of the source volume'),
           state: z.string().describe('The current state of the snapshot'),
-          createTime: z.date().describe('The timestamp when the snapshot was created'),
+          createTime: z.string().describe('The timestamp when the snapshot was created'),
           description: z.string().optional().describe('The description of the snapshot'),
-          labels: z.record(z.string()).optional().describe('Labels applied to the snapshot'),
+          labels: z
+            .record(z.string(), z.string())
+            .optional()
+            .describe('Labels applied to the snapshot'),
         })
       )
       .describe('List of snapshots'),
@@ -99,7 +90,7 @@ export const listSnapshotsTool: ToolConfig = {
 export const revertVolumeToSnapshotTool: ToolConfig = {
   name: 'gcnv_snapshot_revert',
   title: 'Revert Volume to Snapshot',
-  description: 'Reverts a volume to a previous snapshot state',
+  description: 'Reverts a GCNV managed volume to a previous snapshot.' + NOT_FOR_ONTAP,
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
     location: z.string().describe('The location of the volume'),
@@ -118,14 +109,17 @@ export const revertVolumeToSnapshotTool: ToolConfig = {
 export const updateSnapshotTool: ToolConfig = {
   name: 'gcnv_snapshot_update',
   title: 'Update Snapshot',
-  description: 'Updates the settings of a specific snapshot',
+  description: 'Updates a GCNV managed snapshot of a volume.' + NOT_FOR_ONTAP,
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
     location: z.string().describe('The location of the volume'),
     volumeId: z.string().describe('The ID of the volume containing the snapshot'),
     snapshotId: z.string().describe('The ID of the snapshot to update'),
     description: z.string().optional().describe('New description of the snapshot'),
-    labels: z.record(z.string()).optional().describe('New labels to apply to the snapshot'),
+    labels: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('New labels to apply to the snapshot'),
   },
   outputSchema: {
     name: z.string().describe('The name of the updated snapshot'),

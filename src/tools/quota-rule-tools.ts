@@ -41,28 +41,11 @@ export const createQuotaRuleTool: ToolConfig = {
       .describe('Quota rule type (enum name or number)'),
     diskLimitMib: z.number().describe('Quota size in MiB'),
     description: z.string().optional().describe('Optional description'),
-    labels: z.record(z.string()).optional().describe('Optional labels'),
+    labels: z.record(z.string(), z.string()).optional().describe('Optional labels'),
   },
   outputSchema: {
     name: z.string().describe('The name of the created quota rule'),
     operationId: z.string().describe('The ID of the long-running operation'),
-  },
-};
-
-// Delete Quota Rule Tool
-export const deleteQuotaRuleTool: ToolConfig = {
-  name: 'gcnv_quota_rule_delete',
-  title: 'Delete Quota Rule',
-  description: 'Deletes a quota rule',
-  inputSchema: {
-    projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().describe('The location of the volume'),
-    volumeId: z.string().describe('The ID of the volume'),
-    quotaRuleId: z.string().describe('The ID of the quota rule to delete'),
-  },
-  outputSchema: {
-    success: z.boolean().describe('Whether the deletion was successful'),
-    operationId: z.string().optional().describe('The ID of the long-running operation'),
   },
 };
 
@@ -85,9 +68,9 @@ export const getQuotaRuleTool: ToolConfig = {
     type: z.number().optional().describe('Type of quota rule (enum number)'),
     diskLimitMib: z.number().optional().describe('Quota size in MiB'),
     state: z.string().optional().describe('The current state'),
-    createTime: z.date().optional().describe('The creation timestamp'),
+    createTime: z.string().optional().describe('The creation timestamp'),
     description: z.string().optional().describe('Description'),
-    labels: z.record(z.string()).optional().describe('Labels'),
+    labels: z.record(z.string(), z.string()).optional().describe('Labels'),
   },
 };
 
@@ -119,9 +102,9 @@ export const listQuotaRulesTool: ToolConfig = {
           type: z.number().optional().describe('Type of quota rule (enum number)'),
           diskLimitMib: z.number().optional().describe('Quota size in MiB'),
           state: z.string().optional().describe('The current state'),
-          createTime: z.date().optional().describe('The creation timestamp'),
+          createTime: z.string().optional().describe('The creation timestamp'),
           description: z.string().optional().describe('Description'),
-          labels: z.record(z.string()).optional().describe('Labels'),
+          labels: z.record(z.string(), z.string()).optional().describe('Labels'),
         })
       )
       .describe('List of quota rules'),
@@ -168,7 +151,7 @@ export const updateQuotaRuleTool: ToolConfig = {
       .describe('Type of quota rule (enum name or number)'),
     diskLimitMib: z.number().optional().describe('Quota size in MiB'),
     description: z.string().optional().describe('New description'),
-    labels: z.record(z.string()).optional().describe('New labels'),
+    labels: z.record(z.string(), z.string()).optional().describe('New labels'),
   },
   outputSchema: {
     name: z.string().describe('The name of the updated quota rule'),

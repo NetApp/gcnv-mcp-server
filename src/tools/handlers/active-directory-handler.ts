@@ -26,10 +26,13 @@ function formatActiveDirectoryData(ad: any): any {
   if (ad.netBiosPrefix) result.netBiosPrefix = ad.netBiosPrefix;
   if (ad.organizationalUnit) result.organizationalUnit = ad.organizationalUnit;
   if (ad.aesEncryption !== undefined) result.aesEncryption = ad.aesEncryption;
+  if (ad.nfsUsersWithLdap !== undefined) result.nfsUsersWithLdap = ad.nfsUsersWithLdap;
+  if (ad.ldapSigning !== undefined) result.ldapSigning = ad.ldapSigning;
+  if (ad.encryptDcConnections !== undefined) result.encryptDcConnections = ad.encryptDcConnections;
   if (ad.state !== undefined) result.state = normalizeStringEnum(ad.state);
 
   if (ad.createTime) {
-    result.createTime = new Date(ad.createTime.seconds * 1000);
+    result.createTime = new Date(ad.createTime.seconds * 1000).toISOString();
   }
 
   if (ad.description) result.description = ad.description;
@@ -59,6 +62,8 @@ export const createActiveDirectoryHandler: ToolHandler = async (args: { [key: st
       kdcHostname,
       kdcIp,
       nfsUsersWithLdap,
+      ldapSigning,
+      encryptDcConnections,
       description,
       labels,
     } = args;
@@ -81,6 +86,9 @@ export const createActiveDirectoryHandler: ToolHandler = async (args: { [key: st
     if (kdcHostname) activeDirectory.kdcHostname = kdcHostname;
     if (kdcIp) activeDirectory.kdcIp = kdcIp;
     if (nfsUsersWithLdap !== undefined) activeDirectory.nfsUsersWithLdap = nfsUsersWithLdap;
+    if (ldapSigning !== undefined) activeDirectory.ldapSigning = ldapSigning;
+    if (encryptDcConnections !== undefined)
+      activeDirectory.encryptDcConnections = encryptDcConnections;
     if (description) activeDirectory.description = description;
     if (labels) activeDirectory.labels = labels;
 
@@ -121,49 +129,6 @@ export const createActiveDirectoryHandler: ToolHandler = async (args: { [key: st
         {
           type: 'text' as const,
           text: `Error creating active directory: ${error.message || 'Unknown error'}`,
-        },
-      ],
-    };
-  }
-};
-
-// Delete Active Directory Handler
-export const deleteActiveDirectoryHandler: ToolHandler = async (args: { [key: string]: any }) => {
-  try {
-    const { projectId, location, activeDirectoryId } = args;
-
-    const netAppClient = NetAppClientFactory.createClient();
-    const name = `projects/${projectId}/locations/${location}/activeDirectories/${activeDirectoryId}`;
-
-    const [operation] = await netAppClient.deleteActiveDirectory({ name });
-
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: JSON.stringify(
-            {
-              message: `Active directory ${activeDirectoryId} deletion requested`,
-              operation: operation,
-            },
-            null,
-            2
-          ),
-        },
-      ],
-      structuredContent: {
-        success: true,
-        operationId: operation.name || '',
-      },
-    };
-  } catch (error: any) {
-    log.error({ err: error }, 'Error deleting active directory');
-    return {
-      isError: true,
-      content: [
-        {
-          type: 'text' as const,
-          text: `Error deleting active directory: ${error.message || 'Unknown error'}`,
         },
       ],
     };
@@ -272,6 +237,8 @@ export const updateActiveDirectoryHandler: ToolHandler = async (args: { [key: st
       kdcHostname,
       kdcIp,
       nfsUsersWithLdap,
+      ldapSigning,
+      encryptDcConnections,
       description,
       labels,
     } = args;
@@ -337,6 +304,14 @@ export const updateActiveDirectoryHandler: ToolHandler = async (args: { [key: st
     if (nfsUsersWithLdap !== undefined) {
       activeDirectory.nfsUsersWithLdap = nfsUsersWithLdap;
       updateMask.push('nfs_users_with_ldap');
+    }
+    if (ldapSigning !== undefined) {
+      activeDirectory.ldapSigning = ldapSigning;
+      updateMask.push('ldap_signing');
+    }
+    if (encryptDcConnections !== undefined) {
+      activeDirectory.encryptDcConnections = encryptDcConnections;
+      updateMask.push('encrypt_dc_connections');
     }
     if (description !== undefined) {
       activeDirectory.description = description;

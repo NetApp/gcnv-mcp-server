@@ -4,6 +4,8 @@ import { logger } from '../../logger.js';
 
 const log = logger.child({ module: 'volume-handler' });
 
+const LARGE_CAPACITY_ALLOWED_POOL_SERVICE_LEVELS = new Set(['FLEX', 'PREMIUM', 'EXTREME']);
+
 // Optional display hint when resource name matches a legacy pattern (used by some clients for UI)
 function normalizeResourceOutput(o: Record<string, any>): void {
   if (!o || typeof o.name !== 'string') return;
@@ -104,6 +106,89 @@ function normalizeProtocols(raw: any): {
   return { protocols: out };
 }
 
+/** Values accepted in Volume.smbSettings (GCNV v1beta). */
+const SMB_SETTING_API_VALUES = new Set([
+  'SMB_SETTINGS_UNSPECIFIED',
+  'ENCRYPT_DATA',
+  'BROWSABLE',
+  'CHANGE_NOTIFY',
+  'NON_BROWSABLE',
+  'OPLOCKS',
+  'SHOW_SNAPSHOT',
+  'SHOW_PREVIOUS_VERSIONS',
+  'ACCESS_BASED_ENUMERATION',
+  'CONTINUOUSLY_AVAILABLE',
+]);
+
+function buildSmbSettingsForCreate(args: {
+  smbSettings?: unknown;
+  smbEncryptData?: unknown;
+  smbHideShare?: unknown;
+  smbAccessBasedEnumeration?: unknown;
+  smbContinuouslyAvailable?: unknown;
+}): { smbSettings?: string[]; error?: string } {
+  const out = new Set<string>();
+
+  if (Array.isArray(args.smbSettings)) {
+    for (const item of args.smbSettings) {
+      if (typeof item !== 'string' || item.trim() === '') {
+        return { error: 'smbSettings must be an array of non-empty strings' };
+      }
+      const v = item.trim().toUpperCase();
+      if (!SMB_SETTING_API_VALUES.has(v)) {
+        return {
+          error: `Invalid smbSettings value "${item}". Allowed: ${[...SMB_SETTING_API_VALUES].join(', ')}`,
+        };
+      }
+      if (v === 'SMB_SETTINGS_UNSPECIFIED') {
+        return {
+          error:
+            'smbSettings must not include SMB_SETTINGS_UNSPECIFIED; omit smbSettings or pass concrete enum values.',
+        };
+      }
+      out.add(v);
+    }
+  } else if (args.smbSettings !== undefined && args.smbSettings !== null) {
+    return { error: 'smbSettings must be an array of strings when provided' };
+  }
+
+  if (args.smbEncryptData === true) out.add('ENCRYPT_DATA');
+  if (args.smbHideShare === true) out.add('NON_BROWSABLE');
+  if (args.smbAccessBasedEnumeration === true) out.add('ACCESS_BASED_ENUMERATION');
+  if (args.smbContinuouslyAvailable === true) out.add('CONTINUOUSLY_AVAILABLE');
+
+  if (out.has('BROWSABLE') && out.has('NON_BROWSABLE')) {
+    return {
+      error:
+        'Conflicting SMB share visibility: BROWSABLE and NON_BROWSABLE cannot be set together (check smbSettings and smbHideShare).',
+    };
+  }
+
+  // Hide-share (NON_BROWSABLE) and CA share (CONTINUOUSLY_AVAILABLE) are mutually
+  // exclusive — the GCNV console enforces this in the volume creation UI, and CA
+  // shares are only supported on non-FLEX pools where this combination makes no
+  // practical sense (CA clients must be able to see/reconnect to the share).
+  if (out.has('NON_BROWSABLE') && out.has('CONTINUOUSLY_AVAILABLE')) {
+    return {
+      error:
+        'Conflicting SMB attributes: NON_BROWSABLE (hide share) and CONTINUOUSLY_AVAILABLE (CA share) cannot be set together (check smbHideShare/smbContinuouslyAvailable and smbSettings).',
+    };
+  }
+
+  if (out.size === 0) return {};
+  return { smbSettings: [...out] };
+}
+
+function resolveStoragePoolResourceName(
+  projectId: string,
+  location: string,
+  storagePoolId: string
+): string {
+  return String(storagePoolId || '').includes('/')
+    ? storagePoolId
+    : `projects/${projectId}/locations/${location}/storagePools/${storagePoolId}`;
+}
+
 // Helper to format volume data for responses
 function formatVolumeData(volume: any): any {
   const result: any = {};
@@ -135,7 +220,7 @@ function formatVolumeData(volume: any): any {
 
   // Format timestamps if they exist
   if (volume.createTime) {
-    result.createTime = new Date(volume.createTime.seconds * 1000);
+    result.createTime = new Date(volume.createTime.seconds * 1000).toISOString();
   }
 
   // Copy optional properties
@@ -145,6 +230,7 @@ function formatVolumeData(volume: any): any {
   if (volume.kmsConfig) result.kmsConfig = volume.kmsConfig;
   if (volume.encryptionType) result.encryptionType = volume.encryptionType;
   if (volume.backupConfig) result.backupConfig = volume.backupConfig;
+  if (volume.snapshotPolicy) result.snapshotPolicy = volume.snapshotPolicy;
   if (volume.tieringPolicy) result.tieringPolicy = volume.tieringPolicy;
   if (volume.hybridReplicationParameters)
     result.hybridReplicationParameters = volume.hybridReplicationParameters;
@@ -194,14 +280,21 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
       snapshotPolicy,
       tieringPolicy,
       hybridReplicationParameters,
+      cacheParameters,
       exportPolicy,
       shareName,
       throughputMibps,
       largeCapacity,
       multipleEndpoints,
+      largeCapacityConstituentCount,
       hostGroups,
       hostGroup,
       blockDevice,
+      smbSettings: rawSmbSettings,
+      smbEncryptData,
+      smbHideShare,
+      smbAccessBasedEnumeration,
+      smbContinuouslyAvailable,
     } = args;
 
     // Create a new NetApp client using the factory
@@ -209,51 +302,86 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
 
     // Format the parent path for the volume
     const parent = `projects/${projectId}/locations/${location}`;
+    const storagePoolResourceName = resolveStoragePoolResourceName(
+      projectId,
+      location,
+      String(storagePoolId)
+    );
 
-    // Large Capacity Volumes guardrails:
-    // - Premium/Extreme only (enforced by checking the storage pool service level)
-    // - Minimum size 15 TiB => 15360 GiB
-    if (multipleEndpoints && !largeCapacity) {
+    const isLargeCapacity = largeCapacity === true;
+    let largeCapacityPoolServiceLevel: string | undefined;
+
+    // Large Capacity Volumes guardrails (pool capabilities are still enforced by the API).
+    if (multipleEndpoints !== undefined && !isLargeCapacity) {
       return {
         isError: true,
         content: [
           {
             type: 'text' as const,
-            text: 'Error creating volume: multipleEndpoints is only valid when largeCapacity is true.',
+            text: 'Error creating volume: multipleEndpoints is only valid for large-capacity volumes (set largeCapacity true, or omit multipleEndpoints).',
           },
         ],
       };
     }
 
-    if (largeCapacity) {
-      if (capacityGib < 15360) {
+    if (largeCapacityConstituentCount !== undefined && !isLargeCapacity) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error creating volume: largeCapacityConstituentCount is only valid for large-capacity volumes (set largeCapacity true).',
+          },
+        ],
+      };
+    }
+
+    if (isLargeCapacity) {
+      const [pool] = await netAppClient.getStoragePool({ name: storagePoolResourceName });
+      const poolServiceLevel = (pool?.serviceLevel || '').toString().toUpperCase();
+      if (!LARGE_CAPACITY_ALLOWED_POOL_SERVICE_LEVELS.has(poolServiceLevel)) {
         return {
           isError: true,
           content: [
             {
               type: 'text' as const,
-              text: 'Error creating volume: largeCapacity requires capacityGib >= 15360 (15 TiB).',
+              text: `Error creating volume: large-capacity volumes require a FLEX, PREMIUM, or EXTREME storage pool (got ${poolServiceLevel || 'SERVICE_LEVEL_UNSPECIFIED'}).`,
             },
           ],
         };
       }
 
-      const storagePoolName = String(storagePoolId || '').includes('/')
-        ? storagePoolId
-        : `projects/${projectId}/locations/${location}/storagePools/${storagePoolId}`;
-      const [pool] = await netAppClient.getStoragePool({ name: storagePoolName });
-      const poolServiceLevel = (pool?.serviceLevel || '').toString().toUpperCase();
-      if (poolServiceLevel !== 'PREMIUM' && poolServiceLevel !== 'EXTREME') {
+      if (poolServiceLevel === 'FLEX') {
+        const poolScaleType = (pool?.scaleType || '').toString().toUpperCase();
+        if (poolScaleType !== 'SCALE_TYPE_SCALEOUT') {
+          return {
+            isError: true,
+            content: [
+              {
+                type: 'text' as const,
+                text: `Error creating volume: FLEX large-capacity volumes require a scale-out storage pool (scaleType=SCALE_TYPE_SCALEOUT); got ${poolScaleType || 'SCALE_TYPE_UNSPECIFIED'}.`,
+              },
+            ],
+          };
+        }
+      }
+
+      // `largeCapacityConstituentCount` only applies to FLEX UNIFIED scale-out volumes (which are
+      // assembled from multiple constituent volumes). PREMIUM/EXTREME large-capacity volumes use the
+      // legacy `largeCapacity: true` boolean and have no constituent concept.
+      if (largeCapacityConstituentCount !== undefined && poolServiceLevel !== 'FLEX') {
         return {
           isError: true,
           content: [
             {
               type: 'text' as const,
-              text: `Error creating volume: largeCapacity volumes are only supported in PREMIUM or EXTREME pools (got ${poolServiceLevel || 'UNKNOWN'}).`,
+              text: `Error creating volume: largeCapacityConstituentCount is only valid for FLEX UNIFIED scale-out pools; got ${poolServiceLevel}.`,
             },
           ],
         };
       }
+
+      largeCapacityPoolServiceLevel = poolServiceLevel;
     }
 
     const { protocols, error: protocolsError } = normalizeProtocols(rawProtocols);
@@ -271,6 +399,47 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
 
     const normalizedProtocolNames: Array<'NFSV3' | 'NFSV4' | 'SMB' | 'ISCSI'> =
       protocols && protocols.length > 0 ? protocols : ['NFSV3'];
+
+    const { smbSettings: smbSettingsList, error: smbSettingsError } = buildSmbSettingsForCreate({
+      smbSettings: rawSmbSettings,
+      smbEncryptData,
+      smbHideShare,
+      smbAccessBasedEnumeration,
+      smbContinuouslyAvailable,
+    });
+    if (smbSettingsError) {
+      return {
+        isError: true,
+        content: [{ type: 'text' as const, text: `Error creating volume: ${smbSettingsError}` }],
+      };
+    }
+    if (smbSettingsList && smbSettingsList.length > 0 && !normalizedProtocolNames.includes('SMB')) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error creating volume: smbSettings / SMB flags require protocols to include SMB.',
+          },
+        ],
+      };
+    }
+
+    if (smbSettingsList?.includes('CONTINUOUSLY_AVAILABLE')) {
+      const [pool] = await netAppClient.getStoragePool({ name: storagePoolResourceName });
+      const poolServiceLevel = (pool?.serviceLevel || '').toString().toUpperCase();
+      if (poolServiceLevel === 'FLEX') {
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text' as const,
+              text: 'Error creating volume: Continuous availability (CA) share for SQL Server / FSLogix (CONTINUOUSLY_AVAILABLE) is not supported on FLEX storage pools. Use Standard, Premium, or Extreme.',
+            },
+          ],
+        };
+      }
+    }
 
     const isIscsi = normalizedProtocolNames.includes('ISCSI');
     if (isIscsi) {
@@ -369,6 +538,12 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
     const protocolEnums = normalizedProtocolNames.map((p) => protocolEnumMap[p]);
     const effectiveShareName = isIscsi ? undefined : shareName || volumeId;
 
+    const needsMultipleEndpointsDefault =
+      isLargeCapacity &&
+      largeCapacityPoolServiceLevel !== 'FLEX' &&
+      multipleEndpoints === undefined;
+    const effectiveMultipleEndpoints = needsMultipleEndpointsDefault ? true : multipleEndpoints;
+
     // Create the volume request
     const request = {
       parent,
@@ -383,12 +558,28 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
         snapshotPolicy,
         tieringPolicy,
         hybridReplicationParameters,
+        ...(cacheParameters !== undefined ? { cacheParameters } : {}),
         ...(effectiveShareName !== undefined ? { shareName: effectiveShareName } : {}),
         exportPolicy,
         ...(blockDevicesPayload ? { blockDevices: blockDevicesPayload } : {}),
         ...(throughputMibps !== undefined ? { throughputMibps } : {}),
-        ...(largeCapacity !== undefined ? { largeCapacity } : {}),
-        ...(multipleEndpoints !== undefined ? { multipleEndpoints } : {}),
+        // FLEX UNIFIED scale-out volumes use the new `largeCapacityConfig` message; PREMIUM/EXTREME
+        // large-capacity volumes use the legacy `largeCapacity: true` boolean. The two are mutually
+        // exclusive.
+        ...(isLargeCapacity
+          ? largeCapacityPoolServiceLevel === 'FLEX'
+            ? {
+                largeCapacityConfig:
+                  largeCapacityConstituentCount !== undefined
+                    ? { constituentCount: largeCapacityConstituentCount }
+                    : {},
+              }
+            : { largeCapacity: true }
+          : {}),
+        ...(effectiveMultipleEndpoints !== undefined
+          ? { multipleEndpoints: effectiveMultipleEndpoints }
+          : {}),
+        ...(smbSettingsList && smbSettingsList.length > 0 ? { smbSettings: smbSettingsList } : {}),
       },
     };
 
@@ -419,64 +610,6 @@ export const createVolumeHandler: ToolHandler = async (args: { [key: string]: an
           text: `Error creating volume: ${error.message || 'Unknown error'}`,
         },
       ],
-    };
-  }
-};
-
-// Delete Volume Handler
-export const deleteVolumeHandler: ToolHandler = async (args: { [key: string]: any }) => {
-  try {
-    const { projectId, location, volumeId, force = false } = args;
-
-    // Create a new NetApp client using the factory
-    const netAppClient = NetAppClientFactory.createClient();
-
-    // Format the name for the volume
-    const name = `projects/${projectId}/locations/${location}/volumes/${volumeId}`;
-
-    // Call the API to delete the volume
-    const request: any = { name };
-    // Only add force if it's true to avoid API errors
-    if (force) {
-      request.force = true;
-    }
-
-    log.info({ request }, 'Delete Volume request');
-    const [operation] = await netAppClient.deleteVolume(request);
-    log.info({ operation }, 'Delete Volume operation');
-
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: JSON.stringify(
-            {
-              message: `Volume ${volumeId} deletion requested`,
-              operation: operation,
-            },
-            null,
-            2
-          ),
-        },
-      ],
-      structuredContent: {
-        success: true,
-        operationId: operation.name || '',
-      },
-    };
-  } catch (error: any) {
-    log.error({ err: error }, 'Error deleting volume');
-    return {
-      isError: true,
-      content: [
-        {
-          type: 'text' as const,
-          text: `Error deleting volume: ${error.message || 'Unknown error'}`,
-        },
-      ],
-      structuredContent: {
-        success: false,
-      },
     };
   }
 };
@@ -589,8 +722,10 @@ export const updateVolumeHandler: ToolHandler = async (args: { [key: string]: an
       description,
       labels,
       backupConfig,
+      snapshotPolicy,
       tieringPolicy,
       hybridReplicationParameters,
+      cacheParameters,
       exportPolicy,
       throughputMibps,
     } = args;
@@ -637,9 +772,65 @@ export const updateVolumeHandler: ToolHandler = async (args: { [key: string]: an
       updateMask.push('tiering_policy');
     }
 
+    if (snapshotPolicy !== undefined) {
+      const hasSnapshotPolicyContent =
+        snapshotPolicy.enabled !== undefined ||
+        snapshotPolicy.hourlySchedule !== undefined ||
+        snapshotPolicy.dailySchedule !== undefined ||
+        snapshotPolicy.weeklySchedule !== undefined ||
+        snapshotPolicy.monthlySchedule !== undefined;
+      if (!hasSnapshotPolicyContent) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text' as const,
+              text: 'Error updating volume: snapshotPolicy must include enabled and/or at least one schedule (hourly, daily, weekly, monthly).',
+            },
+          ],
+        };
+      }
+      volume.snapshotPolicy = snapshotPolicy;
+      updateMask.push('snapshot_policy');
+    }
+
     if (hybridReplicationParameters !== undefined) {
       volume.hybridReplicationParameters = hybridReplicationParameters;
       updateMask.push('hybrid_replication_parameters');
+    }
+
+    if (cacheParameters !== undefined) {
+      volume.cacheParameters = cacheParameters;
+      if (cacheParameters.peerVolumeName !== undefined)
+        updateMask.push('cache_parameters.peer_volume_name');
+      if (cacheParameters.peerClusterName !== undefined)
+        updateMask.push('cache_parameters.peer_cluster_name');
+      if (cacheParameters.peerSvmName !== undefined)
+        updateMask.push('cache_parameters.peer_svm_name');
+      if (cacheParameters.peerIpAddresses !== undefined)
+        updateMask.push('cache_parameters.peer_ip_addresses');
+      if (cacheParameters.enableGlobalFileLock !== undefined)
+        updateMask.push('cache_parameters.enable_global_file_lock');
+      if (cacheParameters.cacheConfig !== undefined) {
+        const { cacheConfig } = cacheParameters;
+        if (cacheConfig.writebackEnabled !== undefined)
+          updateMask.push('cache_parameters.cache_config.writeback_enabled');
+        if (cacheConfig.atimeScrubEnabled !== undefined)
+          updateMask.push('cache_parameters.cache_config.atime_scrub_enabled');
+        if (cacheConfig.atimeScrubDays !== undefined)
+          updateMask.push('cache_parameters.cache_config.atime_scrub_days');
+        if (cacheConfig.cifsChangeNotifyEnabled !== undefined)
+          updateMask.push('cache_parameters.cache_config.cifs_change_notify_enabled');
+        if (cacheConfig.cachePrePopulate !== undefined) {
+          const { cachePrePopulate } = cacheConfig;
+          if (cachePrePopulate.pathList !== undefined)
+            updateMask.push('cache_parameters.cache_config.cache_pre_populate.path_list');
+          if (cachePrePopulate.excludePathList !== undefined)
+            updateMask.push('cache_parameters.cache_config.cache_pre_populate.exclude_path_list');
+          if (cachePrePopulate.recursion !== undefined)
+            updateMask.push('cache_parameters.cache_config.cache_pre_populate.recursion');
+        }
+      }
     }
 
     if (throughputMibps !== undefined) {

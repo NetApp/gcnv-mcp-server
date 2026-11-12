@@ -1,31 +1,28 @@
 # Google Cloud NetApp Volumes MCP Server
 
-## ⚠️ Preview
-
-**This project is under active development. APIs, tool schemas, and behavior may change without notice. Not recommended for production use.**
-
 A [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server for managing [Google Cloud NetApp Volumes](https://cloud.google.com/netapp/volumes/docs) (GCNV) resources through AI assistants such as Gemini CLI, Cursor, and other MCP-compatible clients.
 
 ## Supported Resources
 
-| Resource             | Operations                                                                                  |
-| -------------------- | ------------------------------------------------------------------------------------------- |
-| **Storage Pools**    | create, get, list, update, delete, validate directory service                               |
-| **Volumes**          | create, get, list, update, delete                                                           |
-| **Snapshots**        | create, get, list, update, delete, revert                                                   |
-| **Backup Vaults**    | create, get, list, update, delete                                                           |
-| **Backups**          | create, get, list, update, delete, restore, restore files                                   |
-| **Backup Policies**  | create, get, list, update, delete                                                           |
-| **Replications**     | create, get, list, update, delete, stop, resume, reverse direction, sync, establish peering |
-| **Active Directory** | create, get, list, update, delete                                                           |
-| **KMS Configs**      | create, get, list, update, delete, verify, encrypt volumes                                  |
-| **Quota Rules**      | create, get, list, update, delete                                                           |
-| **Host Groups**      | create, get, list, update, delete                                                           |
-| **Operations**       | get, list, cancel                                                                           |
+| Resource              | Operations                                                                          |
+| --------------------- | ----------------------------------------------------------------------------------- |
+| **Storage Pools**     | create, get, list, update, validate directory service                               |
+| **Volumes**           | create, get, list, update                                                           |
+| **Snapshots**         | create, get, list, update, revert                                                   |
+| **Backup Vaults**     | create, get, list, update                                                           |
+| **Backups**           | create, get, list, update, restore, restore files, ONTAP-mode backup config/restore |
+| **Backup Policies**   | create, get, list, update                                                           |
+| **Replications**      | create, get, list, update, stop, resume, reverse direction, sync, establish peering |
+| **Active Directory**  | create, get, list, update                                                           |
+| **KMS Configs**       | create, get, list, update, verify, encrypt volumes                                  |
+| **Quota Rules**       | create, get, list, update                                                           |
+| **Host Groups**       | create, get, list, update                                                           |
+| **Operations**        | get, list, cancel                                                                   |
+| **ONTAP Expert Mode** | discover and execute supported ONTAP REST operations for ONTAP-mode pools           |
 
 ## Prerequisites
 
-- Node.js 18 or higher
+- Node.js 22 or higher
 - A Google Cloud project with the [NetApp Volumes API](https://cloud.google.com/netapp/volumes/docs) enabled
 - Google Cloud authentication credentials (see [Authentication](#authentication))
 
@@ -37,7 +34,67 @@ Run the published package directly (no local build required):
 npx gcnv-mcp-server@latest --transport stdio
 ```
 
-Or install via the Gemini CLI extension workflow:
+### MCP client config examples
+
+Most MCP clients need the same stdio server command:
+
+```json
+{
+  "command": "npx",
+  "args": ["-y", "gcnv-mcp-server@latest", "--transport", "stdio"]
+}
+```
+
+For clients that use the common `mcpServers` JSON shape:
+
+```json
+{
+  "mcpServers": {
+    "gcnv": {
+      "command": "npx",
+      "args": ["-y", "gcnv-mcp-server@latest", "--transport", "stdio"]
+    }
+  }
+}
+```
+
+For VS Code-style MCP configuration:
+
+```json
+{
+  "servers": {
+    "gcnv": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "gcnv-mcp-server@latest", "--transport", "stdio"]
+    }
+  }
+}
+```
+
+Client config file locations and JSON wrappers vary by application. See the [official MCP server setup docs](https://modelcontextprotocol.io/docs/develop/build-server) and the [VS Code MCP configuration reference](https://code.visualstudio.com/docs/copilot/reference/mcp-configuration) for client-specific details.
+
+### Client CLI examples
+
+Claude Code:
+
+```bash
+claude mcp add gcnv -- npx -y gcnv-mcp-server@latest --transport stdio
+claude mcp list
+```
+
+Codex CLI:
+
+```bash
+codex mcp add gcnv -- npx -y gcnv-mcp-server@latest --transport stdio
+codex mcp list
+```
+
+See the [Claude Code MCP quickstart](https://code.claude.com/docs/en/mcp-quickstart) and [OpenAI Codex MCP docs](https://developers.openai.com/codex/mcp) for more client-specific options.
+
+### Gemini CLI / Antigravity support
+
+Gemini CLI extension users can install this repository as an extension:
 
 ```bash
 # 1. Authenticate
@@ -53,21 +110,118 @@ gemini mcp list
 
 > Gemini automatically starts the MCP server when a linked extension needs it. No manual `npm start` is required for normal usage.
 
+Antigravity / AGY users can install the repository as a plugin:
+
+```bash
+agy plugin install <repository-url>
+agy plugin list
+```
+
+If you previously installed the Gemini CLI extension, migrate existing Gemini extensions:
+
+```bash
+agy plugin import gemini
+```
+
+You can also configure the MCP server directly in the shared MCP config at `~/.gemini/config/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "gcnv": {
+      "command": "npx",
+      "args": ["-y", "gcnv-mcp-server@latest", "--transport", "stdio"]
+    }
+  }
+}
+```
+
+Restart Antigravity or run `agy`, then use `/mcp` to verify the server is loaded. See the [Google Antigravity MCP codelab](https://codelabs.developers.google.com/developer-knowledge-mcp-antigravity) for more details on Antigravity MCP configuration.
+
+## Assistant Context Files
+
+This repository includes assistant context files for clients that support repository guidance:
+
+- `AGENTS.md` — shared GCNV safety and operating guidance.
+- `CLAUDE.md` — Claude/Cursor compatibility shim that points to `AGENTS.md`.
+- `GEMINI.md` — Gemini CLI extension context.
+
+These files do not require a separate install step. Compatible clients load them automatically when using the repo or extension.
+
 ## Authentication
 
-The server uses Google Cloud credentials to authenticate API requests. Configure one of the following before invoking any tool:
+Google NetApp Volumes API calls need a Google access token. How that token is supplied depends on the MCP transport and caller.
 
-- **Application Default Credentials (recommended)**
+### Application Default Credentials (ADC) — default for stdio CLI clients
+
+Use ADC when running locally with Gemini CLI, Cursor, Claude Code, or other stdio MCP clients:
 
 ```bash
 gcloud auth application-default login
 ```
 
-- **Service account key file**
+Or point at a service account key:
 
 ```bash
 export GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json
 ```
+
+No extra environment variables are required. The server obtains a token from ADC for each tool call.
+
+### HTTP/SSE — per-request bearer header
+
+For HTTP or SSE transport, send a bearer token on **each MCP HTTP request** to override ADC for that request only. This path is independent of stdio delegated auth.
+
+By default the server reads `Authorization: Bearer <token>`. Customize the header name with `GCNV_AUTH_HEADER`:
+
+```bash
+export GCNV_AUTH_HEADER="X-Google-Access-Token"
+```
+
+Then send requests with:
+
+```http
+X-Google-Access-Token: Bearer <token>
+```
+
+### Stdio delegated access token
+
+Stdio MCP has no HTTP headers. A trusted parent process that spawns this server as a subprocess can inject a per-user Google access token via a **runtime-only** tool argument: `_stdio_delegated_google_access_token`.
+
+This is **disabled by default** so public stdio clients cannot supply arbitrary bearer tokens via tool arguments.
+
+Enable only when the MCP server is spawned by a fully controlled trusted subprocess:
+
+```bash
+export GCNV_STDIO_DELEGATED_ACCESS_TOKEN=true
+```
+
+When enabled:
+
+- The runtime arg is **never** advertised in `list_tools` schemas.
+- It is stripped before tool handlers run and is **never logged**.
+- It overrides ADC for that tool call only.
+- HTTP clients should continue to use the bearer header path above; Gemini CLI and other public stdio clients should use ADC.
+
+| Transport                      | Token source                                       | Environment                              |
+| ------------------------------ | -------------------------------------------------- | ---------------------------------------- |
+| stdio (CLI)                    | ADC                                                | none                                     |
+| stdio (delegated access token) | `_stdio_delegated_google_access_token` runtime arg | `GCNV_STDIO_DELEGATED_ACCESS_TOKEN=true` |
+| HTTP/SSE                       | `Authorization` (or `GCNV_AUTH_HEADER`)            | none                                     |
+
+## ONTAP KG Discover (Query-Only, Optional)
+
+To externalize ONTAP discover ranking, set a knowledge endpoint and the server will call it per query.
+
+| Variable              | Purpose                                                      |
+| --------------------- | ------------------------------------------------------------ |
+| `ONTAP_KG_URL`        | Full discover endpoint URL (MCP sends `POST` to this value)  |
+| `ONTAP_KG_AUTH_TOKEN` | Optional bearer token used to authenticate to the KG service |
+| `ONTAP_KG_TIMEOUT_MS` | Optional timeout for KG discover requests (default `5000`)   |
+
+Request/response contract is documented in [`docs/ontap-kg-protocol.md`](docs/ontap-kg-protocol.md) and schema in [`schemas/ontap-kg.schema.json`](schemas/ontap-kg.schema.json).
+
+When the KG request fails or returns invalid payload, discover falls back to the bundled `ontap-api-index.json`.
 
 ## Transport Modes
 
@@ -98,6 +252,8 @@ npm start -- -t http -p 8080       # custom port
 
 HTTP endpoint: `http://localhost:<port>/message`
 
+> **Security note:** The HTTP/SSE transport does not provide built-in TLS. If you expose it beyond a local trusted client, use customer-managed TLS and network access controls, such as a reverse proxy, VPN, service mesh, or SSH tunnel. Do not expose the MCP HTTP endpoint directly to the public internet.
+
 ## Tool Reference
 
 ### Storage Pool Tools
@@ -108,29 +264,51 @@ HTTP endpoint: `http://localhost:<port>/message`
 | `gcnv_storage_pool_get`                        | Get storage pool details                                    |
 | `gcnv_storage_pool_list`                       | List storage pools (supports pagination and filtering)      |
 | `gcnv_storage_pool_update`                     | Update pool capacity, description, labels, QoS, or type     |
-| `gcnv_storage_pool_delete`                     | Delete a storage pool                                       |
 | `gcnv_storage_pool_validate_directory_service` | Validate attached directory service                         |
 
 **Service level guidance:**
 
-- **FLEX** -- Smaller minimums, broader region availability, independent performance scaling. Minimum: 1024 GiB (FILE/UNIFIED) or 6144 GiB (UNIFIED_LARGE_CAPACITY).
+- **FLEX** -- Smaller minimums, broader region availability, independent performance scaling. Minimum: 1024 GiB (FILE/UNIFIED) or 6144 GiB (UNIFIED large capacity).
 - **STANDARD / PREMIUM / EXTREME** -- Classic tiers with fixed performance-to-capacity ratio. Minimum: 2048 GiB.
 - `serviceLevel` is accepted case-insensitively (e.g. `flex` or `FLEX`).
 - FLEX pools in a region-level location require both `zone` and `replicaZone`; zone-level locations satisfy this automatically.
+- `storagePoolType` accepts `FILE` or `UNIFIED`; `UNIFIED` is only available for FLEX.
+- `scaleType`: only set to `SCALE_TYPE_SCALEOUT` when creating a large capacity FLEX `UNIFIED` pool. Omit for all other pools (defaults to `SCALE_TYPE_DEFAULT`).
+- `mode`: defaults to `DEFAULT` for a standard pool, or set to `ONTAP` to create an ONTAP-mode pool that exposes advanced ONTAP features (SnapMirror, QoS policies, direct ONTAP REST access) via the [ONTAP Expert Mode Tools](#ontap-expert-mode-tools). ONTAP mode requires `serviceLevel: FLEX` and `storagePoolType: UNIFIED`.
 
 ### Volume Tools
 
-| Tool                 | Description                                                                 |
-| -------------------- | --------------------------------------------------------------------------- |
-| `gcnv_volume_create` | Create a volume (NFS, SMB, or iSCSI)                                        |
-| `gcnv_volume_get`    | Get volume details including mount points                                   |
-| `gcnv_volume_list`   | List volumes with pagination and filtering                                  |
-| `gcnv_volume_update` | Update capacity, description, labels, export policy, tiering, backup config |
-| `gcnv_volume_delete` | Delete a volume                                                             |
+| Tool                 | Description                                                                                  |
+| -------------------- | -------------------------------------------------------------------------------------------- |
+| `gcnv_volume_create` | Create a volume (NFS, SMB, or iSCSI)                                                         |
+| `gcnv_volume_get`    | Get volume details including mount points                                                    |
+| `gcnv_volume_list`   | List volumes with pagination and filtering                                                   |
+| `gcnv_volume_update` | Update capacity, description, labels, export policy, snapshot policy, tiering, backup config |
 
 **iSCSI notes:** Protocols must be `["ISCSI"]` only (no mixing). Requires `hostGroup` or `hostGroups`. Optional `blockDevice` object with `identifier`, `osType` (`LINUX` / `WINDOWS` / `ESXI`), and `sizeGib`.
 
-**Large capacity volumes:** Set `largeCapacity: true` (Premium/Extreme only, minimum 15 TiB). Optional `multipleEndpoints: true`.
+**Large capacity volumes:** Some workloads require larger volumes and higher throughput, which can be achieved by using the large capacity volume option for these service levels. Large capacity volumes provide six storage endpoints (IP addresses) to load-balance client traffic to the volume and deliver higher performance.
+
+- **FLEX Unified:** Large capacity volumes can be sized between **4.8 TiB** and **2.48 PiB**, or up to **20 PiB** with auto-tiering, in increments of **1 GiB**, and deliver throughput performance of up to **22 GiBps**. The FLEX storage pool must be created with `scaleType: SCALE_TYPE_SCALEOUT`; non-scale-out FLEX pools cannot host large capacity volumes. When `largeCapacityConstituentCount` is **explicitly set**, the minimum drops to **2.4 TiB (2,400 GiB)** — FLEX Unified only. When `largeCapacityConstituentCount` is omitted, the **4.8 TiB (4,916 GiB)** floor applies.
+- **Premium and Extreme:** Large capacity volumes can be sized between **15 TiB** and **3 PiB** in increments of **1 GiB**, and deliver throughput performance of up to **30 GiBps**.
+
+A large capacity volume is internally composed of several **constituent volumes** (FlexVols) distributed across the pool's storage aggregates. On `gcnv_volume_create` you can optionally pass `largeCapacityConstituentCount` to control how many constituents the volume is built from:
+
+- **Minimum:** `2`.
+- **Default (when omitted):** chosen by the backend based on the active deployment layout.
+- The constituent count **must be chosen at create time** and cannot be changed later.
+
+**SMB attributes:** When `protocols` includes `SMB`, `gcnv_volume_create` accepts optional SMB feature flags that map to the `smbSettings` field on the volume:
+
+- `smbEncryptData: true` → `ENCRYPT_DATA` (require SMB encryption in flight)
+- `smbHideShare: true` → `NON_BROWSABLE` (hide the share from browse lists)
+- `smbAccessBasedEnumeration: true` → `ACCESS_BASED_ENUMERATION` (ABE) — controls the visibility of files and folders based on the permissions assigned to the user
+- `smbContinuouslyAvailable: true` → `CONTINUOUSLY_AVAILABLE` (CA share for SQL Server / FSLogix; choice is permanent on the volume)
+- `smbSettings: ["OPLOCKS", ...]` — additional API enum values; merged with the booleans above. Do not pass `SMB_SETTINGS_UNSPECIFIED`; `BROWSABLE` and `NON_BROWSABLE` (or `BROWSABLE` together with `smbHideShare`) are rejected. `NON_BROWSABLE` and `CONTINUOUSLY_AVAILABLE` together (or `smbHideShare` with `smbContinuouslyAvailable`) are also rejected — CA shares must be browsable.
+
+These flags require `protocols` to include `SMB`. `CONTINUOUSLY_AVAILABLE` is **not supported on `FLEX` storage pools** — the request is rejected before reaching the API. Use `STANDARD`, `PREMIUM`, or `EXTREME` for CA shares.
+
+**FlexCache:** On default-mode pools, use `gcnv_volume_create` with `cacheParameters` to create a cache volume (origin cluster, SVM, volume, and intercluster LIF IPs). Use `gcnv_volume_update` with `cacheParameters.cacheConfig` to change cache settings. On ONTAP-mode pools, use [ONTAP Expert Mode Tools](#ontap-expert-mode-tools) instead.
 
 ### Snapshot Tools
 
@@ -140,7 +318,6 @@ HTTP endpoint: `http://localhost:<port>/message`
 | `gcnv_snapshot_get`    | Get snapshot details                  |
 | `gcnv_snapshot_list`   | List snapshots for a volume           |
 | `gcnv_snapshot_update` | Update snapshot description or labels |
-| `gcnv_snapshot_delete` | Delete a snapshot                     |
 | `gcnv_snapshot_revert` | Revert a volume to a snapshot         |
 
 ### Backup Vault Tools
@@ -151,19 +328,20 @@ HTTP endpoint: `http://localhost:<port>/message`
 | `gcnv_backup_vault_get`    | Get backup vault details                               |
 | `gcnv_backup_vault_list`   | List backup vaults                                     |
 | `gcnv_backup_vault_update` | Update description, labels, or retention policy        |
-| `gcnv_backup_vault_delete` | Delete a backup vault                                  |
 
 ### Backup Tools
 
-| Tool                        | Description                               |
-| --------------------------- | ----------------------------------------- |
-| `gcnv_backup_create`        | Create a backup from a volume or snapshot |
-| `gcnv_backup_get`           | Get backup details                        |
-| `gcnv_backup_list`          | List backups in a vault                   |
-| `gcnv_backup_update`        | Update backup description or labels       |
-| `gcnv_backup_delete`        | Delete a backup                           |
-| `gcnv_backup_restore`       | Restore a backup to a volume              |
-| `gcnv_backup_restore_files` | Restore specific files from a backup      |
+| Tool                                     | Description                                                                   |
+| ---------------------------------------- | ----------------------------------------------------------------------------- |
+| `gcnv_backup_create`                     | Create a backup from a volume or snapshot (incl. ONTAP-mode volumes)          |
+| `gcnv_backup_get`                        | Get backup details                                                            |
+| `gcnv_backup_list`                       | List backups in a vault                                                       |
+| `gcnv_backup_update`                     | Update backup description or labels                                           |
+| `gcnv_backup_restore`                    | Create a new volume from a backup                                             |
+| `gcnv_backup_restore_files`              | Restore specific files from a backup                                          |
+| `gcnv_storage_pool_backup_config_list`   | List backup vault/policy assignments of ONTAP-mode volumes                    |
+| `gcnv_storage_pool_backup_config_update` | Assign, pause, resume, or unassign scheduled backups for an ONTAP-mode volume |
+| `gcnv_storage_pool_restore_volume`       | Restore a backup (full or selected files) into an ONTAP-mode volume           |
 
 ### Backup Policy Tools
 
@@ -173,7 +351,6 @@ HTTP endpoint: `http://localhost:<port>/message`
 | `gcnv_backup_policy_get`    | Get backup policy details                               |
 | `gcnv_backup_policy_list`   | List backup policies                                    |
 | `gcnv_backup_policy_update` | Update backup policy settings                           |
-| `gcnv_backup_policy_delete` | Delete a backup policy                                  |
 
 ### Replication Tools
 
@@ -183,7 +360,6 @@ HTTP endpoint: `http://localhost:<port>/message`
 | `gcnv_replication_get`               | Get replication details                        |
 | `gcnv_replication_list`              | List replications                              |
 | `gcnv_replication_update`            | Update replication settings                    |
-| `gcnv_replication_delete`            | Delete a replication                           |
 | `gcnv_replication_stop`              | Stop an active replication                     |
 | `gcnv_replication_resume`            | Resume a stopped replication                   |
 | `gcnv_replication_reverse_direction` | Reverse replication direction                  |
@@ -200,7 +376,6 @@ Replication is supported between specific region pairs (Standard/Premium/Extreme
 | `gcnv_active_directory_get`    | Get Active Directory details             |
 | `gcnv_active_directory_list`   | List Active Directory configurations     |
 | `gcnv_active_directory_update` | Update Active Directory settings         |
-| `gcnv_active_directory_delete` | Delete an Active Directory configuration |
 
 ### KMS Config Tools
 
@@ -210,7 +385,6 @@ Replication is supported between specific region pairs (Standard/Premium/Extreme
 | `gcnv_kms_config_get`             | Get KMS config details            |
 | `gcnv_kms_config_list`            | List KMS configurations           |
 | `gcnv_kms_config_update`          | Update KMS config settings        |
-| `gcnv_kms_config_delete`          | Delete a KMS configuration        |
 | `gcnv_kms_config_verify`          | Verify a KMS configuration        |
 | `gcnv_kms_config_encrypt_volumes` | Encrypt volumes with a KMS config |
 
@@ -222,7 +396,6 @@ Replication is supported between specific region pairs (Standard/Premium/Extreme
 | `gcnv_quota_rule_get`    | Get quota rule details           |
 | `gcnv_quota_rule_list`   | List quota rules                 |
 | `gcnv_quota_rule_update` | Update a quota rule              |
-| `gcnv_quota_rule_delete` | Delete a quota rule              |
 
 ### Host Group Tools
 
@@ -232,7 +405,6 @@ Replication is supported between specific region pairs (Standard/Premium/Extreme
 | `gcnv_host_group_get`    | Get host group details                      |
 | `gcnv_host_group_list`   | List host groups                            |
 | `gcnv_host_group_update` | Update a host group                         |
-| `gcnv_host_group_delete` | Delete a host group                         |
 
 ### Operation Tools
 
@@ -242,6 +414,34 @@ Replication is supported between specific region pairs (Standard/Premium/Extreme
 | `gcnv_operation_list`   | List operations with filtering and pagination |
 | `gcnv_operation_cancel` | Cancel an in-progress operation               |
 
+### ONTAP Expert Mode Tools
+
+ONTAP Expert Mode is available for storage pools created with `mode: ONTAP`. It exposes supported ONTAP REST operations through the MCP server while still using Google Cloud authentication and the GCNV control plane proxy. No separate ONTAP credentials or direct ONTAP endpoint configuration are required.
+
+| Tool               | Description                                                         |
+| ------------------ | ------------------------------------------------------------------- |
+| `ontap_discover`   | Search the bundled ONTAP REST index by resource or intent           |
+| `ontap_execute`    | Execute a discovered ONTAP REST endpoint                            |
+| `ontap_audit_log`  | Enable or disable local Markdown audit logging for ONTAP tool calls |
+| `ontap_job_get`    | Poll an ONTAP async job until success or failure                    |
+| `ontap_svm_list`   | List ONTAP SVM details for a pool                                   |
+| `ontap_volume_*`   | Convenience tools for common ONTAP volume operations                |
+| `ontap_snapshot_*` | Convenience tools for common ONTAP snapshot operations              |
+| `ontap_lun_*`      | Convenience tools for common ONTAP LUN operations                   |
+
+For advanced resources such as QoS policies, SnapMirror, export policies, CIFS services, igroups, snapshot policies, SnapLock, Event Based Retention, schedules, and cluster/SVM peering, use `ontap_discover` first and then call `ontap_execute` with the discovered method, path, and body template.
+
+`ontap_discover` responses include descriptions, hints, example body templates, and generated `requiredBody` metadata when ONTAP swagger marks body fields as required. `ontap_execute` preflight-validates requests against the bundled API index (method, path, and required body fields) before calling ONTAP. Unlisted paths — including GET — are rejected with a `scope_denied` envelope; use `ontap_discover` to find supported endpoints. For POST/PATCH calls, pass the body as a JSON string.
+
+ONTAP mutating operations commonly return async jobs. After create, update, or replication actions, poll the returned job UUID with `ontap_job_get`; a returned job reference does not by itself mean the operation is complete.
+
+Safety guardrails:
+
+- Delete operations are not supported. This server exposes no delete tools, and `ontap_execute` rejects the DELETE method. Delete resources through the Google Cloud console, `gcloud`, or another tool.
+- Some endpoints are out of scope for this MCP server or blocked by the proxy/RBAC policy. These return a `scope_denied` envelope and should not be retried with sibling paths or private CLI variants.
+- `/api/private/cli` subpaths are intentionally blocked at preflight. Use public `/api/...` endpoints from `ontap_discover` or dedicated tools instead.
+- User-facing clients should redact sensitive fields before displaying tool output.
+
 ## Architecture
 
 ```
@@ -250,15 +450,28 @@ src/
   logger.ts                         # Structured logging (pino)
   registry/
     register-tools.ts               # Tool registration
+  resources/
+    ontap-api-index.json            # Static ONTAP REST API catalog (powers ontap_discover)
   tools/
     *-tools.ts                      # Tool definitions (Zod schemas)
+    ontap-*-tool.ts                 # ONTAP Expert Mode tool schemas
     handlers/
       *-handler.ts                  # Tool implementations
   types/
     tool.ts                         # Shared TypeScript interfaces
   utils/
     netapp-client-factory.ts        # NetApp client factory with caching
+    ontap-http-client.ts            # ONTAP REST client (auth, body envelope, response unwrapping)
+    ontap-index-loader.ts           # Loads and indexes the ONTAP API catalog
+    ontap-preflight-validator.ts    # Pre-execution validation (index allowlist, CLI block, required body)
+    ontap-response-utils.ts         # ONTAP response shaping and error helpers
+    ontap-audit-logger.ts           # Optional Markdown audit log for ONTAP tool calls
+    scope-denied-envelope.ts        # Proxy/RBAC scope denial envelope
 ```
+
+## Troubleshooting
+
+**`ontap_execute` returns `scope_denied: ONTAP API index could not be loaded ...`** — the bundled API index file is missing or unreadable, usually from an incomplete install. Re-add `gcnv-mcp-server` in your MCP client to trigger a fresh `npx` download; if that doesn't help, run `npm cache clean --force` and re-add. Persistent failures: file an issue at <https://github.com/NetApp/gcnv-mcp-server> with the server log.
 
 ## Development
 
@@ -269,6 +482,7 @@ npm install
 npm run build          # lint + format + compile
 npm test               # run all tests
 npm run test:coverage  # with coverage report
+npm run sbom           # print an SPDX SBOM
 ```
 
 ### Dev mode

@@ -69,54 +69,6 @@ describe('snapshot-handler', () => {
     expect((result as any).isError).toBe(true);
   });
 
-  it('deleteSnapshotHandler calls deleteSnapshot and returns operationId', async () => {
-    const deleteSnapshot = vi.fn().mockResolvedValue([{ name: 'op-del' }]);
-    createClientMock.mockReturnValue({ deleteSnapshot });
-
-    const { deleteSnapshotHandler } = await import('./snapshot-handler.js');
-    const result = await deleteSnapshotHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      volumeId: 'vol1',
-      snapshotId: 's1',
-    });
-
-    expect(deleteSnapshot).toHaveBeenCalledWith({
-      name: 'projects/p1/locations/us-central1/volumes/vol1/snapshots/s1',
-    });
-    expect(result.structuredContent).toEqual({ success: true, operationId: 'op-del' });
-  });
-
-  it('deleteSnapshotHandler falls back to empty operationId when operation.name is missing', async () => {
-    const deleteSnapshot = vi.fn().mockResolvedValue([{}]);
-    createClientMock.mockReturnValue({ deleteSnapshot });
-
-    const { deleteSnapshotHandler } = await import('./snapshot-handler.js');
-    const result = await deleteSnapshotHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      volumeId: 'vol1',
-      snapshotId: 's1',
-    });
-
-    expect(result.structuredContent).toEqual({ success: true, operationId: '' });
-  });
-
-  it('deleteSnapshotHandler covers error path', async () => {
-    const deleteSnapshot = vi.fn().mockRejectedValue(new Error('boom'));
-    createClientMock.mockReturnValue({ deleteSnapshot });
-
-    const { deleteSnapshotHandler } = await import('./snapshot-handler.js');
-    const result = await deleteSnapshotHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      volumeId: 'vol1',
-      snapshotId: 's1',
-    });
-
-    expect((result as any).isError).toBe(true);
-  });
-
   it('getSnapshotHandler calls getSnapshot and returns formatted snapshot', async () => {
     const getSnapshot = vi.fn().mockResolvedValue([
       {
@@ -142,7 +94,7 @@ describe('snapshot-handler', () => {
       snapshotId: 's1',
       volumeId: 'vol1',
     });
-    expect((result.structuredContent as any).createTime).toBeInstanceOf(Date);
+    expect((result.structuredContent as any).createTime).toMatch(/^\d{4}-/);
   });
 
   it('getSnapshotHandler handles snapshot name without /volumes/../snapshots pattern (covers regex false branch)', async () => {
@@ -161,9 +113,7 @@ describe('snapshot-handler', () => {
       snapshotId: 's1',
     });
 
-    // snapshotId extracted from name, but volumeId should not be present
-    expect(result.structuredContent).toMatchObject({ snapshotId: 's1' });
-    expect((result.structuredContent as any).volumeId).toBeUndefined();
+    expect(result.structuredContent).toMatchObject({ snapshotId: 's1', volumeId: 'unknown' });
   });
 
   it('getSnapshotHandler covers error path', async () => {
@@ -222,7 +172,7 @@ describe('snapshot-handler', () => {
       description: 'd',
       labels: { a: 'b' },
     });
-    expect((result.structuredContent as any).createTime).toBeUndefined();
+    expect((result.structuredContent as any).createTime).toBe('');
   });
 
   it('getSnapshotHandler normalizes non-string state to UNKNOWN', async () => {
@@ -337,7 +287,7 @@ describe('snapshot-handler', () => {
 
     expect(revertVolume).toHaveBeenCalledWith({
       name: 'projects/p1/locations/us-central1/volumes/vol1',
-      snapshot: 'projects/p1/locations/us-central1/volumes/vol1/snapshots/s1',
+      snapshotId: 's1',
     });
     expect(result.structuredContent).toEqual({ success: true, operationId: 'op-rev' });
   });
@@ -461,23 +411,21 @@ describe('snapshot-handler', () => {
       ).isError
     ).toBe(true);
 
-    expect(
-      (
-        (await revertVolumeToSnapshotHandler({
-          projectId: 'p1',
-          location: 'us-central1',
-          volumeId: 'vol1',
-          snapshotId: 's1',
-        })) as any
-      ).isError
-    ).toBe(true);
+    const revertResult = (await revertVolumeToSnapshotHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      volumeId: 'vol1',
+      snapshotId: 's1',
+    })) as any;
+    expect(revertResult.isError).toBe(true);
+    expect(revertResult.structuredContent).toBeUndefined();
+    expect(revertResult.content?.[0]?.text).toContain('boom');
   });
 
   it('returns Unknown error for each handler when the underlying client call throws without message', async () => {
     const err = {};
     createClientMock.mockReturnValue({
       createSnapshot: vi.fn().mockRejectedValue(err),
-      deleteSnapshot: vi.fn().mockRejectedValue(err),
       getSnapshot: vi.fn().mockRejectedValue(err),
       listSnapshots: vi.fn().mockRejectedValue(err),
       revertVolume: vi.fn().mockRejectedValue(err),
@@ -486,7 +434,6 @@ describe('snapshot-handler', () => {
 
     const {
       createSnapshotHandler,
-      deleteSnapshotHandler,
       getSnapshotHandler,
       listSnapshotsHandler,
       revertVolumeToSnapshotHandler,
@@ -496,17 +443,6 @@ describe('snapshot-handler', () => {
     expect(
       (
         (await createSnapshotHandler({
-          projectId: 'p1',
-          location: 'us-central1',
-          volumeId: 'vol1',
-          snapshotId: 's1',
-        })) as any
-      ).content?.[0]?.text
-    ).toContain('Unknown error');
-
-    expect(
-      (
-        (await deleteSnapshotHandler({
           projectId: 'p1',
           location: 'us-central1',
           volumeId: 'vol1',

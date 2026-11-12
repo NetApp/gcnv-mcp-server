@@ -1,13 +1,10 @@
 import { ToolHandler } from '../../types/tool.js';
 import { NetAppClientFactory } from '../../utils/netapp-client-factory.js';
+import { formatProtobufTimestamp, normalizeStringEnum } from '../../utils/proto-format-utils.js';
 import { protos } from '@google-cloud/netapp';
 import { logger } from '../../logger.js';
 
 const log = logger.child({ module: 'replication-handler' });
-
-function normalizeStringEnum(value: any): string {
-  return typeof value === 'string' ? value : 'UNKNOWN';
-}
 
 // Helper to format replication data for responses
 function formatReplicationData(replication: any): any {
@@ -16,30 +13,34 @@ function formatReplicationData(replication: any): any {
   if (!replication) return result;
 
   if (replication.name) {
-    // Extract replicationId from name (last part after last slash)
     const nameParts = replication.name.split('/');
     result.name = replication.name;
     result.replicationId = nameParts[nameParts.length - 1];
   }
+  if (!result.replicationId && replication.replicationId) {
+    result.replicationId = String(replication.replicationId);
+  }
 
-  // Copy basic properties
   if (replication.sourceVolume) result.sourceVolume = replication.sourceVolume;
   if (replication.destinationVolume) result.destinationVolume = replication.destinationVolume;
   if (replication.state !== undefined) result.state = normalizeStringEnum(replication.state);
   if (replication.healthy !== undefined) result.healthy = replication.healthy;
 
-  // Format timestamps if they exist
-  if (replication.createTime) {
-    result.createTime = new Date(replication.createTime.seconds * 1000);
-  }
+  const createTime = formatProtobufTimestamp(replication.createTime);
+  if (createTime) result.createTime = createTime;
 
-  if (replication.lastReplicationTime) {
-    result.lastReplicationTime = new Date(replication.lastReplicationTime.seconds * 1000);
-  }
+  const lastReplicationTimestamp =
+    replication.lastReplicationTime ?? replication.transferStats?.lastTransferEndTime;
+  const lastReplicationTime = formatProtobufTimestamp(lastReplicationTimestamp);
+  if (lastReplicationTime) result.lastReplicationTime = lastReplicationTime;
 
-  // Copy optional properties
   if (replication.description) result.description = replication.description;
   if (replication.labels) result.labels = replication.labels;
+
+  if (!result.state) result.state = 'UNKNOWN';
+  if (!result.sourceVolume) result.sourceVolume = '';
+  if (!result.destinationVolume) result.destinationVolume = '';
+  if (!result.createTime) result.createTime = '';
 
   return result;
 }
@@ -128,60 +129,6 @@ export const createReplicationHandler: ToolHandler = async (args: { [key: string
           text: `Error creating replication: ${error.message || 'Unknown error'}`,
         },
       ],
-    };
-  }
-};
-
-// Delete Replication Handler
-export const deleteReplicationHandler: ToolHandler = async (args: { [key: string]: any }) => {
-  try {
-    const { projectId, location, volumeId, replicationId } = args;
-
-    // Create a new NetApp client using the factory
-    const netAppClient = NetAppClientFactory.createClient();
-
-    // Format the name for the replication
-    const name = `projects/${projectId}/locations/${location}/volumes/${volumeId}/replications/${replicationId}`;
-
-    // Call the API to delete the replication
-    const request = { name };
-
-    log.info({ request }, 'Delete Replication request');
-    const [operation] = await netAppClient.deleteReplication(request);
-    log.info({ operation }, 'Delete Replication operation');
-
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: JSON.stringify(
-            {
-              message: `Replication ${replicationId} deletion requested`,
-              operation: operation,
-            },
-            null,
-            2
-          ),
-        },
-      ],
-      structuredContent: {
-        success: true,
-        operationId: operation.name || '',
-      },
-    };
-  } catch (error: any) {
-    log.error({ err: error }, 'Error deleting replication');
-    return {
-      isError: true,
-      content: [
-        {
-          type: 'text' as const,
-          text: `Error deleting replication: ${error.message || 'Unknown error'}`,
-        },
-      ],
-      structuredContent: {
-        success: false,
-      },
     };
   }
 };

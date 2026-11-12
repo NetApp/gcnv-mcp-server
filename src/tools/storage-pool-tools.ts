@@ -19,7 +19,7 @@ export const createStoragePoolTool: ToolConfig = {
       .describe('The service level of the storage pool'),
     description: z.string().optional().describe('Optional description of the storage pool'),
     labels: z
-      .record(z.string())
+      .record(z.string(), z.string())
       .optional()
       .describe('Optional labels to apply to the storage pool'),
     network: z
@@ -57,7 +57,7 @@ export const createStoragePoolTool: ToolConfig = {
       .union([z.enum(['AUTO', 'MANUAL']), z.enum(['auto', 'manual'])])
       .optional()
       .describe(
-        'QoS type for the storage pool (AUTO or MANUAL). Manual QoS is supported for Standard/Premium/Extreme; not supported for Flex.'
+        'QoS type for the storage pool (AUTO or MANUAL). Manual QoS is supported for Standard/Premium/Extreme/Flex Unified; not supported for Flex File.'
       ),
     allowAutoTiering: z
       .boolean()
@@ -77,13 +77,28 @@ export const createStoragePoolTool: ToolConfig = {
       ),
     storagePoolType: z
       .union([
-        z.enum(['STORAGE_POOL_TYPE_UNSPECIFIED', 'FILE', 'UNIFIED', 'UNIFIED_LARGE_CAPACITY']),
-        z.enum(['storage_pool_type_unspecified', 'file', 'unified', 'unified_large_capacity']),
+        z.enum(['STORAGE_POOL_TYPE_UNSPECIFIED', 'FILE', 'UNIFIED']),
+        z.enum(['storage_pool_type_unspecified', 'file', 'unified']),
         z.number(),
       ])
       .optional()
       .describe(
-        'Storage pool type (StoragePoolType). UNIFIED and UNIFIED_LARGE_CAPACITY are only available for FLEX service level.'
+        'Storage pool type (StoragePoolType). UNIFIED is only available for FLEX service level.'
+      ),
+    scaleType: z
+      .union([
+        z.enum(['SCALE_TYPE_UNSPECIFIED', 'SCALE_TYPE_DEFAULT', 'SCALE_TYPE_SCALEOUT']),
+        z.enum(['scale_type_unspecified', 'scale_type_default', 'scale_type_scaleout']),
+      ])
+      .optional()
+      .describe(
+        'Scale type for a FLEX UNIFIED storage pool. Only send SCALE_TYPE_SCALEOUT when creating a large capacity pool; omit this field for all other FLEX UNIFIED pools.'
+      ),
+    mode: z
+      .union([z.enum(['DEFAULT', 'ONTAP']), z.enum(['default', 'ontap'])])
+      .optional()
+      .describe(
+        'Mode of the storage pool. DEFAULT for regular pools, ONTAP for ONTAP expert mode pools. ONTAP mode requires storagePoolType UNIFIED and serviceLevel FLEX.'
       ),
   },
   outputSchema: {
@@ -91,23 +106,6 @@ export const createStoragePoolTool: ToolConfig = {
     operationId: z
       .string()
       .describe('The ID of the long-running operation for creating the storage pool'),
-  },
-};
-
-// Delete Storage Pool Tool
-export const deleteStoragePoolTool: ToolConfig = {
-  name: 'gcnv_storage_pool_delete',
-  title: 'Delete Storage Pool',
-  description: 'Deletes a storage pool in the specified project and location',
-  inputSchema: {
-    projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().describe('The location of the storage pool'),
-    storagePoolId: z.string().describe('The ID of the storage pool to delete'),
-    force: z.boolean().optional().describe('Force deletion even if the pool contains resources'),
-  },
-  outputSchema: {
-    success: z.boolean().describe('Whether the deletion was successful'),
-    operationId: z.string().optional().describe('The ID of the long-running operation'),
   },
 };
 
@@ -129,9 +127,12 @@ export const getStoragePoolTool: ToolConfig = {
     volumeCapacityGib: z.number().describe('The total volume capacity in GiB'),
     volumecount: z.number().describe('The number of volumes in the storage pool'),
     state: z.string().describe('The current state of the storage pool'),
-    createTime: z.date().describe('The timestamp when the storage pool was created'),
+    createTime: z.string().optional().describe('The timestamp when the storage pool was created'),
     description: z.string().optional().describe('The description of the storage pool'),
-    labels: z.record(z.string()).optional().describe('Labels applied to the storage pool'),
+    labels: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('Labels applied to the storage pool'),
     network: z.string().optional().describe('The VPC network used by the storage pool'),
     activeDirectory: z
       .string()
@@ -157,6 +158,7 @@ export const getStoragePoolTool: ToolConfig = {
       .union([z.string(), z.number()])
       .optional()
       .describe('Storage pool type (StoragePoolType)'),
+    mode: z.string().optional().describe('Mode of the storage pool (DEFAULT or ONTAP)'),
     zone: z.string().optional().describe('Zone for the storage pool'),
     replicaZone: z.string().optional().describe('Replica zone for the storage pool'),
   },
@@ -174,7 +176,12 @@ export const listStoragePoolsTool: ToolConfig = {
       .string()
       .optional()
       .describe('The location to list storage pools from; omit or use "-" for all locations'),
-    filter: z.string().optional().describe('Filter expression for filtering results'),
+    filter: z
+      .string()
+      .optional()
+      .describe(
+        'Optional filter expression, e.g. mode="ONTAP", state="READY", or mode="ONTAP" AND state="READY".'
+      ),
     pageSize: z.number().optional().describe('The maximum number of storage pools to return'),
     pageToken: z.string().optional().describe('Page token from a previous list request'),
   },
@@ -189,9 +196,15 @@ export const listStoragePoolsTool: ToolConfig = {
           volumeCapacityGib: z.number().describe('The total volume capacity in GiB'),
           volumecount: z.number().describe('The number of volumes in the storage pool'),
           state: z.string().describe('The current state of the storage pool'),
-          createTime: z.date().describe('The timestamp when the storage pool was created'),
+          createTime: z
+            .string()
+            .optional()
+            .describe('The timestamp when the storage pool was created'),
           description: z.string().optional().describe('The description of the storage pool'),
-          labels: z.record(z.string()).optional().describe('Labels applied to the storage pool'),
+          labels: z
+            .record(z.string(), z.string())
+            .optional()
+            .describe('Labels applied to the storage pool'),
           network: z.string().optional().describe('The VPC network used by the storage pool'),
           activeDirectory: z
             .string()
@@ -223,6 +236,7 @@ export const listStoragePoolsTool: ToolConfig = {
             .union([z.string(), z.number()])
             .optional()
             .describe('Storage pool type (StoragePoolType)'),
+          mode: z.string().optional().describe('Mode of the storage pool (DEFAULT or ONTAP)'),
           zone: z.string().optional().describe('Zone for the storage pool'),
           replicaZone: z.string().optional().describe('Replica zone for the storage pool'),
         })
@@ -243,12 +257,15 @@ export const updateStoragePoolTool: ToolConfig = {
     storagePoolId: z.string().describe('The ID of the storage pool to update'),
     capacityGib: z.number().optional().describe('The new capacity of the storage pool in GiB'),
     description: z.string().optional().describe('New description of the storage pool'),
-    labels: z.record(z.string()).optional().describe('New labels to apply to the storage pool'),
+    labels: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('New labels to apply to the storage pool'),
     qosType: z
       .union([z.enum(['AUTO', 'MANUAL']), z.enum(['auto', 'manual'])])
       .optional()
       .describe(
-        'QoS type for the storage pool (AUTO or MANUAL). Manual QoS is supported for Standard/Premium/Extreme; not supported for Flex.'
+        'QoS type for the storage pool (AUTO or MANUAL). Manual QoS is supported for Standard/Premium/Extreme/Flex Unified; not supported for Flex File.'
       ),
     totalThroughputMibps: z
       .number()
@@ -259,13 +276,13 @@ export const updateStoragePoolTool: ToolConfig = {
       ),
     storagePoolType: z
       .union([
-        z.enum(['STORAGE_POOL_TYPE_UNSPECIFIED', 'FILE', 'UNIFIED', 'UNIFIED_LARGE_CAPACITY']),
-        z.enum(['storage_pool_type_unspecified', 'file', 'unified', 'unified_large_capacity']),
+        z.enum(['STORAGE_POOL_TYPE_UNSPECIFIED', 'FILE', 'UNIFIED']),
+        z.enum(['storage_pool_type_unspecified', 'file', 'unified']),
         z.number(),
       ])
       .optional()
       .describe(
-        'Storage pool type (StoragePoolType). UNIFIED and UNIFIED_LARGE_CAPACITY are only available for FLEX service level.'
+        'Storage pool type (StoragePoolType). UNIFIED is only available for FLEX service level.'
       ),
     zone: z
       .string()

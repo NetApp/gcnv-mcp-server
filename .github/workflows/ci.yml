@@ -12,6 +12,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   lint-format-typecheck-build-test:
     name: Lint, format, build & tests (Node ${{ matrix.node-version }})
@@ -19,14 +22,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: ['18', '20']
+        node-version: ['22', '24']
 
     steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
@@ -60,9 +68,8 @@ jobs:
           console.log('Manifest OK:', m.name);
           "
 
-      - name: Security audit (informational)
-        run: npm audit --audit-level=high
-        continue-on-error: true
+      - name: Security audit
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Smoke test — server starts (stdio)
         run: |

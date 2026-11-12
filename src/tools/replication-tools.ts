@@ -18,30 +18,16 @@ export const createReplicationTool: ToolConfig = {
       .default('HOURLY')
       .describe('Replication schedule; defaults to HOURLY'),
     description: z.string().optional().describe('Optional description of the replication'),
-    labels: z.record(z.string()).optional().describe('Optional labels to apply to the replication'),
+    labels: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('Optional labels to apply to the replication'),
   },
   outputSchema: {
     name: z.string().describe('The name of the created replication'),
     operationId: z
       .string()
       .describe('The ID of the long-running operation for creating the replication'),
-  },
-};
-
-// Delete Replication Tool
-export const deleteReplicationTool: ToolConfig = {
-  name: 'gcnv_replication_delete',
-  title: 'Delete Replication',
-  description: 'Deletes a replication configuration',
-  inputSchema: {
-    projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().describe('The location of the replication'),
-    volumeId: z.string().describe('The ID of the volume containing the replication'),
-    replicationId: z.string().describe('The ID of the replication to delete'),
-  },
-  outputSchema: {
-    success: z.boolean().describe('Whether the deletion was successful'),
-    operationId: z.string().optional().describe('The ID of the long-running operation'),
   },
 };
 
@@ -62,14 +48,17 @@ export const getReplicationTool: ToolConfig = {
     sourceVolume: z.string().describe('The source volume of the replication'),
     destinationVolume: z.string().describe('The destination volume of the replication'),
     state: z.string().describe('The current state of the replication'),
-    createTime: z.date().describe('The timestamp when the replication was created'),
+    createTime: z.string().describe('The timestamp when the replication was created'),
     description: z.string().optional().describe('The description of the replication'),
-    labels: z.record(z.string()).optional().describe('Labels applied to the replication'),
-    healthy: z.boolean().describe('Whether the replication is healthy'),
-    lastReplicationTime: z
-      .date()
+    labels: z
+      .record(z.string(), z.string())
       .optional()
-      .describe('The timestamp of the last successful replication'),
+      .describe('Labels applied to the replication'),
+    healthy: z.boolean().optional().describe('Whether the replication is healthy'),
+    lastReplicationTime: z
+      .string()
+      .optional()
+      .describe('The timestamp of the last successful replication (ISO 8601)'),
   },
 };
 
@@ -98,14 +87,17 @@ export const listReplicationsTool: ToolConfig = {
           sourceVolume: z.string().describe('The source volume of the replication'),
           destinationVolume: z.string().describe('The destination volume of the replication'),
           state: z.string().describe('The current state of the replication'),
-          createTime: z.date().describe('The timestamp when the replication was created'),
+          createTime: z.string().describe('The timestamp when the replication was created'),
           description: z.string().optional().describe('The description of the replication'),
-          labels: z.record(z.string()).optional().describe('Labels applied to the replication'),
-          healthy: z.boolean().describe('Whether the replication is healthy'),
-          lastReplicationTime: z
-            .date()
+          labels: z
+            .record(z.string(), z.string())
             .optional()
-            .describe('The timestamp of the last successful replication'),
+            .describe('Labels applied to the replication'),
+          healthy: z.boolean().optional().describe('Whether the replication is healthy'),
+          lastReplicationTime: z
+            .string()
+            .optional()
+            .describe('The timestamp of the last successful replication (ISO 8601)'),
         })
       )
       .describe('List of replications'),
@@ -124,7 +116,10 @@ export const updateReplicationTool: ToolConfig = {
     volumeId: z.string().describe('The ID of the volume containing the replication'),
     replicationId: z.string().describe('The ID of the replication to update'),
     description: z.string().optional().describe('New description of the replication'),
-    labels: z.record(z.string()).optional().describe('New labels to apply to the replication'),
+    labels: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('New labels to apply to the replication'),
   },
   outputSchema: {
     name: z.string().describe('The name of the updated replication'),

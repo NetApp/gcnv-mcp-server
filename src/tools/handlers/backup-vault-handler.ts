@@ -1,11 +1,31 @@
 import { ToolHandler } from '../../types/tool.js';
 import { NetAppClientFactory } from '../../utils/netapp-client-factory.js';
+import { formatProtobufTimestamp, normalizeStringEnum } from '../../utils/proto-format-utils.js';
 import { logger } from '../../logger.js';
 
 const log = logger.child({ module: 'backup-vault-handler' });
 
-function normalizeStringEnum(value: any): string {
-  return typeof value === 'string' ? value : 'UNKNOWN';
+function locationId(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const text = value.trim().replace(/\/+$/, '');
+  if (!text) return '';
+  return text.split('/').pop() || '';
+}
+
+function normalizeResourceName(value: unknown): string {
+  return typeof value === 'string' ? value.trim().replace(/\/+$/, '') : '';
+}
+
+function kmsConfigLocation(value: unknown): string {
+  return (
+    normalizeResourceName(value).match(
+      /^projects\/[^/]+\/locations\/([^/]+)\/kmsConfigs\/[^/]+$/
+    )?.[1] || ''
+  );
+}
+
+function isBackupVaultType(value: string): value is 'IN_REGION' | 'CROSS_REGION' {
+  return value === 'IN_REGION' || value === 'CROSS_REGION';
 }
 
 // Helper to format backup vault data for responses
@@ -15,25 +35,19 @@ function formatBackupVaultData(backupVault: any): any {
   if (!backupVault) return result;
 
   if (backupVault.name) {
-    // Extract backupVaultId from name (last part after last slash)
     const nameParts = backupVault.name.split('/');
     result.name = backupVault.name;
     result.backupVaultId = nameParts[nameParts.length - 1];
   }
 
-  // Copy basic properties
   if (backupVault.state !== undefined) result.state = normalizeStringEnum(backupVault.state);
 
-  // Format timestamps if they exist
-  if (backupVault.createTime) {
-    result.createTime = new Date(backupVault.createTime.seconds * 1000);
-  }
+  const createTime = formatProtobufTimestamp(backupVault.createTime);
+  if (createTime) result.createTime = createTime;
 
-  if (backupVault.updateTime) {
-    result.updateTime = new Date(backupVault.updateTime.seconds * 1000);
-  }
+  const updateTime = formatProtobufTimestamp(backupVault.updateTime);
+  if (updateTime) result.updateTime = updateTime;
 
-  // Copy required properties according to the schema
   if (backupVault.backupVaultType !== undefined) {
     result.backupVaultType = normalizeStringEnum(backupVault.backupVaultType);
   }
@@ -43,7 +57,6 @@ function formatBackupVaultData(backupVault: any): any {
   if (backupVault.destinationBackupVault)
     result.destinationBackupVault = backupVault.destinationBackupVault;
 
-  // Copy backup retention policy if it exists
   if (backupVault.backupRetentionPolicy) {
     result.backupRetentionPolicy = {
       backupMinimumEnforcedRetentionDays:
@@ -55,9 +68,19 @@ function formatBackupVaultData(backupVault: any): any {
     };
   }
 
-  // Copy optional properties
   if (backupVault.description) result.description = backupVault.description;
   if (backupVault.labels) result.labels = backupVault.labels;
+  if (backupVault.kmsConfig) result.kmsConfig = backupVault.kmsConfig;
+  if (backupVault.encryptionState !== undefined) {
+    result.encryptionState = normalizeStringEnum(backupVault.encryptionState);
+  }
+  if (backupVault.backupsCryptoKeyVersion) {
+    result.backupsCryptoKeyVersion = backupVault.backupsCryptoKeyVersion;
+  }
+
+  if (!result.state) result.state = 'UNKNOWN';
+  if (!result.backupVaultType) result.backupVaultType = 'BACKUP_VAULT_TYPE_UNSPECIFIED';
+  if (!result.createTime) result.createTime = '';
 
   return result;
 }
@@ -65,7 +88,94 @@ function formatBackupVaultData(backupVault: any): any {
 // Create Backup Vault Handler
 export const createBackupVaultHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {
-    const { projectId, location, backupVaultId, description, labels, backupRetentionPolicy } = args;
+    const {
+      projectId,
+      location,
+      backupVaultId,
+      backupVaultType = 'IN_REGION',
+      backupRegion,
+      kmsConfig,
+      description,
+      labels,
+      backupRetentionPolicy,
+    } = args;
+    const vaultType = String(backupVaultType).toUpperCase();
+    const sourceRegion = locationId(location);
+    const destinationRegionId = locationId(backupRegion);
+    const normalizedKmsConfig = normalizeResourceName(kmsConfig);
+
+    if (!isBackupVaultType(vaultType)) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Invalid argument: backupVaultType must be IN_REGION or CROSS_REGION.',
+          },
+        ],
+      };
+    }
+
+    if (vaultType === 'CROSS_REGION' && !destinationRegionId) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Invalid argument: CROSS_REGION backup vaults require backupRegion.',
+          },
+        ],
+      };
+    }
+    if (vaultType === 'CROSS_REGION' && sourceRegion === destinationRegionId) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Invalid argument: backupRegion must differ from location for CROSS_REGION vaults.',
+          },
+        ],
+      };
+    }
+    if (vaultType === 'IN_REGION' && destinationRegionId && sourceRegion !== destinationRegionId) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Invalid argument: backupRegion must match location or be omitted for IN_REGION vaults.',
+          },
+        ],
+      };
+    }
+
+    if (kmsConfig !== undefined) {
+      const kmsRegion = kmsConfigLocation(normalizedKmsConfig);
+      const expectedKmsRegion = vaultType === 'CROSS_REGION' ? destinationRegionId : sourceRegion;
+      if (!kmsRegion) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text' as const,
+              text: 'Invalid argument: kmsConfig must be a full KMS config resource name.',
+            },
+          ],
+        };
+      }
+      if (kmsRegion !== expectedKmsRegion) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text' as const,
+              text: `Invalid argument: kmsConfig must be in region ${expectedKmsRegion}.`,
+            },
+          ],
+        };
+      }
+    }
 
     // Create a new NetApp client using the factory
     const netAppClient = NetAppClientFactory.createClient();
@@ -78,17 +188,36 @@ export const createBackupVaultHandler: ToolHandler = async (args: { [key: string
       parent,
       backupVaultId,
       backupVault: {
+        backupVaultType: vaultType,
         description,
         labels,
+        ...(vaultType === 'CROSS_REGION' ? { backupRegion: destinationRegionId } : {}),
+        ...(kmsConfig !== undefined ? { kmsConfig: normalizedKmsConfig } : {}),
         ...(backupRetentionPolicy !== undefined ? { backupRetentionPolicy } : {}),
       },
     };
+
+    log.info(
+      {
+        gcnvApi: 'NetAppClient.createBackupVault',
+        request,
+      },
+      'Calling GCNV API to create backup vault'
+    );
 
     // Create the backup vault
     const [operation] = await netAppClient.createBackupVault(request);
 
     // Extract the operation name for tracking
     const operationName = operation.name;
+
+    log.info(
+      {
+        gcnvApi: 'NetAppClient.createBackupVault',
+        operationName,
+      },
+      'GCNV backup vault creation operation started'
+    );
 
     // Construct the backup vault name
     const backupVaultName = `${parent}/backupVaults/${backupVaultId}`;
@@ -137,63 +266,6 @@ export const createBackupVaultHandler: ToolHandler = async (args: { [key: string
   }
 };
 
-// Delete Backup Vault Handler
-export const deleteBackupVaultHandler: ToolHandler = async (args: { [key: string]: any }) => {
-  try {
-    const { projectId, location, backupVaultId } = args;
-
-    // Create a new NetApp client using the factory
-    const netAppClient = NetAppClientFactory.createClient();
-
-    // Format the name for the backup vault
-    const name = `projects/${projectId}/locations/${location}/backupVaults/${backupVaultId}`;
-
-    // Delete the backup vault
-    const request = { name };
-    const [operation] = await netAppClient.deleteBackupVault(request);
-
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: `Backup vault deletion initiated. Operation ID: ${operation.name}`,
-        },
-      ],
-      structuredContent: {
-        success: true,
-        operationId: operation.name,
-      },
-    };
-  } catch (error: any) {
-    log.error({ err: error }, 'Error deleting backup vault');
-
-    let errorMessage = `Failed to delete backup vault: ${error.message}`;
-
-    // Handle specific error types
-    if (error.code === 5) {
-      // NOT_FOUND
-      errorMessage = `Backup vault not found: projects/${args.projectId}/locations/${args.location}/backupVaults/${args.backupVaultId}`;
-    } else if (error.code === 7) {
-      // PERMISSION_DENIED
-      errorMessage = 'Permission denied. Please check your credentials and access rights.';
-    } else if (error.code === 9) {
-      // FAILED_PRECONDITION
-      errorMessage =
-        'Failed precondition. The backup vault may have dependent backups that need to be deleted first.';
-    }
-
-    return {
-      isError: true,
-      content: [
-        {
-          type: 'text' as const,
-          text: errorMessage,
-        },
-      ],
-    };
-  }
-};
-
 // Get Backup Vault Handler
 export const getBackupVaultHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {
@@ -210,13 +282,6 @@ export const getBackupVaultHandler: ToolHandler = async (args: { [key: string]: 
 
     // Format the backup vault data
     const formattedData = formatBackupVaultData(backupVault);
-
-    // Default values for required fields if they're not present in the API response
-    if (!formattedData.backupVaultType) formattedData.backupVaultType = 'STANDARD';
-    if (!formattedData.sourceRegion) formattedData.sourceRegion = location;
-    if (!formattedData.backupRegion) formattedData.backupRegion = location;
-    if (!formattedData.sourceBackupVault) formattedData.sourceBackupVault = '';
-    if (!formattedData.destinationBackupVault) formattedData.destinationBackupVault = '';
 
     return {
       content: [

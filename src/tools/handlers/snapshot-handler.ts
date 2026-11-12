@@ -1,12 +1,9 @@
 import { ToolHandler } from '../../types/tool.js';
 import { NetAppClientFactory } from '../../utils/netapp-client-factory.js';
+import { formatProtobufTimestamp, normalizeStringEnum } from '../../utils/proto-format-utils.js';
 import { logger } from '../../logger.js';
 
 const log = logger.child({ module: 'snapshot-handler' });
-
-function normalizeStringEnum(value: any): string {
-  return typeof value === 'string' ? value : 'UNKNOWN';
-}
 
 // Helper to format snapshot data for responses
 function formatSnapshotData(snapshot: any): any {
@@ -15,29 +12,30 @@ function formatSnapshotData(snapshot: any): any {
   if (!snapshot) return result;
 
   if (snapshot.name) {
-    // Extract snapshotId from name (last part after last slash)
     const nameParts = snapshot.name.split('/');
     result.name = snapshot.name;
     result.snapshotId = nameParts[nameParts.length - 1];
 
-    // Extract volumeId from name
     const volumeMatch = snapshot.name.match(/\/volumes\/([^/]+)\/snapshots\//);
     if (volumeMatch && volumeMatch[1]) {
       result.volumeId = volumeMatch[1];
     }
   }
-
-  // Copy basic properties
-  if (snapshot.state !== undefined) result.state = normalizeStringEnum(snapshot.state);
-
-  // Format timestamps if they exist
-  if (snapshot.createTime) {
-    result.createTime = new Date(snapshot.createTime.seconds * 1000);
+  if (!result.snapshotId && snapshot.snapshotId) {
+    result.snapshotId = String(snapshot.snapshotId);
   }
 
-  // Copy optional properties
+  if (snapshot.state !== undefined) result.state = normalizeStringEnum(snapshot.state);
+
+  const createTime = formatProtobufTimestamp(snapshot.createTime);
+  if (createTime) result.createTime = createTime;
+
   if (snapshot.description) result.description = snapshot.description;
   if (snapshot.labels) result.labels = snapshot.labels;
+
+  if (!result.state) result.state = 'UNKNOWN';
+  if (!result.volumeId) result.volumeId = 'unknown';
+  if (!result.createTime) result.createTime = '';
 
   return result;
 }
@@ -97,53 +95,6 @@ export const createSnapshotHandler: ToolHandler = async (args: { [key: string]: 
           text: `Error creating snapshot: ${error.message || 'Unknown error'}`,
         },
       ],
-    };
-  }
-};
-
-// Delete Snapshot Handler
-export const deleteSnapshotHandler: ToolHandler = async (args: { [key: string]: any }) => {
-  try {
-    const { projectId, location, volumeId, snapshotId } = args;
-
-    // Create a new NetApp client using the factory
-    const netAppClient = NetAppClientFactory.createClient();
-
-    // Format the name for the snapshot
-    const name = `projects/${projectId}/locations/${location}/volumes/${volumeId}/snapshots/${snapshotId}`;
-
-    // Call the API to delete the snapshot
-    const request = { name };
-
-    log.info({ request }, 'Delete Snapshot request');
-    const [operation] = await netAppClient.deleteSnapshot(request);
-    log.info({ operation }, 'Delete Snapshot operation');
-
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: `Snapshot '${snapshotId}' deletion operation started.`,
-        },
-      ],
-      structuredContent: {
-        success: true,
-        operationId: operation.name || '',
-      },
-    };
-  } catch (error: any) {
-    log.error({ err: error }, 'Error deleting snapshot');
-    return {
-      isError: true,
-      content: [
-        {
-          type: 'text' as const,
-          text: `Error deleting snapshot: ${error.message || 'Unknown error'}`,
-        },
-      ],
-      structuredContent: {
-        success: false,
-      },
     };
   }
 };
@@ -260,14 +211,12 @@ export const revertVolumeToSnapshotHandler: ToolHandler = async (args: { [key: s
     // Create a new NetApp client using the factory
     const netAppClient = NetAppClientFactory.createClient();
 
-    // Format the name for the snapshot
-    const snapshot = `projects/${projectId}/locations/${location}/volumes/${volumeId}/snapshots/${snapshotId}`;
     const volume = `projects/${projectId}/locations/${location}/volumes/${volumeId}`;
 
     // Call the API to revert to snapshot
     const request = {
       name: volume,
-      snapshot,
+      snapshotId,
     };
 
     log.info({ request }, 'Revert to Snapshot request');
@@ -296,9 +245,6 @@ export const revertVolumeToSnapshotHandler: ToolHandler = async (args: { [key: s
           text: `Error reverting to snapshot: ${error.message || 'Unknown error'}`,
         },
       ],
-      structuredContent: {
-        success: false,
-      },
     };
   }
 };

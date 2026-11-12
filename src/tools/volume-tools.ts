@@ -1,11 +1,183 @@
 import { z } from 'zod';
-import { ToolConfig } from '../types/tool.js';
+import { ToolConfig, NOT_FOR_ONTAP } from '../types/tool.js';
+
+// GCNV FlexCache cacheParameters — shared by gcnv_volume_create and gcnv_volume_update.
+const cacheParametersSchema = z
+  .object({
+    peerVolumeName: z.string().optional().describe('Origin volume name'),
+    peerClusterName: z.string().optional().describe('Origin cluster name'),
+    peerSvmName: z.string().optional().describe('Origin SVM name'),
+    peerIpAddresses: z
+      .array(z.string())
+      .optional()
+      .describe('Origin intercluster LIF IP addresses'),
+    enableGlobalFileLock: z.boolean().optional().describe('Whether global file lock is enabled'),
+    cacheConfig: z
+      .object({
+        writebackEnabled: z.boolean().optional().describe('Whether writeback is enabled'),
+        atimeScrubEnabled: z.boolean().optional().describe('Whether atime scrub is enabled'),
+        atimeScrubDays: z
+          .number()
+          .int()
+          .min(1)
+          .max(1000)
+          .optional()
+          .describe('Atime scrub duration in days (1-1000)'),
+        cifsChangeNotifyEnabled: z
+          .boolean()
+          .optional()
+          .describe('Whether CIFS change notification is enabled'),
+        cachePrePopulate: z
+          .object({
+            pathList: z.array(z.string()).optional().describe('Paths to pre-populate from origin'),
+            excludePathList: z
+              .array(z.string())
+              .optional()
+              .describe('Paths to exclude from pre-population'),
+            recursion: z.boolean().optional().describe('Whether to pre-populate recursively'),
+          })
+          .optional()
+          .describe('Cache pre-population settings'),
+      })
+      .optional()
+      .describe('FlexCache volume configuration'),
+  })
+  .describe('FlexCache cache-volume parameters (not hybridReplicationParameters)');
+
+// GCNV volume snapshotPolicy — shared by gcnv_volume_create and gcnv_volume_update.
+const snapshotPolicyHourlyScheduleSchema = z
+  .object({
+    snapshotsToKeep: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe('Number of hourly snapshots to retain'),
+    minute: z
+      .number()
+      .int()
+      .min(0)
+      .max(59)
+      .optional()
+      .describe('Minute of the hour to take the snapshot (0-59)'),
+  })
+  .strict()
+  .describe('Hourly snapshot schedule');
+
+const snapshotPolicyDailyScheduleSchema = z
+  .object({
+    snapshotsToKeep: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe('Number of daily snapshots to retain'),
+    minute: z
+      .number()
+      .int()
+      .min(0)
+      .max(59)
+      .optional()
+      .describe('Minute of the hour to take the snapshot (0-59)'),
+    hour: z
+      .number()
+      .int()
+      .min(0)
+      .max(23)
+      .optional()
+      .describe('Hour of the day to take the snapshot (0-23)'),
+  })
+  .strict()
+  .describe('Daily snapshot schedule');
+
+const snapshotPolicyWeeklyScheduleSchema = z
+  .object({
+    snapshotsToKeep: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe('Number of weekly snapshots to retain'),
+    minute: z
+      .number()
+      .int()
+      .min(0)
+      .max(59)
+      .optional()
+      .describe('Minute of the hour to take the snapshot (0-59)'),
+    hour: z
+      .number()
+      .int()
+      .min(0)
+      .max(23)
+      .optional()
+      .describe('Hour of the day to take the snapshot (0-23)'),
+    day: z
+      .string()
+      .optional()
+      .describe('Day of the week to take the snapshot (API expects a string)'),
+  })
+  .strict()
+  .describe('Weekly snapshot schedule');
+
+const snapshotPolicyMonthlyScheduleSchema = z
+  .object({
+    snapshotsToKeep: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe('Number of monthly snapshots to retain'),
+    minute: z
+      .number()
+      .int()
+      .min(0)
+      .max(59)
+      .optional()
+      .describe('Minute of the hour to take the snapshot (0-59)'),
+    hour: z
+      .number()
+      .int()
+      .min(0)
+      .max(23)
+      .optional()
+      .describe('Hour of the day to take the snapshot (0-23)'),
+    daysOfMonth: z
+      .string()
+      .optional()
+      .describe('Days of month to take the snapshot (API expects a string)'),
+  })
+  .strict()
+  .describe('Monthly snapshot schedule');
+
+const snapshotPolicySchema = z
+  .object({
+    enabled: z.boolean().optional().describe('Enable scheduled snapshots for this volume'),
+    hourlySchedule: snapshotPolicyHourlyScheduleSchema.optional(),
+    dailySchedule: snapshotPolicyDailyScheduleSchema.optional(),
+    weeklySchedule: snapshotPolicyWeeklyScheduleSchema.optional(),
+    monthlySchedule: snapshotPolicyMonthlyScheduleSchema.optional(),
+  })
+  .strict()
+  .refine(
+    (policy) =>
+      policy.enabled !== undefined ||
+      policy.hourlySchedule !== undefined ||
+      policy.dailySchedule !== undefined ||
+      policy.weeklySchedule !== undefined ||
+      policy.monthlySchedule !== undefined,
+    {
+      message:
+        'snapshotPolicy must include enabled and/or at least one schedule (hourly, daily, weekly, monthly)',
+    }
+  )
+  .describe('Snapshot scheduling policy for the volume');
 
 // Create Volume Tool
 export const createVolumeTool: ToolConfig = {
   name: 'gcnv_volume_create',
   title: 'Create Volume',
-  description: 'Creates a new volume in the specified storage pool',
+  description: 'Creates a GCNV managed volume in the specified storage pool.' + NOT_FOR_ONTAP,
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
     location: z.string().describe('The location where the volume should be created'),
@@ -47,7 +219,10 @@ export const createVolumeTool: ToolConfig = {
       .describe('iSCSI block device configuration (used when protocols includes ISCSI)'),
     description: z.string().optional().describe('Optional description of the volume'),
     shareName: z.string().optional().describe('Optional name of the file share'),
-    labels: z.record(z.string()).optional().describe('Optional labels to apply to the volume'),
+    labels: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('Optional labels to apply to the volume'),
     backupConfig: z
       .object({
         backupPolicies: z
@@ -62,113 +237,9 @@ export const createVolumeTool: ToolConfig = {
       })
       .optional()
       .describe('Backup configuration'),
-    snapshotPolicy: z
-      .object({
-        enabled: z.boolean().optional().describe('Enable scheduled snapshots for this volume'),
-        hourlySchedule: z
-          .object({
-            snapshotsToKeep: z
-              .number()
-              .int()
-              .positive()
-              .optional()
-              .describe('Number of hourly snapshots to retain'),
-            minute: z
-              .number()
-              .int()
-              .min(0)
-              .max(59)
-              .optional()
-              .describe('Minute of the hour to take the snapshot (0-59)'),
-          })
-          .optional()
-          .describe('Hourly snapshot schedule'),
-        dailySchedule: z
-          .object({
-            snapshotsToKeep: z
-              .number()
-              .int()
-              .positive()
-              .optional()
-              .describe('Number of daily snapshots to retain'),
-            minute: z
-              .number()
-              .int()
-              .min(0)
-              .max(59)
-              .optional()
-              .describe('Minute of the hour to take the snapshot (0-59)'),
-            hour: z
-              .number()
-              .int()
-              .min(0)
-              .max(23)
-              .optional()
-              .describe('Hour of the day to take the snapshot (0-23)'),
-          })
-          .optional()
-          .describe('Daily snapshot schedule'),
-        weeklySchedule: z
-          .object({
-            snapshotsToKeep: z
-              .number()
-              .int()
-              .positive()
-              .optional()
-              .describe('Number of weekly snapshots to retain'),
-            minute: z
-              .number()
-              .int()
-              .min(0)
-              .max(59)
-              .optional()
-              .describe('Minute of the hour to take the snapshot (0-59)'),
-            hour: z
-              .number()
-              .int()
-              .min(0)
-              .max(23)
-              .optional()
-              .describe('Hour of the day to take the snapshot (0-23)'),
-            day: z
-              .string()
-              .optional()
-              .describe('Day of the week to take the snapshot (API expects a string)'),
-          })
-          .optional()
-          .describe('Weekly snapshot schedule'),
-        monthlySchedule: z
-          .object({
-            snapshotsToKeep: z
-              .number()
-              .int()
-              .positive()
-              .optional()
-              .describe('Number of monthly snapshots to retain'),
-            minute: z
-              .number()
-              .int()
-              .min(0)
-              .max(59)
-              .optional()
-              .describe('Minute of the hour to take the snapshot (0-59)'),
-            hour: z
-              .number()
-              .int()
-              .min(0)
-              .max(23)
-              .optional()
-              .describe('Hour of the day to take the snapshot (0-23)'),
-            daysOfMonth: z
-              .string()
-              .optional()
-              .describe('Days of month to take the snapshot (API expects a string)'),
-          })
-          .optional()
-          .describe('Monthly snapshot schedule'),
-      })
+    snapshotPolicy: snapshotPolicySchema
       .optional()
-      .describe('Snapshot scheduling policy for the volume'),
+      .describe('Snapshot scheduling policy for the volume.'),
     tieringPolicy: z
       .object({
         tierAction: z
@@ -200,7 +271,7 @@ export const createVolumeTool: ToolConfig = {
           .describe('Peer IP addresses for hybrid replication'),
         clusterLocation: z.string().optional().describe('Cluster location'),
         description: z.string().optional().describe('Description'),
-        labels: z.record(z.string()).optional().describe('Labels'),
+        labels: z.record(z.string(), z.string()).optional().describe('Labels'),
         replicationSchedule: z
           .enum(['HYBRID_REPLICATION_SCHEDULE_UNSPECIFIED', 'EVERY_10_MINUTES', 'HOURLY', 'DAILY'])
           .optional()
@@ -223,7 +294,8 @@ export const createVolumeTool: ToolConfig = {
           .describe('Large volume constituent count'),
       })
       .optional()
-      .describe('Hybrid replication parameters for the volume'),
+      .describe('Hybrid replication parameters for the volume (not FlexCache)'),
+    cacheParameters: cacheParametersSchema.optional(),
     exportPolicy: z
       .object({
         rules: z
@@ -286,13 +358,63 @@ export const createVolumeTool: ToolConfig = {
       .boolean()
       .optional()
       .describe(
-        'Enable Large Capacity Volume mode (Premium/Extreme only). Requires capacityGib >= 15360 (15 TiB).'
+        'When true, creates the volume as a large-capacity volume. The handler reads the pool serviceLevel and sends either `largeCapacityConfig` (FLEX UNIFIED scale-out pools) or the legacy `largeCapacity: true` boolean (PREMIUM/EXTREME pools); the two are mutually exclusive on the wire. Required for volumes in Unified scale-out / large-capacity pools. Backend-enforced minimums: on FLEX UNIFIED scale-out pools, capacityGib >= 4916 when largeCapacityConstituentCount is omitted and >= 2400 when it is explicitly set; on PREMIUM/EXTREME pools, >= 15360 (15 TiB).'
       ),
     multipleEndpoints: z
       .boolean()
       .optional()
       .describe(
-        'Use multiple storage endpoints for Large Capacity Volumes (only valid when largeCapacity is true).'
+        'Use multiple storage endpoints for large-capacity volumes (requires largeCapacity to be true).'
+      ),
+    largeCapacityConstituentCount: z
+      .number()
+      .int()
+      .min(2)
+      .optional()
+      .describe(
+        'Number of constituent volumes inside the large-capacity volume (maps to `largeCapacityConfig.constituentCount`). Only valid when `largeCapacity` is true. Minimum 2; when omitted, the backend assigns a default based on the active deployment layout.'
+      ),
+    smbEncryptData: z
+      .boolean()
+      .optional()
+      .describe(
+        'When true, sets smbSettings ENCRYPT_DATA (SMB encryption). Requires protocols to include SMB.'
+      ),
+    smbHideShare: z
+      .boolean()
+      .optional()
+      .describe(
+        'When true, sets smbSettings NON_BROWSABLE (hidden / not browsable share). Requires protocols to include SMB. Mutually exclusive with smbContinuouslyAvailable / CONTINUOUSLY_AVAILABLE.'
+      ),
+    smbAccessBasedEnumeration: z
+      .boolean()
+      .optional()
+      .describe(
+        'When true, sets smbSettings ACCESS_BASED_ENUMERATION (ABE). Requires protocols to include SMB.'
+      ),
+    smbContinuouslyAvailable: z
+      .boolean()
+      .optional()
+      .describe(
+        'When true, sets smbSettings CONTINUOUSLY_AVAILABLE (CA share for SQL Server / FSLogix). Permanent choice on the volume. Not supported on FLEX pools — request fails early. Requires protocols to include SMB. Mutually exclusive with smbHideShare / NON_BROWSABLE.'
+      ),
+    smbSettings: z
+      .array(
+        z.enum([
+          'ENCRYPT_DATA',
+          'BROWSABLE',
+          'CHANGE_NOTIFY',
+          'NON_BROWSABLE',
+          'OPLOCKS',
+          'SHOW_SNAPSHOT',
+          'SHOW_PREVIOUS_VERSIONS',
+          'ACCESS_BASED_ENUMERATION',
+          'CONTINUOUSLY_AVAILABLE',
+        ])
+      )
+      .optional()
+      .describe(
+        'Additional smbSettings API enum names (e.g. OPLOCKS, CONTINUOUSLY_AVAILABLE). BROWSABLE and NON_BROWSABLE together (or BROWSABLE with smbHideShare) are invalid. NON_BROWSABLE and CONTINUOUSLY_AVAILABLE together (or smbHideShare with smbContinuouslyAvailable) are invalid — CA shares must be browsable. Merged with the smb* boolean flags. CONTINUOUSLY_AVAILABLE is rejected for FLEX pools. Requires protocols to include SMB when non-empty.'
       ),
   },
   outputSchema: {
@@ -303,28 +425,11 @@ export const createVolumeTool: ToolConfig = {
   },
 };
 
-// Delete Volume Tool
-export const deleteVolumeTool: ToolConfig = {
-  name: 'gcnv_volume_delete',
-  title: 'Delete Volume',
-  description: 'Deletes a volume in the specified storage pool',
-  inputSchema: {
-    projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().describe('The location of the volume'),
-    volumeId: z.string().describe('The ID of the volume to delete'),
-    force: z.boolean().optional().describe('Force deletion even if the volume has snapshots'),
-  },
-  outputSchema: {
-    success: z.boolean().describe('Whether the deletion was successful'),
-    operationId: z.string().optional().describe('The ID of the long-running operation'),
-  },
-};
-
 // Get Volume Tool
 export const getVolumeTool: ToolConfig = {
   name: 'gcnv_volume_get',
   title: 'Get Volume',
-  description: 'Gets details of a specific volume',
+  description: 'Gets details of a GCNV managed volume by volume ID.' + NOT_FOR_ONTAP,
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
     location: z.string().describe('The location of the volume'),
@@ -332,7 +437,7 @@ export const getVolumeTool: ToolConfig = {
   },
   // Allow any additional fields from the API
   outputSchema: {
-    volume: z.record(z.any()).describe('Volume details'),
+    volume: z.record(z.string(), z.any()).describe('Volume details'),
   },
 };
 
@@ -340,7 +445,9 @@ export const getVolumeTool: ToolConfig = {
 export const listVolumesTool: ToolConfig = {
   name: 'gcnv_volume_list',
   title: 'List Volumes',
-  description: 'Lists all volumes in the specified storage pool (omit location for all locations)',
+  description:
+    'Lists GCNV managed volumes in the specified storage pool (omit location for all locations).' +
+    NOT_FOR_ONTAP,
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
     location: z
@@ -352,7 +459,7 @@ export const listVolumesTool: ToolConfig = {
     pageToken: z.string().optional().describe('Page token from a previous list request'),
   },
   outputSchema: {
-    volumes: z.array(z.record(z.any())).describe('List of volumes'),
+    volumes: z.array(z.record(z.string(), z.any())).describe('List of volumes'),
     nextPageToken: z.string().optional().describe('Token to retrieve the next page of results'),
   },
 };
@@ -361,14 +468,17 @@ export const listVolumesTool: ToolConfig = {
 export const updateVolumeTool: ToolConfig = {
   name: 'gcnv_volume_update',
   title: 'Update Volume',
-  description: 'Updates a volume in the specified storage pool',
+  description: 'Updates a GCNV managed volume in the specified storage pool.' + NOT_FOR_ONTAP,
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
     location: z.string().describe('The location of the volume'),
     volumeId: z.string().describe('The ID of the volume to update'),
     capacityGib: z.number().optional().describe('The new capacity of the volume in GiB'),
     description: z.string().optional().describe('New description of the volume'),
-    labels: z.record(z.string()).optional().describe('New labels to apply to the volume'),
+    labels: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('New labels to apply to the volume'),
     backupConfig: z
       .object({
         backupPolicies: z
@@ -381,6 +491,9 @@ export const updateVolumeTool: ToolConfig = {
       })
       .optional()
       .describe('Backup configuration'),
+    snapshotPolicy: snapshotPolicySchema
+      .optional()
+      .describe('Snapshot scheduling policy for the volume.'),
     tieringPolicy: z
       .object({
         tierAction: z
@@ -412,7 +525,7 @@ export const updateVolumeTool: ToolConfig = {
           .describe('Peer IP addresses for hybrid replication'),
         clusterLocation: z.string().optional().describe('Cluster location'),
         description: z.string().optional().describe('Description'),
-        labels: z.record(z.string()).optional().describe('Labels'),
+        labels: z.record(z.string(), z.string()).optional().describe('Labels'),
         replicationSchedule: z
           .enum(['HYBRID_REPLICATION_SCHEDULE_UNSPECIFIED', 'EVERY_10_MINUTES', 'HOURLY', 'DAILY'])
           .optional()
@@ -435,7 +548,8 @@ export const updateVolumeTool: ToolConfig = {
           .describe('Large volume constituent count'),
       })
       .optional()
-      .describe('Hybrid replication parameters for the volume'),
+      .describe('Hybrid replication parameters for the volume (not FlexCache)'),
+    cacheParameters: cacheParametersSchema.optional(),
     exportPolicy: z
       .object({
         rules: z

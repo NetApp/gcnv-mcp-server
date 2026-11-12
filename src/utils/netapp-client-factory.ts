@@ -1,5 +1,32 @@
 import { NetAppClient } from '@google-cloud/netapp';
-import { ClientOptions } from 'google-gax';
+import { OAuth2Client } from 'google-auth-library';
+import { currentRequestAccessToken } from '../auth/access-token-context.js';
+
+type ClientOptions = NonNullable<ConstructorParameters<typeof NetAppClient>[0]>;
+
+/**
+ * Builds google-gax ClientOptions from a trimmed {@link process.env.GCNV_API_ENDPOINT}.
+ *
+ * Empty input leaves NetApp client defaults unchanged. HTTPS URLs and bare
+ * hostnames are passed through as {@code apiEndpoint}. HTTP URLs set host, port,
+ * and REST fallback for non-TLS API stand-ins used in development or tests.
+ */
+export function clientOptionsFromGcnvApiEndpoint(trimmed: string): ClientOptions {
+  if (!trimmed) {
+    return {};
+  }
+  if (trimmed.toLowerCase().startsWith('http://')) {
+    const url = new URL(trimmed);
+    const port = url.port ? Number.parseInt(url.port, 10) : 80;
+    return {
+      apiEndpoint: url.hostname,
+      port,
+      fallback: 'rest',
+      protocol: 'http',
+    };
+  }
+  return { apiEndpoint: trimmed };
+}
 
 /**
  * Factory class for creating NetAppClient instances
@@ -27,14 +54,18 @@ export class NetAppClientFactory {
    * @returns A configured NetAppClient instance
    */
   public static createClient(options?: ClientOptions, cacheKey?: string): NetAppClient {
+    const requestAccessToken = currentRequestAccessToken();
+
     // If a cache key is provided and a client exists, return the cached client
-    if (cacheKey && this.clientCache[cacheKey]) {
+    if (!requestAccessToken && cacheKey && this.clientCache[cacheKey]) {
       return this.clientCache[cacheKey];
     }
 
-    // Only pass apiEndpoint when GCNV_API_ENDPOINT is set (e.g. for lower envs)
+    // Apply GCNV_API_ENDPOINT when set (custom or sandbox API host).
     const envEndpoint = process.env.GCNV_API_ENDPOINT?.trim();
-    const envOptions: ClientOptions = envEndpoint ? { apiEndpoint: envEndpoint } : {};
+    const envOptions: ClientOptions = envEndpoint
+      ? clientOptionsFromGcnvApiEndpoint(envEndpoint)
+      : {};
 
     // Merge default config, env-based apiEndpoint (if set), and provided options; options take precedence
     let mergedOptions: ClientOptions | undefined;
@@ -47,11 +78,20 @@ export class NetAppClientFactory {
       };
     }
 
-    // Create a new client with the merged options
-    const client = mergedOptions ? new NetAppClient(mergedOptions) : new NetAppClient();
+    const clientOptions: ClientOptions = {
+      ...(mergedOptions || {}),
+    };
+
+    if (requestAccessToken) {
+      const authClient = new OAuth2Client();
+      authClient.setCredentials({ access_token: requestAccessToken });
+      clientOptions.authClient = authClient;
+    }
+
+    const client = new NetAppClient(clientOptions);
 
     // If a cache key is provided, store the client for future use
-    if (cacheKey) {
+    if (!requestAccessToken && cacheKey) {
       this.clientCache[cacheKey] = client;
     }
 

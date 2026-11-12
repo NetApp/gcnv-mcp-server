@@ -1,12 +1,13 @@
 import { ToolHandler } from '../../types/tool.js';
 import { NetAppClientFactory } from '../../utils/netapp-client-factory.js';
+import {
+  formatProtobufTimestamp,
+  normalizeQuotaType,
+  normalizeStringEnum,
+} from '../../utils/proto-format-utils.js';
 import { logger } from '../../logger.js';
 
 const log = logger.child({ module: 'quota-rule-handler' });
-
-function normalizeStringEnum(value: any): string {
-  return typeof value === 'string' ? value : 'UNKNOWN';
-}
 
 // Basic runtime validation so we fail fast before calling the NetApp API
 function validatePathArgs(
@@ -58,15 +59,16 @@ function formatQuotaRuleData(rule: any): any {
     result.name = rule.name;
     result.quotaRuleId = nameParts[nameParts.length - 1];
   }
+  if (!result.quotaRuleId && rule.quotaRuleId) {
+    result.quotaRuleId = String(rule.quotaRuleId);
+  }
 
   if (rule.target) result.target = rule.target;
-  if (rule.type) {
-    result.type = rule.type;
-    result.quotaType = rule.type;
-  } else if (rule.quotaType) {
-    // fallback if API ever returns legacy field name
-    result.quotaType = rule.quotaType;
-    result.type = rule.quotaType;
+  const quotaTypeInput = rule.type ?? rule.quotaType;
+  const normalizedQuotaType = normalizeQuotaType(quotaTypeInput);
+  if (normalizedQuotaType !== undefined) {
+    result.type = normalizedQuotaType;
+    result.quotaType = normalizedQuotaType;
   }
   if (rule.diskLimitMib !== undefined) {
     const mib = Number(rule.diskLimitMib);
@@ -74,9 +76,8 @@ function formatQuotaRuleData(rule: any): any {
   }
   if (rule.state !== undefined) result.state = normalizeStringEnum(rule.state);
 
-  if (rule.createTime) {
-    result.createTime = new Date(rule.createTime.seconds * 1000);
-  }
+  const createTime = formatProtobufTimestamp(rule.createTime);
+  if (createTime) result.createTime = createTime;
 
   if (rule.description) result.description = rule.description;
   if (rule.labels) result.labels = rule.labels;
@@ -212,62 +213,6 @@ export const createQuotaRuleHandler: ToolHandler = async (args: { [key: string]:
         {
           type: 'text' as const,
           text: `Error creating quota rule: ${error.message || 'Unknown error'}`,
-        },
-      ],
-    };
-  }
-};
-
-// Delete Quota Rule Handler
-export const deleteQuotaRuleHandler: ToolHandler = async (args: { [key: string]: any }) => {
-  try {
-    const { projectId, location, volumeId, quotaRuleId } = args;
-
-    const errors = validatePathArgs({ projectId, location, volumeId, quotaRuleId }, true);
-    if (errors.length > 0) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: 'text' as const,
-            text: `Invalid input: ${errors.join('; ')}`,
-          },
-        ],
-      };
-    }
-
-    const netAppClient = NetAppClientFactory.createClient();
-    const name = `projects/${projectId}/locations/${location}/volumes/${volumeId}/quotaRules/${quotaRuleId}`;
-
-    const [operation] = await netAppClient.deleteQuotaRule({ name });
-
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: JSON.stringify(
-            {
-              message: `Quota rule ${quotaRuleId} deletion requested`,
-              operation: operation,
-            },
-            null,
-            2
-          ),
-        },
-      ],
-      structuredContent: {
-        success: true,
-        operationId: operation.name || '',
-      },
-    };
-  } catch (error: any) {
-    log.error({ err: error }, 'Error deleting quota rule');
-    return {
-      isError: true,
-      content: [
-        {
-          type: 'text' as const,
-          text: `Error deleting quota rule: ${error.message || 'Unknown error'}`,
         },
       ],
     };

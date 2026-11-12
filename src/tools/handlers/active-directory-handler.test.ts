@@ -62,6 +62,8 @@ describe('active-directory-handler', () => {
       kdcHostname: 'kdc',
       kdcIp: '10.0.0.1',
       nfsUsersWithLdap: false,
+      ldapSigning: true,
+      encryptDcConnections: true,
       description: 'd',
       labels: { a: 'b' },
     });
@@ -84,6 +86,8 @@ describe('active-directory-handler', () => {
         kdcHostname: 'kdc',
         kdcIp: '10.0.0.1',
         nfsUsersWithLdap: false,
+        ldapSigning: true,
+        encryptDcConnections: true,
         description: 'd',
         labels: { a: 'b' },
       },
@@ -111,37 +115,6 @@ describe('active-directory-handler', () => {
     });
   });
 
-  it('deleteActiveDirectoryHandler calls deleteActiveDirectory', async () => {
-    const deleteActiveDirectory = vi.fn().mockResolvedValue([{ name: 'op-del' }]);
-    createClientMock.mockReturnValue({ deleteActiveDirectory });
-
-    const { deleteActiveDirectoryHandler } = await import('./active-directory-handler.js');
-    const result = await deleteActiveDirectoryHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      activeDirectoryId: 'ad1',
-    });
-
-    expect(deleteActiveDirectory).toHaveBeenCalledWith({
-      name: 'projects/p1/locations/us-central1/activeDirectories/ad1',
-    });
-    expect(result.structuredContent).toEqual({ success: true, operationId: 'op-del' });
-  });
-
-  it('deleteActiveDirectoryHandler falls back to empty operationId when operation.name is missing', async () => {
-    const deleteActiveDirectory = vi.fn().mockResolvedValue([{}]);
-    createClientMock.mockReturnValue({ deleteActiveDirectory });
-
-    const { deleteActiveDirectoryHandler } = await import('./active-directory-handler.js');
-    const result = await deleteActiveDirectoryHandler({
-      projectId: 'p1',
-      location: 'us-central1',
-      activeDirectoryId: 'ad1',
-    });
-
-    expect(result.structuredContent).toEqual({ success: true, operationId: '' });
-  });
-
   it('getActiveDirectoryHandler calls getActiveDirectory and returns formatted AD', async () => {
     const getActiveDirectory = vi.fn().mockResolvedValue([
       {
@@ -167,7 +140,7 @@ describe('active-directory-handler', () => {
       activeDirectoryId: 'ad1',
       domain: 'example.com',
     });
-    expect((result.structuredContent as any).createTime).toBeInstanceOf(Date);
+    expect((result.structuredContent as any).createTime).toMatch(/^\d{4}-/);
   });
 
   it('getActiveDirectoryHandler formats all optional fields', async () => {
@@ -180,6 +153,9 @@ describe('active-directory-handler', () => {
         netBiosPrefix: 'NB',
         organizationalUnit: 'OU=Test,DC=example,DC=com',
         aesEncryption: true,
+        nfsUsersWithLdap: false,
+        ldapSigning: true,
+        encryptDcConnections: false,
         state: 'READY',
         createTime: { seconds: 1 },
         description: 'd',
@@ -203,11 +179,14 @@ describe('active-directory-handler', () => {
       netBiosPrefix: 'NB',
       organizationalUnit: 'OU=Test,DC=example,DC=com',
       aesEncryption: true,
+      nfsUsersWithLdap: false,
+      ldapSigning: true,
+      encryptDcConnections: false,
       state: 'READY',
       description: 'd',
       labels: { a: 'b' },
     });
-    expect((result.structuredContent as any).createTime).toBeInstanceOf(Date);
+    expect((result.structuredContent as any).createTime).toMatch(/^\d{4}-/);
   });
 
   it('getActiveDirectoryHandler normalizes non-string state to UNKNOWN', async () => {
@@ -332,6 +311,54 @@ describe('active-directory-handler', () => {
     });
   });
 
+  it('updateActiveDirectoryHandler passes ldapSigning and encryptDcConnections with updateMask', async () => {
+    const updateActiveDirectory = vi.fn().mockResolvedValue([{ name: 'op-secure-ldap' }]);
+    createClientMock.mockReturnValue({ updateActiveDirectory });
+
+    const { updateActiveDirectoryHandler } = await import('./active-directory-handler.js');
+    const result = await updateActiveDirectoryHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      activeDirectoryId: 'ad1',
+      ldapSigning: true,
+      encryptDcConnections: true,
+    });
+
+    expect(updateActiveDirectory).toHaveBeenCalledTimes(1);
+    expect(updateActiveDirectory.mock.calls[0]?.[0]).toMatchObject({
+      activeDirectory: {
+        name: 'projects/p1/locations/us-central1/activeDirectories/ad1',
+        ldapSigning: true,
+        encryptDcConnections: true,
+      },
+      updateMask: {
+        paths: expect.arrayContaining(['ldap_signing', 'encrypt_dc_connections']),
+      },
+    });
+    expect(result.structuredContent).toEqual({
+      name: 'projects/p1/locations/us-central1/activeDirectories/ad1',
+      operationId: 'op-secure-ldap',
+    });
+  });
+
+  it('updateActiveDirectoryHandler omits secure-LDAP fields when not provided', async () => {
+    const updateActiveDirectory = vi.fn().mockResolvedValue([{ name: 'op-dns-only' }]);
+    createClientMock.mockReturnValue({ updateActiveDirectory });
+
+    const { updateActiveDirectoryHandler } = await import('./active-directory-handler.js');
+    await updateActiveDirectoryHandler({
+      projectId: 'p1',
+      location: 'us-central1',
+      activeDirectoryId: 'ad1',
+      dns: '8.8.8.8',
+    });
+
+    const request = updateActiveDirectory.mock.calls[0]?.[0];
+    expect(request.activeDirectory).not.toHaveProperty('ldapSigning');
+    expect(request.activeDirectory).not.toHaveProperty('encryptDcConnections');
+    expect(request.updateMask.paths).toEqual(['dns']);
+  });
+
   it('updateActiveDirectoryHandler falls back to empty operationId when operation.name is missing', async () => {
     const updateActiveDirectory = vi.fn().mockResolvedValue([{}]);
     createClientMock.mockReturnValue({ updateActiveDirectory });
@@ -354,7 +381,6 @@ describe('active-directory-handler', () => {
     const err = new Error('boom');
     createClientMock.mockReturnValue({
       createActiveDirectory: vi.fn().mockRejectedValue(err),
-      deleteActiveDirectory: vi.fn().mockRejectedValue(err),
       getActiveDirectory: vi.fn().mockRejectedValue(err),
       listActiveDirectories: vi.fn().mockRejectedValue(err),
       updateActiveDirectory: vi.fn().mockRejectedValue(err),
@@ -362,7 +388,6 @@ describe('active-directory-handler', () => {
 
     const {
       createActiveDirectoryHandler,
-      deleteActiveDirectoryHandler,
       getActiveDirectoryHandler,
       listActiveDirectoriesHandler,
       updateActiveDirectoryHandler,
@@ -371,15 +396,6 @@ describe('active-directory-handler', () => {
     expect(
       (
         (await createActiveDirectoryHandler({
-          projectId: 'p1',
-          location: 'l',
-          activeDirectoryId: 'ad1',
-        })) as any
-      ).isError
-    ).toBe(true);
-    expect(
-      (
-        (await deleteActiveDirectoryHandler({
           projectId: 'p1',
           location: 'l',
           activeDirectoryId: 'ad1',
@@ -414,7 +430,6 @@ describe('active-directory-handler', () => {
     const err = { code: 500 } as any;
     const {
       createActiveDirectoryHandler,
-      deleteActiveDirectoryHandler,
       getActiveDirectoryHandler,
       listActiveDirectoriesHandler,
       updateActiveDirectoryHandler,
@@ -424,17 +439,6 @@ describe('active-directory-handler', () => {
     expect(
       (
         (await createActiveDirectoryHandler({
-          projectId: 'p1',
-          location: 'l',
-          activeDirectoryId: 'ad1',
-        })) as any
-      ).content[0].text
-    ).toContain('Unknown error');
-
-    createClientMock.mockReturnValue({ deleteActiveDirectory: vi.fn().mockRejectedValue(err) });
-    expect(
-      (
-        (await deleteActiveDirectoryHandler({
           projectId: 'p1',
           location: 'l',
           activeDirectoryId: 'ad1',

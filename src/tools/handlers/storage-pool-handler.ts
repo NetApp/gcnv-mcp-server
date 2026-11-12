@@ -1,5 +1,10 @@
 import { ToolHandler } from '../../types/tool.js';
 import { NetAppClientFactory } from '../../utils/netapp-client-factory.js';
+import {
+  formatProtobufTimestamp,
+  normalizeNamedEnum,
+  toInt64Number,
+} from '../../utils/proto-format-utils.js';
 import { logger } from '../../logger.js';
 
 const log = logger.child({ module: 'storage-pool-handler' });
@@ -9,14 +14,13 @@ function parseStoragePoolType(input: any): { value?: number; error?: string } {
     STORAGE_POOL_TYPE_UNSPECIFIED: 0,
     FILE: 1,
     UNIFIED: 2,
-    UNIFIED_LARGE_CAPACITY: 3,
   };
 
   if (input === undefined || input === null) return {};
 
   if (typeof input === 'number') {
     if (Object.values(enumMap).includes(input)) return { value: input };
-    return { error: 'storagePoolType must be a valid enum number (0-3)' };
+    return { error: 'storagePoolType must be a valid enum number (0-2)' };
   }
 
   if (typeof input === 'string') {
@@ -24,21 +28,111 @@ function parseStoragePoolType(input: any): { value?: number; error?: string } {
     if (enumMap[trimmed] !== undefined) return { value: enumMap[trimmed] };
     return {
       error:
-        'storagePoolType must be one of STORAGE_POOL_TYPE_UNSPECIFIED, FILE, UNIFIED, UNIFIED_LARGE_CAPACITY, or the corresponding enum number',
+        'storagePoolType must be one of STORAGE_POOL_TYPE_UNSPECIFIED, FILE, UNIFIED, or the corresponding enum number',
     };
   }
 
   return { error: 'storagePoolType must be a string enum name or enum number' };
 }
 
+function parseMode(input: any): { value?: string; error?: string } {
+  if (input === undefined || input === null) return {};
+
+  if (typeof input === 'string') {
+    const trimmed = input.trim().toUpperCase();
+    if (trimmed === 'DEFAULT' || trimmed === 'ONTAP') return { value: trimmed };
+    return { error: 'mode must be DEFAULT or ONTAP' };
+  }
+
+  return { error: 'mode must be a string' };
+}
+
+function parseScaleType(input: any): { value?: string; error?: string } {
+  const validValues = new Set([
+    'SCALE_TYPE_UNSPECIFIED',
+    'SCALE_TYPE_DEFAULT',
+    'SCALE_TYPE_SCALEOUT',
+  ]);
+
+  if (input === undefined || input === null) return {};
+
+  if (typeof input === 'string') {
+    const trimmed = input.trim().toUpperCase();
+    if (validValues.has(trimmed)) return { value: trimmed };
+    return {
+      error:
+        'scaleType must be one of SCALE_TYPE_UNSPECIFIED, SCALE_TYPE_DEFAULT, SCALE_TYPE_SCALEOUT',
+    };
+  }
+
+  return { error: 'scaleType must be a string enum name' };
+}
+
 function normalizeStoragePoolState(state: any): string {
   return typeof state === 'string' ? state : 'UNKNOWN';
 }
+
+function normalizeStoragePoolMode(mode: any): string | undefined {
+  if (typeof mode === 'string') return mode;
+  if (typeof mode === 'number') {
+    if (mode === 1) return 'DEFAULT';
+    if (mode === 2) return 'ONTAP';
+    return String(mode);
+  }
+  return undefined;
+}
+
+function normalizePoolServiceLevel(value: unknown): string {
+  return (
+    normalizeNamedEnum(value, {
+      0: 'SERVICE_LEVEL_UNSPECIFIED',
+      1: 'PREMIUM',
+      2: 'EXTREME',
+      3: 'STANDARD',
+      4: 'FLEX',
+    }) ?? ''
+  );
+}
+
+function normalizePoolQosType(value: unknown): string | undefined {
+  return normalizeNamedEnum(value, {
+    0: 'QOS_TYPE_UNSPECIFIED',
+    1: 'AUTO',
+    2: 'MANUAL',
+  });
+}
+
+function normalizePoolEncryptionType(value: unknown): string | undefined {
+  return normalizeNamedEnum(value, {
+    0: 'ENCRYPTION_TYPE_UNSPECIFIED',
+    1: 'SERVICE_MANAGED',
+    2: 'CLOUD_KMS',
+  });
+}
+
+function isOntapPool(pool: { mode?: any }): boolean {
+  const mode = pool.mode;
+  if (typeof mode === 'string') return mode.toUpperCase() === 'ONTAP';
+  if (typeof mode === 'number') return mode === 2;
+  return false;
+}
+
+const ONTAP_TOOL_GUIDANCE =
+  '⚠️ ONTAP Expert Mode Pool Detected: This pool uses ONTAP expert mode. ' +
+  'To manage resources (volumes, LUNs, snapshots, SVMs, etc.) on this pool, ' +
+  'use the ontap_* tools (e.g. ontap_volume_list, ontap_volume_create, ontap_discover, ontap_execute). ' +
+  'Do NOT use the standard gcnv_* volume/snapshot tools — they are for DEFAULT-mode pools only.';
 
 function isLikelyZone(location: string): boolean {
   // Treat anything ending with "-<letter>" as a zone (e.g. us-central1-a).
   // This matches GCP zone formatting without being overly strict.
   return /-[a-z]$/i.test(location.trim());
+}
+
+function isFlexUnifiedPoolType(type: unknown): boolean {
+  if (type === 2) return true;
+  if (typeof type === 'string' && type.trim().toUpperCase() === 'UNIFIED') return true;
+  return false;
 }
 
 // Create Storage Pool Handler
@@ -61,6 +155,8 @@ export const createStoragePoolHandler: ToolHandler = async (args: { [key: string
       qosType,
       allowAutoTiering,
       storagePoolType,
+      scaleType,
+      mode,
       zone,
       replicaZone,
     } = args;
@@ -91,10 +187,85 @@ export const createStoragePoolHandler: ToolHandler = async (args: { [key: string
       };
     }
 
-    // New pool types (UNIFIED / UNIFIED_LARGE_CAPACITY) are only available for FLEX
+    const { value: parsedScaleType, error: scaleTypeError } = parseScaleType(scaleType);
+    if (scaleTypeError) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: `Error creating storage pool: ${scaleTypeError}`,
+          },
+        ],
+      };
+    }
+
+    // scaleType is only applicable to FLEX UNIFIED pools
+    if (parsedScaleType !== undefined && normalizedServiceLevel !== 'FLEX') {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error creating storage pool: scaleType is only applicable to FLEX UNIFIED storage pools.',
+          },
+        ],
+      };
+    }
+    if (parsedScaleType !== undefined && parsedStoragePoolType !== 2) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error creating storage pool: scaleType requires storagePoolType to be explicitly set to UNIFIED.',
+          },
+        ],
+      };
+    }
+
+    // ONTAP mode requires storagePoolType UNIFIED and serviceLevel FLEX
+    const { value: parsedMode, error: modeError } = parseMode(mode);
+    if (modeError) {
+      return {
+        isError: true,
+        content: [{ type: 'text' as const, text: `Error creating storage pool: ${modeError}` }],
+      };
+    }
+
+    if (parsedMode === 'ONTAP' && parsedStoragePoolType !== 2) {
+      const hint =
+        parsedStoragePoolType === undefined
+          ? 'storagePoolType was not specified'
+          : `storagePoolType is ${storagePoolType}`;
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text:
+              `Error creating storage pool: ONTAP mode requires storagePoolType UNIFIED, but ${hint}. ` +
+              'Please specify storagePoolType as UNIFIED.',
+          },
+        ],
+      };
+    }
+    if (parsedMode === 'ONTAP' && normalizedServiceLevel !== 'FLEX') {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Error creating storage pool: ONTAP mode requires serviceLevel FLEX.',
+          },
+        ],
+      };
+    }
+
+    // UNIFIED is only available for FLEX
     if (
       parsedStoragePoolType !== undefined &&
-      (parsedStoragePoolType === 2 || parsedStoragePoolType === 3) &&
+      parsedStoragePoolType === 2 &&
       normalizedServiceLevel !== 'FLEX'
     ) {
       return {
@@ -102,7 +273,7 @@ export const createStoragePoolHandler: ToolHandler = async (args: { [key: string
         content: [
           {
             type: 'text' as const,
-            text: 'Error creating storage pool: storagePoolType UNIFIED and UNIFIED_LARGE_CAPACITY are only supported when serviceLevel is FLEX.',
+            text: 'Error creating storage pool: storagePoolType UNIFIED is only supported when serviceLevel is FLEX.',
           },
         ],
       };
@@ -121,14 +292,18 @@ export const createStoragePoolHandler: ToolHandler = async (args: { [key: string
       };
     }
 
-    // Manual QoS is supported for Standard/Premium/Extreme; not supported for Flex
-    if (normalizedQosType === 'MANUAL' && normalizedServiceLevel === 'FLEX') {
+    // Manual QoS: Flex Unified yes; Flex File no (Standard/Premium/Extreme always allowed)
+    if (
+      normalizedQosType === 'MANUAL' &&
+      normalizedServiceLevel === 'FLEX' &&
+      !isFlexUnifiedPoolType(parsedStoragePoolType)
+    ) {
       return {
         isError: true,
         content: [
           {
             type: 'text' as const,
-            text: 'Error creating storage pool: qosType MANUAL is not supported for FLEX service level.',
+            text: 'Error creating storage pool: qosType MANUAL is not supported for Flex File. Use AUTO for Flex File, or create a Flex Unified pool with storagePoolType UNIFIED.',
           },
         ],
       };
@@ -184,6 +359,8 @@ export const createStoragePoolHandler: ToolHandler = async (args: { [key: string
     if (normalizedQosType) storagePoolPayload.qosType = normalizedQosType;
     if (allowAutoTiering !== undefined) storagePoolPayload.allowAutoTiering = allowAutoTiering;
     if (parsedStoragePoolType !== undefined) storagePoolPayload.type = parsedStoragePoolType;
+    if (parsedScaleType !== undefined) storagePoolPayload.scaleType = parsedScaleType;
+    if (parsedMode !== undefined) storagePoolPayload.mode = parsedMode;
 
     if (normalizedServiceLevel === 'FLEX') {
       // IMPORTANT: For zonal pools, the zone is encoded in the URL/location already;
@@ -240,50 +417,6 @@ export const createStoragePoolHandler: ToolHandler = async (args: { [key: string
   }
 };
 
-// Delete Storage Pool Handler
-export const deleteStoragePoolHandler: ToolHandler = async (args: { [key: string]: any }) => {
-  try {
-    const { projectId, location, storagePoolId, force = false } = args;
-
-    // Create a new NetApp client using the factory
-    const netAppClient = NetAppClientFactory.createClient();
-
-    // Format the name for the storage pool
-    const name = `projects/${projectId}/locations/${location}/storagePools/${storagePoolId}`;
-
-    // Call the API to delete the storage pool
-    const request: any = { name };
-    // Only add force if it's true to avoid API errors
-    if (force) {
-      request.force = force;
-    }
-
-    const operation = await netAppClient.deleteStoragePool(request);
-    const operationName = operation[0].name || '';
-
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: JSON.stringify({ success: true, operation: operation }, null, 2),
-        },
-      ],
-      structuredContent: { success: true, operationId: operationName },
-    };
-  } catch (error: any) {
-    log.error({ err: error }, 'Error deleting storage pool');
-    return {
-      isError: true,
-      content: [
-        {
-          type: 'text' as const,
-          text: `Error deleting storage pool: ${error.message || 'Unknown error'}`,
-        },
-      ],
-    };
-  }
-};
-
 // Get Storage Pool Handler
 export const getStoragePoolHandler: ToolHandler = async (args: { [key: string]: any }) => {
   try {
@@ -304,19 +437,16 @@ export const getStoragePoolHandler: ToolHandler = async (args: { [key: string]: 
       storagePoolId: storagePoolId,
       capacityGib: Number(storagePool.capacityGib) || 0,
       volumeCapacityGib: Number(storagePool.volumeCapacityGib) || 0,
-      volumecount: storagePool.volumeCount || 0,
-      serviceLevel: storagePool.serviceLevel || '',
+      volumecount: toInt64Number(storagePool.volumeCount, 0),
+      serviceLevel: normalizePoolServiceLevel(storagePool.serviceLevel),
       state: normalizeStoragePoolState(storagePool.state),
-      createTime:
-        storagePool.createTime && storagePool.createTime.seconds
-          ? new Date(Number(storagePool.createTime.seconds) * 1000)
-          : new Date(),
+      createTime: formatProtobufTimestamp(storagePool.createTime),
       description: storagePool.description || '',
       labels: storagePool.labels || {},
       network: storagePool.network,
       activeDirectory: storagePool.activeDirectory,
       kmsConfig: storagePool.kmsConfig,
-      encryptionType: storagePool.encryptionType,
+      encryptionType: normalizePoolEncryptionType(storagePool.encryptionType),
       ldapEnabled: storagePool.ldapEnabled ?? false,
       customPerformanceEnabled:
         typeof storagePool.customPerformanceEnabled === 'boolean'
@@ -326,19 +456,22 @@ export const getStoragePoolHandler: ToolHandler = async (args: { [key: string]: 
         storagePool.totalThroughputMibps !== undefined
           ? Number(storagePool.totalThroughputMibps) || 0
           : undefined,
-      qosType: storagePool.qosType,
+      qosType: normalizePoolQosType(storagePool.qosType),
       allowAutoTiering: storagePool.allowAutoTiering ?? false,
       storagePoolType: storagePool.type,
-      zone: storagePool.zone,
-      replicaZone: storagePool.replicaZone,
+      mode: normalizeStoragePoolMode((storagePool as any).mode),
+      zone: (storagePool as any).zone,
+      replicaZone: (storagePool as any).replicaZone,
     };
+    const contentBlocks: { type: 'text'; text: string }[] = [
+      { type: 'text' as const, text: JSON.stringify(sc, null, 2) },
+    ];
+    if (isOntapPool(storagePool)) {
+      contentBlocks.push({ type: 'text' as const, text: ONTAP_TOOL_GUIDANCE });
+    }
+
     return {
-      content: [
-        {
-          type: 'text' as const,
-          text: JSON.stringify(storagePool, null, 2),
-        },
-      ],
+      content: contentBlocks,
       structuredContent: sc,
     };
   } catch (error: any) {
@@ -391,21 +524,18 @@ export const listStoragePoolsHandler: ToolHandler = async (args: { [key: string]
       return {
         name: name,
         storagePoolId: extractedId,
-        serviceLevel: pool.serviceLevel || '',
+        serviceLevel: normalizePoolServiceLevel(pool.serviceLevel),
         capacityGib: Number(pool.capacityGib) || 0,
         volumeCapacityGib: Number(pool.volumeCapacityGib) || 0,
-        volumecount: pool.volumeCount || 0,
+        volumecount: toInt64Number(pool.volumeCount, 0),
         state: normalizeStoragePoolState(pool.state),
-        createTime:
-          pool.createTime && pool.createTime.seconds
-            ? new Date(Number(pool.createTime.seconds) * 1000)
-            : new Date(),
+        createTime: formatProtobufTimestamp(pool.createTime),
         description: pool.description || '',
         labels: pool.labels || {},
         network: pool.network,
         activeDirectory: pool.activeDirectory,
         kmsConfig: pool.kmsConfig,
-        encryptionType: pool.encryptionType,
+        encryptionType: normalizePoolEncryptionType(pool.encryptionType),
         ldapEnabled: pool.ldapEnabled ?? false,
         customPerformanceEnabled:
           typeof pool.customPerformanceEnabled === 'boolean'
@@ -415,21 +545,32 @@ export const listStoragePoolsHandler: ToolHandler = async (args: { [key: string]
           pool.totalThroughputMibps !== undefined
             ? Number(pool.totalThroughputMibps) || 0
             : undefined,
-        qosType: pool.qosType,
+        qosType: normalizePoolQosType(pool.qosType),
         allowAutoTiering: pool.allowAutoTiering ?? false,
         storagePoolType: pool.type,
+        mode: normalizeStoragePoolMode(pool.mode),
         zone: pool.zone,
         replicaZone: pool.replicaZone,
       };
     });
 
+    const contentBlocks: { type: 'text'; text: string }[] = [
+      {
+        type: 'text' as const,
+        text: JSON.stringify(
+          { storagePools: formattedPools, nextPageToken: nextPageToken },
+          null,
+          2
+        ),
+      },
+    ];
+    const hasOntapPool = storagePools.some((pool: any) => isOntapPool(pool));
+    if (hasOntapPool) {
+      contentBlocks.push({ type: 'text' as const, text: ONTAP_TOOL_GUIDANCE });
+    }
+
     return {
-      content: [
-        {
-          type: 'text' as const,
-          text: JSON.stringify(storagePools, null, 2),
-        },
-      ],
+      content: contentBlocks,
       structuredContent: {
         storagePools: formattedPools,
         nextPageToken: nextPageToken,
@@ -501,7 +642,30 @@ export const updateStoragePoolHandler: ToolHandler = async (args: { [key: string
     }
 
     if (qosType !== undefined) {
-      storagePool.qosType = typeof qosType === 'string' ? qosType.toUpperCase() : qosType;
+      const normalizedUpdateQosType = typeof qosType === 'string' ? qosType.toUpperCase() : qosType;
+      if (normalizedUpdateQosType === 'MANUAL') {
+        const existing = await getExistingPool();
+        const existingServiceLevel =
+          typeof existing?.serviceLevel === 'string'
+            ? existing.serviceLevel.toUpperCase()
+            : existing?.serviceLevel;
+        if (
+          existingServiceLevel === 'FLEX' &&
+          !isFlexUnifiedPoolType(existing?.type) &&
+          !isOntapPool(existing)
+        ) {
+          return {
+            isError: true,
+            content: [
+              {
+                type: 'text' as const,
+                text: 'Error updating storage pool: qosType MANUAL is not supported for Flex File. Manual QoS is only supported on Flex Unified pools.',
+              },
+            ],
+          };
+        }
+      }
+      storagePool.qosType = normalizedUpdateQosType;
       updateMask.push('qos_type');
     }
 
@@ -540,8 +704,8 @@ export const updateStoragePoolHandler: ToolHandler = async (args: { [key: string
         };
       }
 
-      // Only enforce FLEX for new types; FILE is allowed everywhere (and is the historical default)
-      if (parsedType === 2 || parsedType === 3) {
+      // Only enforce FLEX for UNIFIED; FILE is allowed everywhere (and is the historical default)
+      if (parsedType === 2) {
         const existing = await getExistingPool();
         const existingServiceLevel =
           typeof existing?.serviceLevel === 'string'
@@ -553,7 +717,7 @@ export const updateStoragePoolHandler: ToolHandler = async (args: { [key: string
             content: [
               {
                 type: 'text' as const,
-                text: 'Error updating storage pool: storagePoolType UNIFIED and UNIFIED_LARGE_CAPACITY are only supported when serviceLevel is FLEX.',
+                text: 'Error updating storage pool: storagePoolType UNIFIED is only supported when serviceLevel is FLEX.',
               },
             ],
           };

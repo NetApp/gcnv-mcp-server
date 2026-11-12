@@ -5,11 +5,28 @@ import { ToolConfig } from '../types/tool.js';
 export const createBackupVaultTool: ToolConfig = {
   name: 'gcnv_backup_vault_create',
   title: 'Create Backup Vault',
-  description: 'Creates a new backup vault in the specified project and location',
+  description:
+    'Creates a backup vault in the source location. For cross-region protection, set backupVaultType to CROSS_REGION and backupRegion to the destination region; GCNV creates the paired destination vault.',
   inputSchema: {
     projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().describe('The location where the backup vault should be created'),
+    location: z.string().describe('The source region where the backup vault should be created'),
     backupVaultId: z.string().describe('The ID to assign to the backup vault'),
+    backupVaultType: z
+      .union([z.enum(['IN_REGION', 'CROSS_REGION']), z.enum(['in_region', 'cross_region'])])
+      .optional()
+      .describe('The backup vault type; defaults to IN_REGION'),
+    backupRegion: z
+      .string()
+      .optional()
+      .describe(
+        'The destination region for a CROSS_REGION vault; it must differ from location. Accepts a region ID or full location resource name.'
+      ),
+    kmsConfig: z
+      .string()
+      .optional()
+      .describe(
+        'Optional full KMS config resource name. It must be in location for IN_REGION vaults or backupRegion for CROSS_REGION vaults.'
+      ),
     description: z.string().optional().describe('Optional description of the backup vault'),
     backupRetentionPolicy: z
       .object({
@@ -37,7 +54,7 @@ export const createBackupVaultTool: ToolConfig = {
       .optional()
       .describe('Backup retention policy, including immutability flags'),
     labels: z
-      .record(z.string())
+      .record(z.string(), z.string())
       .optional()
       .describe('Optional labels to apply to the backup vault'),
   },
@@ -46,23 +63,6 @@ export const createBackupVaultTool: ToolConfig = {
     operationId: z
       .string()
       .describe('The ID of the long-running operation for creating the backup vault'),
-  },
-};
-
-// Delete Backup Vault Tool
-export const deleteBackupVaultTool: ToolConfig = {
-  name: 'gcnv_backup_vault_delete',
-  title: 'Delete Backup Vault',
-  description: 'Deletes a backup vault in the specified project and location',
-  inputSchema: {
-    projectId: z.string().describe('The ID of the Google Cloud project'),
-    location: z.string().describe('The location of the backup vault'),
-    backupVaultId: z.string().describe('The ID of the backup vault to delete'),
-    force: z.boolean().optional().describe('Force deletion even if the vault contains backups'),
-  },
-  outputSchema: {
-    success: z.boolean().describe('Whether the deletion was successful'),
-    operationId: z.string().optional().describe('The ID of the long-running operation'),
   },
 };
 
@@ -103,9 +103,19 @@ export const getBackupVaultTool: ToolConfig = {
       .optional()
       .describe('The backup retention policy of the backup vault'),
     state: z.string().describe('The current state of the backup vault'),
-    createTime: z.date().describe('The creation time of the backup vault'),
+    createTime: z.string().describe('The creation time of the backup vault'),
+    updateTime: z.string().optional().describe('The last update time of the backup vault'),
     description: z.string().optional().describe('Description of the backup vault'),
-    labels: z.record(z.string()).optional().describe('Labels applied to the backup vault'),
+    labels: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('Labels applied to the backup vault'),
+    kmsConfig: z.string().optional().describe('KMS config used to encrypt backups'),
+    encryptionState: z.string().optional().describe('Current backup encryption state'),
+    backupsCryptoKeyVersion: z
+      .string()
+      .optional()
+      .describe('Crypto key version used to encrypt backups'),
   },
 };
 
@@ -155,9 +165,19 @@ export const listBackupVaultsTool: ToolConfig = {
             .optional()
             .describe('The backup retention policy of the backup vault'),
           state: z.string().describe('The current state of the backup vault'),
-          createTime: z.date().describe('The creation time of the backup vault'),
+          createTime: z.string().describe('The creation time of the backup vault'),
+          updateTime: z.string().optional().describe('The last update time of the backup vault'),
           description: z.string().optional().describe('Description of the backup vault'),
-          labels: z.record(z.string()).optional().describe('Labels applied to the backup vault'),
+          labels: z
+            .record(z.string(), z.string())
+            .optional()
+            .describe('Labels applied to the backup vault'),
+          kmsConfig: z.string().optional().describe('KMS config used to encrypt backups'),
+          encryptionState: z.string().optional().describe('Current backup encryption state'),
+          backupsCryptoKeyVersion: z
+            .string()
+            .optional()
+            .describe('Crypto key version used to encrypt backups'),
         })
       )
       .describe('List of backup vaults'),
@@ -200,7 +220,10 @@ export const updateBackupVaultTool: ToolConfig = {
       })
       .optional()
       .describe('Backup retention policy, including immutability flags'),
-    labels: z.record(z.string()).optional().describe('New labels to apply to the backup vault'),
+    labels: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('New labels to apply to the backup vault'),
   },
   outputSchema: {
     name: z.string().describe('The fully qualified name of the updated backup vault'),
